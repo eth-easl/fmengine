@@ -1,0 +1,11 @@
+mpi4py
+scikit-learn
+numpy
+pandas
+loguru
+deepspeed
+transformers
+datasets
+accelerate
+tokenizers
+evaluate

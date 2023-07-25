@@ -25,19 +25,6 @@
         }
     },
     "min_lr": 5e-7,
-    "zero_optimization": {
-        "stage": 1,
-        "offload_optimizer": {
-            "device": "cpu",
-            "pin_memory": true
-        },
-        "allgather_partitions": true,
-        "allgather_bucket_size": 5e8,
-        "overlap_comm": false,
-        "reduce_scatter": true,
-        "reduce_bucket_size": 5e8,
-        "contiguous_gradients": true
-    },
     "activation_checkpointing": {
         "partition_activations": false,
         "cpu_checkpointing": false,
