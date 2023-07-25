@@ -1,11 +1,12 @@
 import torch
-from fmengine.optimizers.loss_func import loss_fn
 from transformers.configuration_utils import PretrainedConfig
-from fmengine.modeling.llama.llama_model import LlamaModelPipe
 from transformers.models.llama.modeling_llama import LlamaConfig
 from transformers.models.gpt_neox.modeling_gpt_neox import GPTNeoXConfig
 from deepspeed.runtime.pipe.topology import PipeModelDataParallelTopology
 
+from fmengine.optimizers.loss_func import loss_fn
+from fmengine.modeling.llama.llama_model import LlamaModelPipe
+from fmengine.modeling.neox.neox_model import NeoxModelPipe
 
 def get_model(
         model_config: PretrainedConfig, 
@@ -31,6 +32,12 @@ def get_model(
             activation_checkpointing_config=activation_checkpointing_config,
         )
     elif isinstance(model_config, GPTNeoXConfig):
-        pass
+        return NeoxModelPipe(
+            model_config,
+            loss_fn=loss_fn,
+            topology=topo,
+            base_seed=args.seed,
+            activation_checkpointing_config=activation_checkpointing_config,
+        )
     else:
         raise NotImplementedError

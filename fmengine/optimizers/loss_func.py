@@ -1,4 +1,4 @@
-import torch.functional as F
+import torch.nn.functional as F
 
 def loss_fn(outputs, labels):
     # unpack

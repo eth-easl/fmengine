@@ -63,7 +63,7 @@ class NeoxModelPipe(PipelineModule):
             layers=[
                 LayerSpec(
                     EmbeddingPipe,
-                    model_config.vocab_size + 1,
+                    model_config.vocab_size,
                     model_config.hidden_size,
                 ),
                 *[
@@ -72,7 +72,7 @@ class NeoxModelPipe(PipelineModule):
                         model_config,
                         activation_checkpointing_config is not None,
                     )
-                    for _ in range(model_config.num_layers)
+                    for _ in range(model_config.num_hidden_layers)
                 ],
                 LayerSpec(
                     LayerNormPipe,
@@ -81,7 +81,7 @@ class NeoxModelPipe(PipelineModule):
                 LayerSpec(
                     LMLayerPipe,
                     model_config.hidden_size,
-                    model_config.vocab_size + 1,
+                    model_config.vocab_size,
                     bias = False
                 ),
             ],

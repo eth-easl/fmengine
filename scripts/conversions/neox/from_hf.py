@@ -23,14 +23,17 @@ def write_ckpt(
     sd = {"weight": loaded['gpt_neox.embed_in.weight']}
     torch.save(sd, outpath / "layer_00-model_00-model_states.pt")
     # norm
-    sd = {f"weight": loaded['gpt_neox.final_layer_norm.weight']}
+    sd = {
+        f"weight": loaded['gpt_neox.final_layer_norm.weight'],
+        f"bias": loaded['gpt_neox.final_layer_norm.bias'],
+    }
     torch.save(sd, outpath / f"layer_{n_layers + 1}-model_00-model_states.pt")
     # lm head
     sd = {f"weight": loaded['embed_out.weight']}
     torch.save(sd, outpath / f"layer_{n_layers + 2}-model_00-model_states.pt")
     # decoder layers
     for layer_i in range(n_layers):
-        sd = {nm.replace(f"gpt_neox.layers.{layer_i}.", f""): weight for nm, weight in loaded.items() if nm.startswith(f"model.layers.{layer_i}.")}
+        sd = {nm.replace(f"gpt_neox.layers.{layer_i}.", f""): weight for nm, weight in loaded.items() if nm.startswith(f"gpt_neox.layers.{layer_i}.")}
         torch.save(sd, outpath / f"layer_{layer_i + 1:02d}-model_00-model_states.pt")
 
     model_state = {

@@ -1,6 +1,5 @@
 import torch
 import deepspeed
-import torch.nn.functional as F
 from deepspeed.pipe import PipelineModule, LayerSpec
 from transformers.models.llama.modeling_llama import (
     LlamaDecoderLayer,
