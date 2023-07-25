@@ -88,7 +88,7 @@ if __name__=="__main__":
     )
     trainer.fit(
         steps = trainer_args.train_steps,
-        profile = False,
+        profile = True,
         log_per_steps = trainer_args.log_steps,
         save_per_steps = trainer_args.save_steps
     )

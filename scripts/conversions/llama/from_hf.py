@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 import torch
 import transformers
 
-from fmengine.modeling.llama.flash_attention import (
+from fmengine.modeling.llama.optimizations import (
     smart_tokenizer_and_embedding_resize,
 )
 from fmengine.dataloader.prompt import (

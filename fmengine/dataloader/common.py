@@ -22,3 +22,9 @@ def tokenize(texts: Sequence[str], tokenizer: PreTrainedTokenizer) -> Dict:
         input_ids_lens = input_ids_lens,
         labels_lens = labels_lens,
     )
+
+def preprocess(
+        texts: Sequence[str],
+        tokenizer: PreTrainedTokenizer,
+    ):
+    pass

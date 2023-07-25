@@ -71,7 +71,7 @@ def preprocess(
     elif mode == "pretrain":
         labels = copy.deepcopy(input_ids)
     else:
-        raise ValueError('Unvalid training mode.')
+        raise ValueError('Invalid training mode.')
 
     # shift
     return dict(

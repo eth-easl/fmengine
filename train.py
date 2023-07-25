@@ -9,7 +9,7 @@ import numpy as np
 import deepspeed
 
 from fmengine.modeling.llama.llama_model import get_model
-from fmengine.modeling.llama.flash_attention import (
+from fmengine.modeling.llama.optimizations import (
     replace_llama_attn_with_flash_attn,
 )
 from fmengine.dataloader.prompt import (

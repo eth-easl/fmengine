@@ -8,7 +8,6 @@ from transformers.models.llama.modeling_llama import (
 )
 from fmengine.modeling._common._nn import EmbeddingPipe, LMLayerPipe
 
-
 class ParallelTransformerLayerPipe(LlamaDecoderLayer):
     def __init__(self, config: LlamaConfig, activation_checkpointing=False):
         super().__init__(config)
