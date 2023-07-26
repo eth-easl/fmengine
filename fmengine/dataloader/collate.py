@@ -13,7 +13,7 @@ class AutoregressiveLanguageModelDataCollator(object):
 
     tokenizer: transformers.PreTrainedTokenizer
     ignore_index: int = -100
-
+    
     def get_attn_mask(self, input_ids):
         """
         Get triangular attention mask for a given sequence length / device.
@@ -36,6 +36,8 @@ class AutoregressiveLanguageModelDataCollator(object):
     def __call__(self, samples: List) -> Dict[str, torch.Tensor]:
         input_ids = [sample["input_ids"] for sample in samples]
         labels = copy.deepcopy(input_ids)
+        # shifting input_ids & labels
+        # https://d2l.ai/chapter_recurrent-neural-networks/language-model.html#learning-language-models
         input_ids = [input_id[:-1] for input_id in input_ids]
         labels = [label[1:] for label in labels]
 

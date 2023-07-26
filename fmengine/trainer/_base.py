@@ -1,4 +1,5 @@
 import time
+import wandb
 import deepspeed
 from typing import Dict
 from deepspeed.pipe import PipelineModule
@@ -28,6 +29,10 @@ class FMTrainer:
         save_per_steps: int = 100,
         profile_step = 10,
     ):
+        wandb.init(
+            # set the wandb project where this run will be logged
+            project="fmengine",
+        )
         engine, _, _, _ = deepspeed.initialize(
             self.ds_args,
             model=self.model,
@@ -42,6 +47,7 @@ class FMTrainer:
             if profile and step % profile_step == 0:
                 prof.start_profile()
             loss = engine.train_batch(data_iter=self.dataloader)
+            wandb.log({"loss": loss.item()})
             if self.ds_args.local_rank == 0:
                 if step % log_per_steps == 0:
                     now = time.time()
@@ -52,7 +58,9 @@ class FMTrainer:
                     prof.stop_profile()
                     prof.print_model_profile(profile_step=profile_step)
                     prof.end_profile()
-            
+
             if step % save_per_steps == 0:
                 logger_rank0.info(f"Saving at step {step}")
                 engine.save_checkpoint(self.save_dir)
+        wandb.finish()
+        logger_rank0.info("Finished training.")
