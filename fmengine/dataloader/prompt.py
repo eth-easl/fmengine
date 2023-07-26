@@ -64,12 +64,15 @@ def preprocess(
     samples_tokenized, sources_tokenized = [_tokenize_fn(strings, tokenizer) for strings in (samples, sources)]
     input_ids = samples_tokenized["input_ids"]
     # FIXME: sentencepiece case
+    
     if mode == "sft":
         labels = copy.deepcopy(input_ids)
         for label, source_len in zip(labels, sources_tokenized["input_ids_lens"]):
             label[:source_len] = IGNORE_INDEX
+    
     elif mode == "pretrain":
         labels = copy.deepcopy(input_ids)
+    
     else:
         raise ValueError('Invalid training mode.')
 

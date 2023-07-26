@@ -1,4 +1,4 @@
-deepspeed --num_gpus 1 --num_nodes 1 train.py \
+deepspeed --num_gpus 1 --num_nodes 1 tests/train.py \
     --output_dir .cache/models \
     --init_ckpt .cache/ckpts/ \
     --data_path .cache/data/prompt.jsonl \

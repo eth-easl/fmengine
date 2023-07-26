@@ -1,13 +1,9 @@
 import time
-import torch
 import deepspeed
 from typing import Dict
 from deepspeed.pipe import PipelineModule
-from deepspeed import DeepSpeedEngine
-from timeit import default_timer as timer
 from fmengine.utils import logger_rank0
 from deepspeed.profiling.flops_profiler import FlopsProfiler
-
 
 class FMTrainer:
     def __init__(
@@ -16,11 +12,13 @@ class FMTrainer:
         ds_args: Dict,
         dataloader: Dict,
         init_ckpt: str = None,
+        save_dir: str = None,
     ) -> None:
         self.ds_args = ds_args
         self.model = model
         self.dataloader = dataloader
         self.init_ckpt = init_ckpt
+        self.save_dir = save_dir
     
     def fit(
         self,
@@ -36,6 +34,7 @@ class FMTrainer:
             model_parameters=[p for p in self.model.parameters() if p.requires_grad],
         )
         engine.load_checkpoint(self.init_ckpt, load_module_only=True)
+        #ds_iter = iter(self.dataloader)
         if profile:
             prof = FlopsProfiler(self.model)
         start = time.time()
@@ -56,4 +55,4 @@ class FMTrainer:
             
             if step % save_per_steps == 0:
                 logger_rank0.info(f"Saving at step {step}")
-                engine.save_checkpoint(self.ds_args.output_dir)
+                engine.save_checkpoint(self.save_dir)

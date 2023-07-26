@@ -27,4 +27,5 @@ def preprocess(
         texts: Sequence[str],
         tokenizer: PreTrainedTokenizer,
     ):
-    pass
+    """Preprocess the data by tokenizing."""
+    samples_tokenized = tokenize(texts, tokenizer)

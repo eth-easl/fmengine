@@ -10,7 +10,7 @@ from fmengine.utils import jload
 from fmengine.trainer._base import FMTrainer
 from fmengine.modeling._common.model import get_model
 from fmengine.dataloader.prompt import make_prompt_dataloader
-
+from fmengine.dataloader.jsonl_loader import get_jsonl_dataloader
 def read_ds_config(config_path):
     config = jload(config_path)
     return config
@@ -35,8 +35,8 @@ class DeepspeedArguments:
 @dataclass
 class DataArguments:
     data_path: str = field(default=None, metadata={"help": "Path to the training data."})
-    mode: Literal['sft', 'pretrain'] = 'sft'
     num_workers: int = field(default=1)
+    seq_length: int = field(default=1024)
 
 @dataclass
 class TrainerArguments:
@@ -76,15 +76,23 @@ if __name__=="__main__":
     )
     tokenizer.pad_token = tokenizer.eos_token
     model_config = transformers.AutoConfig.from_pretrained(model_args.init_ckpt)
-    train_dataloader = make_prompt_dataloader(tokenizer=tokenizer, data_args=data_args)
-    # pipeline model
+    
+    train_dataloader = get_jsonl_dataloader(
+        data_args.data_path,
+        tokenizer = tokenizer,
+        args = {
+            'seq_length': trainer_args.max_seq_len,
+            'batch_size': data_args.batch_size
+        }
+    )
     model = get_model(model_config, ds_args, activation_checkpointing_config)
 
     trainer = FMTrainer(
         model = model,
         ds_args = ds_args,
         dataloader = train_dataloader,
-        init_ckpt = model_args.init_ckpt
+        init_ckpt = model_args.init_ckpt,
+        save_dir=trainer_args.output_dir,
     )
     trainer.fit(
         steps = trainer_args.train_steps,
