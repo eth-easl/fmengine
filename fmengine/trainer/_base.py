@@ -67,5 +67,6 @@ class FMTrainer:
             if step % save_per_steps == 0:
                 logger_rank0.info(f"Saving at step {step}")
                 engine.save_checkpoint(self.save_dir)
+        logger_rank0.info("Finished training... saving checkpoints & closing monitoring")
+        engine.save_checkpoint(self.save_dir)
         wandb.finish()
-        logger_rank0.info("Finished training.")

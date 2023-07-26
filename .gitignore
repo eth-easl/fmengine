@@ -6,3 +6,4 @@
 notebooks/
 tests
 wandb/
+experiments

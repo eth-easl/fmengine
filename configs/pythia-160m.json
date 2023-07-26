@@ -19,7 +19,7 @@
     "optimizer": {
         "type": "Adam",
         "params": {
-            "lr": 5e-6,
+            "lr": 1e-6,
             "betas": [
                 0.9,
                 0.95
