@@ -164,7 +164,7 @@ class DataCollatorForPromptDataset(object):
         input_ids = torch.stack(input_ids)
         labels = torch.stack(labels)
         labels = torch.where(labels == self.tokenizer.pad_token_id, IGNORE_INDEX, labels)
-
+        print(input_ids.shape)
         return (
             (
                 input_ids,
