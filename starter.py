@@ -4,13 +4,14 @@ import deepspeed
 import numpy as np
 import transformers
 from typing import Optional, Literal
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, asdict
 
 from fmengine.utils import jload
 from fmengine.trainer._base import FMTrainer
 from fmengine.modeling._common.model import get_model
 from fmengine.dataloader.prompt import make_prompt_dataloader
 from fmengine.dataloader.jsonl_loader import get_jsonl_dataloader
+
 def read_ds_config(config_path):
     config = jload(config_path)
     return config
@@ -59,8 +60,11 @@ if __name__=="__main__":
     torch.cuda.set_device(ds_args.local_rank)
 
     ds_config = read_ds_config(ds_args.deepspeed_config)
+    
     data_args.num_workers = 2 * ds_args.world_size // ds_args.pipe_parallel_size // ds_args.model_parallel_size
+    
     data_args.batch_size = ds_config.get("train_micro_batch_size_per_gpu", 1)
+
     activation_checkpointing_config = ds_config.pop("activation_checkpointing", None)
 
     random.seed(ds_args.seed)
@@ -76,7 +80,7 @@ if __name__=="__main__":
     )
     tokenizer.pad_token = tokenizer.eos_token
     model_config = transformers.AutoConfig.from_pretrained(model_args.init_ckpt)
-    
+
     train_dataloader = get_jsonl_dataloader(
         data_args.data_path,
         tokenizer = tokenizer,
@@ -85,12 +89,17 @@ if __name__=="__main__":
             'batch_size': data_args.batch_size
         }
     )
-    model = get_model(model_config, ds_args, activation_checkpointing_config)
-
+    model = get_model(
+        model_config,
+        ds_args,
+        activation_checkpointing_config
+    )
+    ds_config['data_path'] = data_args.data_path
     trainer = FMTrainer(
         model = model,
         ds_args = ds_args,
         dataloader = train_dataloader,
+        ds_config = ds_config,
         init_ckpt = model_args.init_ckpt,
         save_dir=trainer_args.output_dir,
     )

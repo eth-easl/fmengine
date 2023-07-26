@@ -5,6 +5,7 @@ from typing import Dict
 from deepspeed.pipe import PipelineModule
 from fmengine.utils import logger_rank0
 from deepspeed.profiling.flops_profiler import FlopsProfiler
+from dataclasses import asdict
 
 class FMTrainer:
     def __init__(
@@ -12,6 +13,7 @@ class FMTrainer:
         model: PipelineModule,
         ds_args: Dict,
         dataloader: Dict,
+        ds_config: Dict,
         init_ckpt: str = None,
         save_dir: str = None,
     ) -> None:
@@ -20,7 +22,9 @@ class FMTrainer:
         self.dataloader = dataloader
         self.init_ckpt = init_ckpt
         self.save_dir = save_dir
-    
+        self.ds_config = ds_config
+        self.config = self.ds_config
+        
     def fit(
         self,
         steps: int,
@@ -32,6 +36,7 @@ class FMTrainer:
         wandb.init(
             # set the wandb project where this run will be logged
             project="fmengine",
+            config = self.config
         )
         engine, _, _, _ = deepspeed.initialize(
             self.ds_args,
