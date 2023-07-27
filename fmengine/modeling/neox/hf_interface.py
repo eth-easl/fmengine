@@ -1,8 +1,8 @@
 import os
 import torch
 from pathlib import Path
-from transformers import AutoConfig
-from safetensors.torch import save_model
+from transformers import AutoConfig, AutoTokenizer
+from safetensors.torch import save_file
 from loguru import logger
 def to_hf_model(
         in_model_path: str,
@@ -12,6 +12,7 @@ def to_hf_model(
     ):
     os.makedirs(out_model_path, exist_ok=True)
     config = AutoConfig.from_pretrained(model_family)
+    tokenizer = AutoTokenizer.from_pretrained(model_family)
     tensors = {}
     n_layers = config.num_hidden_layers
     tokenizer_size = config.vocab_size
@@ -36,5 +37,6 @@ def to_hf_model(
         layer_loaded = { f"gpt_neox.layers.{layer_i}.{nm}": weight for nm, weight in loaded.items() }
         tensors.update(layer_loaded)
 
-    save_model(tensors, os.path.join(out_model_path, 'model.safetensors'))
+    save_file(tensors, os.path.join(out_model_path, 'model.safetensors'))
     config.save_pretrained(out_model_path)
+    tokenizer.save_pretrained(out_model_path)
