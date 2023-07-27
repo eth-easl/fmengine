@@ -11,7 +11,7 @@ from fmengine.trainer._base import FMTrainer
 from fmengine.modeling._common.model import get_model
 from fmengine.dataloader.prompt import make_prompt_dataloader
 from fmengine.dataloader.jsonl_loader import get_jsonl_dataloader
-
+from fmengine.modeling.neox.optimizations import replace_neox_attn_with_flash_attn
 def read_ds_config(config_path):
     config = jload(config_path)
     return config
@@ -71,6 +71,10 @@ if __name__=="__main__":
     np.random.seed(ds_args.seed)
     torch.manual_seed(ds_args.seed)
     deepspeed.runtime.utils.set_random_seed(ds_args.seed)
+
+    if model_args.use_flash_attn:
+        print("⚡⚡⚡ enable flash attention.")
+        replace_neox_attn_with_flash_attn()
 
     tokenizer = transformers.AutoTokenizer.from_pretrained(
         model_args.init_ckpt,
