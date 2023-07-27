@@ -1,6 +1,6 @@
 {
     "train_micro_batch_size_per_gpu": 1,
-    "train_batch_size": 128,
+    "train_batch_size": 32,
     "steps_per_print": 100,
     "gradient_clipping": 1.0,
     "lr-decay-style": "cosine",
@@ -15,6 +15,9 @@
         "initial_scale_power": 12,
         "hysteresis": 2,
         "min_loss_scale": 1
+    },
+    "autotuning": {
+        "enabled": true
     },
     "optimizer": {
         "type": "Adam",
