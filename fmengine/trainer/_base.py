@@ -5,7 +5,6 @@ from typing import Dict
 from deepspeed.pipe import PipelineModule
 from fmengine.utils import logger_rank0
 from deepspeed.profiling.flops_profiler import FlopsProfiler
-from dataclasses import asdict
 
 class FMTrainer:
     def __init__(
@@ -44,7 +43,6 @@ class FMTrainer:
             model_parameters=[p for p in self.model.parameters() if p.requires_grad],
         )
         engine.load_checkpoint(self.init_ckpt, load_module_only=True)
-        #ds_iter = iter(self.dataloader)
         if profile:
             prof = FlopsProfiler(self.model)
         start = time.time()
