@@ -8,6 +8,7 @@ from torch.utils.data import IterableDataset
 
 from fmengine.utils import logger_rank0 as logger
 from fmengine.dataloader.collate import AutoregressiveLanguageModelDataCollator
+
 class JSONLDataset(IterableDataset):
     def __init__(self,
                  data,
@@ -53,9 +54,7 @@ class JSONLDataset(IterableDataset):
                             'input_ids': input_ids,
                         }
             except Exception as e:
-                # logger.info(f'Finished reading {self.iter_count} lines, next epoch')
-                # pass
-                raise e
+                pass
 
     def get_stream(self):
         return cycle(self.get_sequence())
