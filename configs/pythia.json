@@ -34,7 +34,7 @@
         "type": "WarmupLR",
         "params": {
             "warmup_min_lr": 0,
-            "warmup_max_lr": 0.001,
+            "warmup_max_lr": 1e-5,
             "warmup_num_steps": 50
         }
     },
