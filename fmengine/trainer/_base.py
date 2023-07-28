@@ -24,7 +24,7 @@ class FMTrainer:
         self.save_dir = save_dir
         self.ds_config = ds_config
         self.config = self.ds_config
-        
+
     def fit(
         self,
         steps: int,
@@ -52,7 +52,11 @@ class FMTrainer:
             if profile and step % profile_step == 0:
                 prof.start_profile()
             loss = engine.train_batch(data_iter=self.dataloader)
-            wandb.log({"loss": loss.item()})
+            wandb.log({
+                "loss": loss.item(),
+                "lr": engine.optimizer.param_groups[0]["lr"],
+                "step": step,
+            })
             if self.ds_args.local_rank == 0:
                 if step % log_per_steps == 0:
                     now = time.time()
@@ -63,7 +67,6 @@ class FMTrainer:
                     prof.stop_profile()
                     prof.print_model_profile(profile_step=profile_step)
                     prof.end_profile()
-
             if step % save_per_steps == 0:
                 logger_rank0.info(f"Saving at step {step}")
                 engine.save_checkpoint(self.save_dir)

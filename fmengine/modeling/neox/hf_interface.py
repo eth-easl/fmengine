@@ -11,6 +11,7 @@ def to_hf_model(
         model_family: str,
         out_model_path: str,
         step='latest',
+        fp16=True,
     ):
     os.makedirs(out_model_path, exist_ok=True)
     config = AutoConfig.from_pretrained(model_family)
@@ -53,7 +54,8 @@ def to_hf_model(
     # with accelerate.init_empty_weights():
     model = AutoModel.from_config(config)
     model.load_state_dict(tensors, strict=False)
-    
+    if fp16:
+        model.half()
     save_model(model, os.path.join(out_model_path, 'model.safetensors'), metadata={'step': step, 'format': 'pt'})
 
     config.save_pretrained(out_model_path)
