@@ -5,7 +5,6 @@ from itertools import cycle
 from datasets import load_dataset
 from tokenizers import Tokenizer
 from torch.utils.data import IterableDataset
-
 from fmengine.utils import logger_rank0 as logger
 from fmengine.dataloader.collate import AutoregressiveLanguageModelDataCollator
 
@@ -54,6 +53,7 @@ class JSONLDataset(IterableDataset):
                             'input_ids': input_ids,
                         }
             except Exception as e:
+                print("next epoch")
                 pass
 
     def get_stream(self):
