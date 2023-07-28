@@ -4,7 +4,7 @@ import accelerate
 from pathlib import Path
 from loguru import logger
 from safetensors.torch import save_model
-from transformers import AutoConfig, AutoTokenizer, AutoModel
+from transformers import AutoConfig, AutoTokenizer, GPTNeoXForCausalLM
 
 def to_hf_model(
         in_model_path: str,
@@ -50,10 +50,9 @@ def to_hf_model(
         logger.info(f"Loading {layer_i}th layer")
         layer_loaded = { f"gpt_neox.layers.{layer_i}.{nm}": weight for nm, weight in loaded.items() }
         tensors.update(layer_loaded)
-    print(tensors.keys())
     # with accelerate.init_empty_weights():
-    model = AutoModel.from_config(config)
-    model.load_state_dict(tensors, strict=False)
+    model = GPTNeoXForCausalLM(config)
+    model.load_state_dict(tensors, strict=True)
     if fp16:
         model.half()
     save_model(model, os.path.join(out_model_path, 'model.safetensors'), metadata={'step': step, 'format': 'pt'})

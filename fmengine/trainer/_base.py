@@ -4,6 +4,7 @@ import deepspeed
 from typing import Dict
 from deepspeed.pipe import PipelineModule
 from fmengine.utils import logger_rank0
+from fmengine.utils.monitor import rank0_init_wandb, rank0_log
 from deepspeed.profiling.flops_profiler import FlopsProfiler
 
 class FMTrainer:
@@ -31,10 +32,11 @@ class FMTrainer:
         log_per_steps: int = 10,
         save_per_steps: int = 100,
         profile_step = 10,
+        project='fmengine',
     ):
-        wandb.init(
+        rank0_init_wandb(
             # set the wandb project where this run will be logged
-            project="fmengine",
+            project=project,
             config = self.config
         )
         engine, _, _, _ = deepspeed.initialize(
@@ -50,7 +52,7 @@ class FMTrainer:
             if profile and step % profile_step == 0:
                 prof.start_profile()
             loss = engine.train_batch(data_iter=self.dataloader)
-            wandb.log({
+            rank0_log({
                 "loss": loss.item(),
                 "lr": engine.optimizer.param_groups[0]["lr"],
                 "step": step,

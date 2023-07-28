@@ -30,6 +30,14 @@
             "eps": 1.0e-8
         }
     },
+    "scheduler": {
+        "type": "WarmupLR",
+        "params": {
+            "warmup_min_lr": 0,
+            "warmup_max_lr": 0.001,
+            "warmup_num_steps": 50
+        }
+    },
     "min_lr": 5e-7,
     "activation_checkpointing": {
         "partition_activations": false,
