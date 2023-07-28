@@ -7,7 +7,7 @@ from typing import Optional, Literal
 from dataclasses import dataclass, field, asdict
 
 from fmengine.utils import jload
-from fmengine.trainer._base import FMTrainer
+from fmengine.trainer.llm_trainer import FMTrainer
 from fmengine.modeling._common.model import get_model
 from fmengine.dataloader.prompt import make_prompt_dataloader
 from fmengine.dataloader.jsonl_loader import get_jsonl_dataloader

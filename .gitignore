@@ -7,3 +7,4 @@ notebooks/
 tests
 wandb/
 experiments
+autotuning_*

@@ -7,7 +7,7 @@ from fmengine.utils import logger_rank0
 from fmengine.utils.monitor import rank0_init_wandb, rank0_log
 from deepspeed.profiling.flops_profiler import FlopsProfiler
 
-class FMTrainer:
+class LLMTrainer:
     def __init__(
         self,
         model: PipelineModule,

@@ -9,3 +9,4 @@ accelerate
 tokenizers
 evaluate
 wandb
+tabulate
