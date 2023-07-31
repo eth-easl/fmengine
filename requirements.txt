@@ -10,3 +10,4 @@ tokenizers
 evaluate
 wandb
 tabulate
+diffusers

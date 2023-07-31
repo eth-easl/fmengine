@@ -66,7 +66,7 @@ class JSONLDataset(IterableDataset):
                  data,
                  tokenizer: Tokenizer,
                  seq_length: int, 
-                 doc_sep=''
+                 doc_sep='\n'
                 ) -> None:
         self.data = data
         self.tokenizer = tokenizer
