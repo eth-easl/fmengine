@@ -7,7 +7,7 @@ from typing import Optional, Literal
 from dataclasses import dataclass, field, asdict
 
 from fmengine.utils import jload
-from fmengine.trainer.llm_trainer import FMTrainer
+from fmengine.trainer.llm_trainer import LLMTrainer
 from fmengine.modeling._common.model import get_model
 from fmengine.dataloader.prompt import make_prompt_dataloader
 from fmengine.dataloader.jsonl_loader import get_jsonl_dataloader
@@ -99,7 +99,7 @@ if __name__=="__main__":
         activation_checkpointing_config
     )
     ds_config['data_path'] = data_args.data_path
-    trainer = FMTrainer(
+    trainer = LLMTrainer(
         model = model,
         ds_args = ds_args,
         dataloader = train_dataloader,

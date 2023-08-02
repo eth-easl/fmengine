@@ -11,3 +11,4 @@ evaluate
 wandb
 tabulate
 diffusers
+peft
