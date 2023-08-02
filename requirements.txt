@@ -12,3 +12,4 @@ wandb
 tabulate
 diffusers
 peft
+sentencepiece
