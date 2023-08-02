@@ -3,15 +3,15 @@ import random
 import deepspeed
 import numpy as np
 import transformers
-from typing import Optional, Literal
-from dataclasses import dataclass, field, asdict
+from typing import Optional
+from dataclasses import dataclass, field
 
 from fmengine.utils import jload
 from fmengine.trainer.llm_trainer import LLMTrainer
 from fmengine.modeling._common.model import get_model
-from fmengine.dataloader.prompt import make_prompt_dataloader
 from fmengine.dataloader.jsonl_loader import get_jsonl_dataloader
 from fmengine.modeling.neox.optimizations import replace_neox_attn_with_flash_attn
+
 def read_ds_config(config_path):
     config = jload(config_path)
     return config

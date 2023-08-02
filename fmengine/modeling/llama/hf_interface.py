@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 from fmengine.modeling.llama.optimizations import (
     smart_tokenizer_and_embedding_resize,
 )
-from fmengine.dataloader.prompt import (
+from fmengine.dataloader.prompt_loader import (
     DEFAULT_BOS_TOKEN,
     DEFAULT_PAD_TOKEN,
     DEFAULT_EOS_TOKEN,

@@ -1,13 +1,13 @@
-deepspeed --num_gpus 1 --num_nodes 1 train.py \
-    --output_dir .cache/models \
-    --init_ckpt .cache/ckpts/ \
-    --data_path .cache/data/prompt.jsonl \
+deepspeed --num_gpus 4 --num_nodes 1 starter.py \
+    --output_dir .cache/models/openllama-3b-chat \
+    --init_ckpt /mnt/scratch/xiayao/cache/pretrained_weights/openllama-3b-v2 \
+    --data_path /mnt/scratch/xiayao/cache/datasets/massive_dialogs/ar/train.jsonl \
     --max_seq_len 1024 \
-    --train_steps 1000 \
+    --train_steps 20000 \
     --eval_steps 10 \
-    --save_steps 200 \
+    --save_steps 1000 \
     --log_steps 1 \
-    --pipe_parallel_size 1 \
+    --pipe_parallel_size 4 \
     --model_parallel_size 1 \
     --use_flash_attn true \
-    --deepspeed_config ./configs/7b.json
+    --deepspeed_config ./configs/llama.json
