@@ -8,3 +8,4 @@ tests
 wandb/
 experiments
 autotuning_*
+*.pt
