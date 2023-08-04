@@ -41,3 +41,14 @@ deepspeed --num_gpus 4 --num_nodes 1 starter.py \
 ```
 
 You are also advised to read `./configs/pythia.json` for the deepspeed configuration, which convers the learning rate, batch size, etc.
+
+## Supported Models
+
+(we only tried finetuning but not pretraining - but it should work)
+
+| Model | #Params | #Layers | #Heads |  #Dim | Pretrained Checkpoint | Flash Attention |
+| --- | --- | --- | --- | --- | --- | --- |
+| Pythia-160M | 85M | 12 | 12 | 768 | [Download](https://drive.google.com/file/d/1QZNSCMEIldyUVe0ZqMRjlZJZ3WA8KAAE/view?usp=drive_link) | Yes |
+| Pythia-1.4B | 1.2B | 24 | 16 | 2048 | [Download](https://drive.google.com/file/d/16EB64Y0YmYpcr022EO4gxmDszGkLHl8a/view?usp=drive_link) | Yes |
+| Pythia-2.8B | 2.5B | 32 | 32 | 2560 | [Download](https://drive.google.com/file/d/1Q03nrVOP7rLDrADgQsWA_BM8_ojD2qbE/view?usp=drive_link) | Yes |
+| OpenLlama-3B | tba | tba | tba | tba | [Download](https://drive.google.com/file/d/1EYTaPXoBrAk4OTXqNug2N62poCCsv0Ru/view?usp=drive_link) | Yes |

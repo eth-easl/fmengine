@@ -15,10 +15,6 @@
         "buffer_count": 4,
         "fast_init": false
     },
-    "zero_optimization": {
-        "stage": 1,
-        "reduce_bucket_size": 5e8
-    },
     "fp16": {
         "enabled": true,
         "loss_scale": 0,

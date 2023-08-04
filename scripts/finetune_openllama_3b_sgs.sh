@@ -2,7 +2,7 @@ deepspeed --num_gpus 4 --num_nodes 1 starter.py \
     --output_dir .cache/models/openllama-3b-chat \
     --init_ckpt /mnt/scratch/xiayao/cache/pretrained_weights/openllama-3b-v2 \
     --data_path /mnt/scratch/xiayao/cache/datasets/massive_dialogs/ar/train.jsonl \
-    --max_seq_len 1024 \
+    --max_seq_len 512 \
     --train_steps 20000 \
     --eval_steps 10 \
     --save_steps 1000 \

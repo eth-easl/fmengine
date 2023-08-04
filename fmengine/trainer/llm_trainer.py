@@ -44,7 +44,11 @@ class LLMTrainer:
             model=self.model,
             model_parameters=[p for p in self.model.parameters() if p.requires_grad],
         )
-        engine.load_checkpoint(self.init_ckpt, load_module_only=True)
+        engine.load_checkpoint(
+            self.init_ckpt,
+            load_module_only=True,
+            load_optimizer_states=False
+        )
         if profile:
             prof = FlopsProfiler(self.model)
         start = time.time()

@@ -15,10 +15,6 @@
         "buffer_count": 4,
         "fast_init": false
     },
-    "zero_optimization": {
-        "stage": 1,
-        "reduce_bucket_size": 5e8
-    },
     "fp16": {
         "enabled": true,
         "loss_scale": 0,
@@ -40,9 +36,9 @@
     },
     "min_lr": 5e-7,
     "activation_checkpointing": {
-        "partition_activations": true,
-        "cpu_checkpointing": true,
-        "contiguous_memory_optimization": true,
+        "partition_activations": false,
+        "cpu_checkpointing": false,
+        "contiguous_memory_optimization": false,
         "number_checkpoints": null,
         "synchronize_checkpoint_boundary": false,
         "profile": false
