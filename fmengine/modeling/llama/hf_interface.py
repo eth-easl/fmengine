@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 from fmengine.modeling.llama.optimizations import (
     smart_tokenizer_and_embedding_resize,
 )
-from fmengine.dataloader.prompt_loader import (
+from fmengine.dataloader.constants import (
     DEFAULT_BOS_TOKEN,
     DEFAULT_PAD_TOKEN,
     DEFAULT_EOS_TOKEN,
@@ -43,7 +43,7 @@ def write_ckpt(outpath: Path, model: torch.nn.Module, model_config: transformers
         "iteration": 1,
     }
     for rank in range(mp):
-        torch.save(model_state, os.path.join(f"mp_rank_{rank:02d}_model_states.pt"))
+        torch.save(model_state, os.path.join(outpath, f"mp_rank_{rank:02d}_model_states.pt"))
 
 
 def from_hf(model_name_or_path: str, outdir: str, mp_size:int):
@@ -70,6 +70,8 @@ def from_hf(model_name_or_path: str, outdir: str, mp_size:int):
         exit(0)
     print(f"Writing to {outpath}")
     outpath.mkdir()
+    with open(os.path.join(outpath, "latest"), "w") as fout:
+        fout.write("global_step001")
     steppath = os.path.join(outpath, "global_step001")
     os.mkdir(steppath)
     write_ckpt(steppath, model, model_config, mp_size)
