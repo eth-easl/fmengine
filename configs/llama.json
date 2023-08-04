@@ -34,6 +34,14 @@
             "eps": 1.0e-8
         }
     },
+    "scheduler": {
+        "type": "WarmupLR",
+        "params": {
+            "warmup_min_lr": 0,
+            "warmup_max_lr": 1e-5,
+            "warmup_num_steps": 50
+        }
+    },
     "min_lr": 5e-7,
     "activation_checkpointing": {
         "partition_activations": false,
@@ -43,5 +51,13 @@
         "synchronize_checkpoint_boundary": false,
         "profile": false
     },
-    "wall_clock_breakdown": true
+    "wall_clock_breakdown": true,
+    "flops_profiler": {
+        "enabled": true,
+        "profile_step": 1,
+        "module_depth": -1,
+        "top_modules": 1,
+        "detailed": true,
+        "output_file": null
+    }
 }

@@ -52,3 +52,22 @@ You are also advised to read `./configs/pythia.json` for the deepspeed configura
 | Pythia-1.4B | 1.2B | 24 | 16 | 2048 | [Download](https://drive.google.com/file/d/16EB64Y0YmYpcr022EO4gxmDszGkLHl8a/view?usp=drive_link) | Yes |
 | Pythia-2.8B | 2.5B | 32 | 32 | 2560 | [Download](https://drive.google.com/file/d/1Q03nrVOP7rLDrADgQsWA_BM8_ojD2qbE/view?usp=drive_link) | Yes |
 | OpenLlama-3B | tba | tba | tba | tba | [Download](https://drive.google.com/file/d/1EYTaPXoBrAk4OTXqNug2N62poCCsv0Ru/view?usp=drive_link) | Yes |
+
+### Multi-host training
+
+We support multi-host training with deepspeed. To run multi-host training, you need to install [`pdsh`](https://github.com/chaos/pdsh) first, by running the following command:
+
+```bash
+git clone https://github.com/chaos/pdsh.git
+cd pdsh
+./configure --enable-static-modules --without-rsh --with-ssh --without-ssh-connect-timeout-option --prefix=/your/preferred/path
+make
+make install
+```
+
+If you have root access, it might be easier.
+
+## References
+
+- [Deepspeed Configuration References](https://www.deepspeed.ai/docs/config-json/#automatic-mixed-precision-amp-training-options)
+

@@ -1,4 +1,4 @@
-from fmengine.modeling.neox.hf_interface import to_hf_model
+from fmengine.modeling.llama.hf_interface import to_hf_model
 
 def main(args):
     print(args)
@@ -8,12 +8,11 @@ def main(args):
         args.out_model_path
     )
 
-
 if __name__=="__main__":
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument("--in-model-path", type=str, help="Location of weights")
-    parser.add_argument("--model-family", type=str, help="Model family", default='EleutherAI/pythia-2.8b-deduped')
+    parser.add_argument("--model-family", type=str, help="Model family", default='openlm-research/open_llama_3b_v2')
     parser.add_argument("--out-model-path", type=str, help="Location to write HF model and tokenizer")
 
     args = parser.parse_args()
