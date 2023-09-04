@@ -8,4 +8,4 @@ title: "FMEngine: Library for Training/Serving Foundation Models"
 version: 0.0.1
 doi: 10.5281/zenodo.8314779
 date-released: 2023-09-04
-url: "https://github.com/autoai-org/fmengine-torch"
+url: "https://github.com/eth-easl/fmengine"
