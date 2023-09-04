@@ -27,6 +27,7 @@ class DeepspeedArguments:
     use_deepspeed: Optional[bool] = field(default=True)
     rank: int = field(default=None)
     local_rank: int = field(default=None)
+    
     pipe_parallel_size: int = field(default=1)
     model_parallel_size: int = field(default=1)
     world_size: int = field(default=None)
@@ -48,6 +49,7 @@ class TrainerArguments:
     eval_steps: int = field(default=100)
     save_steps: int = field(default=100)
     log_steps: int = field(default=1)
+    pretrain: bool = field(default=False)
 
 if __name__=="__main__":
     parser = transformers.HfArgumentParser((ModelArguments, DataArguments, TrainerArguments, DeepspeedArguments))
@@ -56,15 +58,14 @@ if __name__=="__main__":
     # setup deepspeed and other stuff
     assert ds_args.use_deepspeed
     deepspeed.init_distributed(dist_backend="nccl")
+
     ds_args.world_size = torch.distributed.get_world_size()
     torch.cuda.set_device(ds_args.local_rank)
 
     ds_config = read_ds_config(ds_args.deepspeed_config)
     
     data_args.num_workers = 2 * ds_args.world_size // ds_args.pipe_parallel_size // ds_args.model_parallel_size
-    
     data_args.batch_size = ds_config.get("train_micro_batch_size_per_gpu", 1)
-
     activation_checkpointing_config = ds_config.pop("activation_checkpointing", None)
 
     random.seed(ds_args.seed)
@@ -106,6 +107,7 @@ if __name__=="__main__":
         ds_config = ds_config,
         init_ckpt = model_args.init_ckpt,
         save_dir=trainer_args.output_dir,
+        pretrain = trainer_args.pretrain
     )
     trainer.fit(
         steps = trainer_args.train_steps,

@@ -1,0 +1,1 @@
+singularity run --nv --bind .:/fmengine fmsys.sif bash scripts/pretrain/pretrain_llama_1b.sh

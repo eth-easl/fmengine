@@ -16,6 +16,7 @@ class LLMTrainer:
         ds_config: Dict,
         init_ckpt: str = None,
         save_dir: str = None,
+        pretrain:bool = False,
     ) -> None:
         self.ds_args = ds_args
         self.model = model
@@ -24,7 +25,7 @@ class LLMTrainer:
         self.save_dir = save_dir
         self.ds_config = ds_config
         self.config = self.ds_config
-
+        self.pretrain = pretrain
     def fit(
         self,
         steps: int,
@@ -44,11 +45,12 @@ class LLMTrainer:
             model=self.model,
             model_parameters=[p for p in self.model.parameters() if p.requires_grad],
         )
-        engine.load_checkpoint(
-            self.init_ckpt,
-            load_module_only=True,
-            load_optimizer_states=False
-        )
+        if not self.pretrain:
+            engine.load_checkpoint(
+                self.init_ckpt,
+                load_module_only=True,
+                load_optimizer_states=False
+            )
         if profile:
             prof = FlopsProfiler(self.model)
         start = time.time()
