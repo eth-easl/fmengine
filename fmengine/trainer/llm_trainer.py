@@ -6,6 +6,7 @@ from deepspeed.pipe import PipelineModule
 from fmengine.utils import logger_rank0
 from fmengine.utils.monitor import rank0_init_wandb, rank0_log
 from deepspeed.profiling.flops_profiler import FlopsProfiler
+from torch.profiler import ProfilerActivity, profile as torch_profile
 
 class LLMTrainer:
     def __init__(
@@ -16,6 +17,7 @@ class LLMTrainer:
         ds_config: Dict,
         init_ckpt: str = None,
         save_dir: str = None,
+        pretrain:bool = False,
     ) -> None:
         self.ds_args = ds_args
         self.model = model
@@ -24,7 +26,7 @@ class LLMTrainer:
         self.save_dir = save_dir
         self.ds_config = ds_config
         self.config = self.ds_config
-
+        self.pretrain = pretrain
     def fit(
         self,
         steps: int,
@@ -44,18 +46,27 @@ class LLMTrainer:
             model=self.model,
             model_parameters=[p for p in self.model.parameters() if p.requires_grad],
         )
-        engine.load_checkpoint(
-            self.init_ckpt,
-            load_module_only=True,
-            load_optimizer_states=False
-        )
+        if not self.pretrain:
+            engine.load_checkpoint(
+                self.init_ckpt,
+                load_module_only=True,
+                load_optimizer_states=False
+            )
         if profile:
             prof = FlopsProfiler(self.model)
         start = time.time()
         for step in range(1, steps + 1):
             if profile and step % profile_step == 0:
                 prof.start_profile()
-            loss = engine.train_batch(data_iter=self.dataloader)
+            
+            with torch_profile(
+                activities=[ProfilerActivity.CUDA],
+                profile_memory=True, 
+                record_shapes=True) as torch_prof:
+                loss = engine.train_batch(data_iter=self.dataloader)
+            
+            print(torch_prof.key_averages().table(sort_by="self_cuda_memory_usage", row_limit=10))
+            
             rank0_log({
                 "loss": loss.item(),
                 "lr": engine.optimizer.param_groups[0]["lr"],
@@ -74,6 +85,7 @@ class LLMTrainer:
             if step % save_per_steps == 0:
                 logger_rank0.info(f"Saving at step {step}")
                 engine.save_checkpoint(self.save_dir)
+        
         logger_rank0.info("Finished training... saving checkpoints & closing monitoring")
         engine.save_checkpoint(self.save_dir)
         wandb.finish()
