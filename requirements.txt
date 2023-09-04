@@ -13,3 +13,5 @@ tabulate
 diffusers
 peft
 sentencepiece
+scikit-build
+Cython
