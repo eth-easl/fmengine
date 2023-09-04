@@ -10,3 +10,4 @@ experiments
 autotuning_*
 *.pt
 *.sif
+scripts/hostfiles

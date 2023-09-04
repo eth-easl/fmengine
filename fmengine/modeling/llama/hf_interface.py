@@ -3,7 +3,10 @@ import torch
 import transformers
 from pathlib import Path
 from typing import Optional, Literal
-from dataclasses import dataclass, field
+from loguru import logger
+from transformers import AutoConfig, AutoTokenizer, LlamaForCausalLM
+from safetensors.torch import save_model
+
 
 from fmengine.modeling.llama.optimizations import (
     smart_tokenizer_and_embedding_resize,
@@ -32,7 +35,6 @@ def write_ckpt(outpath: Path, model: torch.nn.Module, model_config: transformers
     for layer_i in range(n_layers):
         sd = {nm.replace(f"model.layers.{layer_i}.", f""): weight for nm, weight in loaded.items() if nm.startswith(f"model.layers.{layer_i}.")}
         torch.save(sd, os.path.join(outpath, f"layer_{layer_i + 1:02d}-model_00-model_states.pt"))
-
     model_state = {
         "dp_world_size": 1,
         "mp_world_size": mp,
@@ -77,3 +79,57 @@ def from_hf(model_name_or_path: str, outdir: str, mp_size:int):
     write_ckpt(steppath, model, model_config, mp_size)
     tokenizer.save_pretrained(outpath)
     model_config.save_pretrained(outpath)
+
+def to_hf_model(
+        in_model_path: str,
+        model_family: str,
+        out_model_path: str,
+        step='latest',
+        fp16=True,
+    ):
+    os.makedirs(out_model_path, exist_ok=True)
+    config = AutoConfig.from_pretrained(model_family)
+    tokenizer = AutoTokenizer.from_pretrained(model_family)
+    tensors = {}
+    n_layers = config.num_hidden_layers
+    tokenizer_size = config.vocab_size
+    logger.info(f"[config]: total layers: {n_layers}, vocab size: {tokenizer_size}")
+    if step == 'latest':
+        with open(os.path.join(in_model_path, 'latest'), 'r') as f:
+            step = f.read().strip()
+    logger.info("Processing step: {}", step)
+    for pt in Path(os.path.join(in_model_path, step)).iterdir():
+        loaded = torch.load(pt, map_location="cpu")
+        
+        if not pt.name.startswith('layer_'):
+            continue
+        
+        if pt.name == 'layer_00-model_00-model_states.pt':
+            logger.info("Loading embedding layer")
+            tensors['model.embed_tokens.weight'] = loaded['weight'][: tokenizer_size, :]
+            continue
+        
+        if pt.name == f'layer_{n_layers + 1}-model_00-model_states.pt':
+            logger.info("Loading final layer norm")
+            tensors['model.norm.weight'] = loaded['weight']
+            continue
+        
+        if pt.name == f'layer_{n_layers + 2}-model_00-model_states.pt':
+            logger.info("Loading embedding output layer")
+            tensors['lm_head.weight'] = loaded['weight'][: tokenizer_size, :]
+            continue
+        
+        layer_i = int(pt.name.split('-')[0].replace('layer_', '')) - 1
+        logger.info(f"Loading {layer_i}th layer")
+
+        layer_loaded = { f"model.layers.{layer_i}.{nm}": weight for nm, weight in loaded.items()}
+        tensors.update(layer_loaded)
+    # with accelerate.init_empty_weights():
+    model = LlamaForCausalLM(config)
+    model.load_state_dict(tensors, strict=True)
+    if fp16:
+        model.half()
+    save_model(model, os.path.join(out_model_path, 'model.safetensors'), metadata={'step': step, 'format': 'pt'})
+
+    config.save_pretrained(out_model_path)
+    tokenizer.save_pretrained(out_model_path)
