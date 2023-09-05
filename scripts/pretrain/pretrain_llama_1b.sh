@@ -1,7 +1,7 @@
-deepspeed --num_gpus 1 --num_nodes 1 cli/train.py \
+deepspeed --num_gpus 4 --num_nodes 1 cli/train.py \
     --output_dir .cache/models \
-    --init_ckpt .cache/ckpts/llama_1b \
-    --data_path .cache/data/discourse_connective_identification.train.jsonl \
+    --init_ckpt /pretrained/llama-1b \
+    --data_path /datasets/qi/ar/task065_timetravel_consistent_sentence_classification.train.jsonl \
     --max_seq_len 1024 \
     --train_steps 1000 \
     --eval_steps 10 \
