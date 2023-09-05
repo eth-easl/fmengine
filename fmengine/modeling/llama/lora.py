@@ -1,4 +1,5 @@
 # LoRA components
+import torch
 from typing import Dict, Any
 from transformers.models.llama.configuration_llama import LlamaConfig
 from transformers.models.llama.modeling_llama import LlamaMLP, LlamaAttention
@@ -48,6 +49,7 @@ class LoRALlamaMLP(LlamaMLP):
 class LoRALlamaAttention(LlamaAttention):
     def __init__(self, config: LlamaConfig, lora_config: LoRAConfig) -> None:
         super().__init__(config)
+        self.lora_config = lora_config
         self.q_proj = LoRALinear(
             self.hidden_size,
             self.num_key_value_heads * self.head_dim,
@@ -80,6 +82,7 @@ class LoRALlamaAttention(LlamaAttention):
             lora_dropout=lora_config.dropout,
             bias=False
         )
+
     def _load_from_state_dict(self, state_dict: Dict, prefix: str, *args: Any, **kwargs: Any) -> None:
         """For compatibility with base checkpoints."""
         mapping = {
@@ -93,4 +96,17 @@ class LoRALlamaAttention(LlamaAttention):
             "o_proj.bias": "o_proj.linear.bias",
         }
         state_dict = map_old_state_dict_weights(state_dict, mapping, prefix)
+        # initialize LoRA weights
+        state_dict['self_attn.q_proj.lora_A'] = torch.nn.Parameter(torch.zeros((self.lora_config.r, self.config.hidden_size)))
+        state_dict['self_attn.q_proj.lora_B'] = torch.nn.Parameter(torch.zeros((self.num_key_value_heads * self.head_dim, self.lora_config.r)))
+        state_dict['self_attn.k_proj.lora_A'] = torch.nn.Parameter(torch.zeros((self.lora_config.r, self.config.hidden_size)))
+        state_dict['self_attn.k_proj.lora_B'] = torch.nn.Parameter(torch.zeros((self.num_key_value_heads * self.head_dim, self.lora_config.r)))
+        state_dict['self_attn.v_proj.lora_A'] = torch.nn.Parameter(torch.zeros((self.lora_config.r, self.config.hidden_size)))
+        state_dict['self_attn.v_proj.lora_B'] = torch.nn.Parameter(torch.zeros((self.num_key_value_heads * self.head_dim, self.lora_config.r)))
+        state_dict['self_attn.o_proj.lora_A'] = torch.nn.Parameter(torch.zeros((self.lora_config.r, self.num_heads * self.head_dim)))
+        state_dict['self_attn.o_proj.lora_B'] = torch.nn.Parameter(torch.zeros((self.hidden_size, self.lora_config.r)))
+        self.rotary_emb.inv_freq = state_dict['self_attn.rotary_emb.inv_freq']
+
+        del state_dict['self_attn.rotary_emb.inv_freq']
+
         super()._load_from_state_dict(state_dict, prefix, *args, **kwargs)

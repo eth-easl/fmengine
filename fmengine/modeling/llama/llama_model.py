@@ -13,14 +13,15 @@ from fmengine.modeling.llama.lora import LoRALlamaMLP, LoRALlamaAttention
 class ParallelTransformerLayerPipe(LlamaDecoderLayer):
     def __init__(self, 
                  config: LlamaConfig, activation_checkpointing=False,
-                 lora_config:LoRAConfig=None):
+                 lora_config: LoRAConfig=None):
         super().__init__(config)
         self.activation_checkpointing = activation_checkpointing
         self.lora_config = lora_config
         if self.lora_config:
             self.self_attn = LoRALlamaAttention(config, lora_config)
             self.mlp = LoRALlamaMLP(config, lora_config)
-    
+            mark_only_lora_as_trainable(self, lora_config.bias)
+
     def forward(self, args):
         if self.activation_checkpointing:
             return self._ckpt_forward(args)
@@ -121,4 +122,4 @@ class LlamaModelPipe(PipelineModule):
         )
         if lora_config:
             print(f"🌴 Low Rank Adapters Enabled: r={lora_config.r}")
-            mark_only_lora_as_trainable(self, lora_config.bias)
+            

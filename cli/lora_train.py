@@ -11,6 +11,7 @@ from fmengine.trainer.llm_trainer import LLMTrainer
 from fmengine.modeling._common.model import get_model
 from fmengine.dataloader.jsonl_loader import get_jsonl_dataloader
 from fmengine.modeling.neox.optimizations import replace_neox_attn_with_flash_attn
+from fmengine.modeling.llama.optimizations import replace_llama_attn_with_flash_attn
 from fmengine.modeling._common.lora import LoRAConfig
 
 peft_config = LoRAConfig(
@@ -80,7 +81,8 @@ if __name__=="__main__":
     if model_args.use_flash_attn:
         print("⚡⚡⚡ enable flash attention.")
         replace_neox_attn_with_flash_attn()
-
+        replace_llama_attn_with_flash_attn()
+    
     tokenizer = transformers.AutoTokenizer.from_pretrained(
         model_args.init_ckpt,
         model_max_length=trainer_args.max_seq_len,
@@ -88,6 +90,7 @@ if __name__=="__main__":
         use_fast=True,
     )
     tokenizer.pad_token = tokenizer.eos_token
+
     model_config = transformers.AutoConfig.from_pretrained(model_args.init_ckpt)
 
     train_dataloader = get_jsonl_dataloader(
@@ -104,6 +107,9 @@ if __name__=="__main__":
         activation_checkpointing_config,
         peft_config
     )
+    print("---- model params ----")
+    for name, param in model.named_parameters():
+        print(f"{name}: {param.requires_grad}")
     ds_config['data_path'] = data_args.data_path
     trainer = LLMTrainer(
         model = model,

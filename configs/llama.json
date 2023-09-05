@@ -6,17 +6,10 @@
     "lr-decay-style": "cosine",
     "warmup": 0.1,
     "bf16": {
-        "enabled": true
-    },
-    "offload_optimizer": {
-        "device": "cpu",
-        "nvme_path": "/scratch/xiayao",
-        "pin_memory": true,
-        "buffer_count": 4,
-        "fast_init": false
+        "enabled": false
     },
     "fp16": {
-        "enabled": false,
+        "enabled": true,
         "loss_scale": 0,
         "loss_scale_window": 1000,
         "initial_scale_power": 12,

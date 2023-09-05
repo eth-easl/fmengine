@@ -346,7 +346,6 @@ def mark_only_lora_as_trainable(model: nn.Module, bias: str = "none") -> None:
     for n, p in model.named_parameters():
         if "lora_" not in n:
             p.requires_grad = False
-
     # depending on the `bias` value unfreeze bias weights
     if bias == "none":
         return
@@ -354,12 +353,11 @@ def mark_only_lora_as_trainable(model: nn.Module, bias: str = "none") -> None:
         for n, p in model.named_parameters():
             if "bias" in n:
                 p.requires_grad = True
+
     elif bias == "lora_only":
         for m in model.modules():
             if isinstance(m, LoRALayer) and hasattr(m, "bias") and m.bias is not None:
                 m.bias.requires_grad = True
-    if bias == False:
-        return
     else:
         raise ValueError(f"bias should be one of ['none', 'lora_only', 'all'], got {bias}")
 

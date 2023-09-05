@@ -41,6 +41,9 @@ class LLMTrainer:
             project=project,
             config = self.config
         )
+        for name, param in self.model.named_parameters():
+            print(f"{name}: {param.requires_grad}")
+        # print("Trainable params:", sum([p.numel() for p in params]))
         engine, _, _, _ = deepspeed.initialize(
             self.ds_args,
             model=self.model,
@@ -59,13 +62,7 @@ class LLMTrainer:
             if profile and step % profile_step == 0:
                 prof.start_profile()
             
-            with torch_profile(
-                activities=[ProfilerActivity.CUDA],
-                profile_memory=True, 
-                record_shapes=True) as torch_prof:
-                loss = engine.train_batch(data_iter=self.dataloader)
-            
-            print(torch_prof.key_averages().table(sort_by="self_cuda_memory_usage", row_limit=10))
+            loss = engine.train_batch(data_iter=self.dataloader)
             
             rank0_log({
                 "loss": loss.item(),
