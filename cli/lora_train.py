@@ -11,10 +11,10 @@ from fmengine.trainer.llm_trainer import LLMTrainer
 from fmengine.modeling._common.model import get_model
 from fmengine.dataloader.jsonl_loader import get_jsonl_dataloader
 from fmengine.modeling.neox.optimizations import replace_neox_attn_with_flash_attn
-from peft import LoraConfig, TaskType, get_peft_model
+from fmengine.modeling._common.lora import LoRAConfig
 
-peft_config = LoraConfig(
-    task_type=TaskType.CAUSAL_LM, inference_mode=False, r=2, lora_alpha=32, lora_dropout=0.1, target_modules=["q_proj", "v_proj"]
+peft_config = LoRAConfig(
+    r=2,
 )
 
 def read_ds_config(config_path):
@@ -80,7 +80,7 @@ if __name__=="__main__":
     if model_args.use_flash_attn:
         print("⚡⚡⚡ enable flash attention.")
         replace_neox_attn_with_flash_attn()
-        
+
     tokenizer = transformers.AutoTokenizer.from_pretrained(
         model_args.init_ckpt,
         model_max_length=trainer_args.max_seq_len,
@@ -101,7 +101,8 @@ if __name__=="__main__":
     model = get_model(
         model_config,
         ds_args,
-        activation_checkpointing_config
+        activation_checkpointing_config,
+        peft_config
     )
     ds_config['data_path'] = data_args.data_path
     trainer = LLMTrainer(

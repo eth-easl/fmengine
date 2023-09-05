@@ -1,10 +1,9 @@
 import math
-from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Tuple, Type, Union
-
 import torch
 import torch.nn as nn
+from dataclasses import dataclass
 from torch.nn import functional as F
+from typing import Any, Dict, Tuple, Union, Mapping
 
 class LoRALayer(nn.Module):
     def __init__(self, r: int, lora_alpha: int, lora_dropout: float):
@@ -380,8 +379,6 @@ class LoRAConfig():
         dropout: dropout that is applied on the input in the LoRA branch (before multiplying by matrix A)
         to_*: either apply LoRA to the specified weights or not
     """
-    hidden_size: int = 0
-    intermediate_size: int = 0
     r: int = 0
     alpha: int = 1
     dropout: float = 0.0
