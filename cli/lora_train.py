@@ -11,11 +11,16 @@ from fmengine.trainer.llm_trainer import LLMTrainer
 from fmengine.modeling._common.model import get_model
 from fmengine.dataloader.jsonl_loader import get_jsonl_dataloader
 from fmengine.modeling.neox.optimizations import replace_neox_attn_with_flash_attn
+from peft import LoraConfig, TaskType, get_peft_model
+
+peft_config = LoraConfig(
+    task_type=TaskType.CAUSAL_LM, inference_mode=False, r=2, lora_alpha=32, lora_dropout=0.1
+)
+
 
 def read_ds_config(config_path):
     config = jload(config_path)
     return config
-
 
 @dataclass
 class ModelArguments:
@@ -99,6 +104,9 @@ if __name__=="__main__":
         ds_args,
         activation_checkpointing_config
     )
+    model = get_peft_model(model, peft_config)
+    model.print_trainable_parameters()
+    model = model.base_model.model
     ds_config['data_path'] = data_args.data_path
     trainer = LLMTrainer(
         model = model,

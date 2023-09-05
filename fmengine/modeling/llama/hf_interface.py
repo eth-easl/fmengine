@@ -6,8 +6,6 @@ from typing import Optional, Literal
 from loguru import logger
 from transformers import AutoConfig, AutoTokenizer, LlamaForCausalLM
 from safetensors.torch import save_model
-
-
 from fmengine.modeling.llama.optimizations import (
     smart_tokenizer_and_embedding_resize,
 )
@@ -17,6 +15,9 @@ from fmengine.dataloader.constants import (
     DEFAULT_EOS_TOKEN,
     DEFAULT_UNK_TOKEN,
 )
+from peft import LoraConfig, get_peft_model
+
+
 
 def write_ckpt(outpath: Path, model: torch.nn.Module, model_config: transformers.AutoConfig, mp: int):
     loaded = model.state_dict()
@@ -48,7 +49,7 @@ def write_ckpt(outpath: Path, model: torch.nn.Module, model_config: transformers
         torch.save(model_state, os.path.join(outpath, f"mp_rank_{rank:02d}_model_states.pt"))
 
 
-def from_hf(model_name_or_path: str, outdir: str, mp_size:int):
+def from_hf(model_name_or_path: str, outdir: str, mp_size:int, peft_config: LoraConfig=None):
     tokenizer = transformers.AutoTokenizer.from_pretrained(model_name_or_path)
     model_config = transformers.AutoConfig.from_pretrained(model_name_or_path)
     model = transformers.AutoModelForCausalLM.from_pretrained(model_name_or_path)
@@ -66,6 +67,11 @@ def from_hf(model_name_or_path: str, outdir: str, mp_size:int):
             "pad_token": DEFAULT_PAD_TOKEN,
         }
     )
+    if peft_config is not None:
+        model = get_peft_model(model, peft_config)
+        model.print_trainable_parameters()
+        model = model.base_model.model
+
     outpath = Path(outdir)
     if outpath.exists():
         print(f"Output directory {outpath} already exists. Exiting.")
