@@ -80,7 +80,7 @@ if __name__=="__main__":
     if model_args.use_flash_attn:
         print("⚡⚡⚡ enable flash attention.")
         replace_neox_attn_with_flash_attn()
-
+        
     tokenizer = transformers.AutoTokenizer.from_pretrained(
         model_args.init_ckpt,
         model_max_length=trainer_args.max_seq_len,
