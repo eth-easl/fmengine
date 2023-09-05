@@ -11,11 +11,11 @@ from fmengine.trainer.llm_trainer import LLMTrainer
 from fmengine.modeling._common.model import get_model
 from fmengine.dataloader.jsonl_loader import get_jsonl_dataloader
 from fmengine.modeling.neox.optimizations import replace_neox_attn_with_flash_attn
+from fmengine.modeling.llama.optimizations import replace_llama_attn_with_flash_attn
 
 def read_ds_config(config_path):
     config = jload(config_path)
     return config
-
 
 @dataclass
 class ModelArguments:
@@ -27,11 +27,10 @@ class DeepspeedArguments:
     use_deepspeed: Optional[bool] = field(default=True)
     rank: int = field(default=None)
     local_rank: int = field(default=None)
-    
     pipe_parallel_size: int = field(default=1)
     model_parallel_size: int = field(default=1)
     world_size: int = field(default=None)
-    seed: int = field(default=42)
+    seed: int = field(default=3407)
     deepspeed_config: Optional[str] = field(default=None)
 
 @dataclass
@@ -63,7 +62,7 @@ if __name__=="__main__":
     torch.cuda.set_device(ds_args.local_rank)
 
     ds_config = read_ds_config(ds_args.deepspeed_config)
-    
+
     data_args.num_workers = 2 * ds_args.world_size // ds_args.pipe_parallel_size // ds_args.model_parallel_size
     data_args.batch_size = ds_config.get("train_micro_batch_size_per_gpu", 1)
     activation_checkpointing_config = ds_config.pop("activation_checkpointing", None)
@@ -76,6 +75,7 @@ if __name__=="__main__":
     if model_args.use_flash_attn:
         print("⚡⚡⚡ enable flash attention.")
         replace_neox_attn_with_flash_attn()
+        replace_llama_attn_with_flash_attn()
 
     tokenizer = transformers.AutoTokenizer.from_pretrained(
         model_args.init_ckpt,
