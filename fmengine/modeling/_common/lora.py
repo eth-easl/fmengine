@@ -8,7 +8,6 @@ from typing import Any, Dict, Tuple, Union, Mapping
 class LoRALayer(nn.Module):
     def __init__(self, r: int, lora_alpha: int, lora_dropout: float):
         """Store LoRA specific attributes in a class.
-
         Args:
             r: rank of the weight update matrices. To make sense of using LoRA the rank should be smaller than the rank of
                 the weights of the model. The rank can be as low as 1: https://arxiv.org/pdf/2106.09685.pdf (section 7.2)
@@ -260,7 +259,6 @@ class LoRAQKVLinear(LoRALinear):
 
         Returns:
             A tensor with a shape (B, C_output, T)
-
         """
         if self.n_head == self.n_query_groups:
             return F.conv1d(input, weight, groups=sum(self.enable_lora))  # (B, C_output, T)
@@ -360,8 +358,10 @@ def mark_only_lora_as_trainable(model: nn.Module, bias: str = "none") -> None:
         for m in model.modules():
             if isinstance(m, LoRALayer) and hasattr(m, "bias") and m.bias is not None:
                 m.bias.requires_grad = True
+    if bias == False:
+        return
     else:
-        raise NotImplementedError
+        raise ValueError(f"bias should be one of ['none', 'lora_only', 'all'], got {bias}")
 
 
 def lora_filter(key: str, value: Any) -> bool:
@@ -388,6 +388,7 @@ class LoRAConfig():
     to_projection: bool = False
     to_mlp: bool = False
     to_head: bool = False
+    bias: Union[str, bool] = "none"
 
 def map_old_state_dict_weights(state_dict: Dict, mapping: Mapping, prefix: str) -> Dict:
     for checkpoint_name, attribute_name in mapping.items():

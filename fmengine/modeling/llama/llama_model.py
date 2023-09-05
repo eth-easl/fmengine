@@ -7,7 +7,7 @@ from transformers.models.llama.modeling_llama import (
     LlamaConfig,
 )
 from fmengine.modeling._common._nn import EmbeddingPipe, LMLayerPipe
-from fmengine.modeling._common.lora import LoRAConfig
+from fmengine.modeling._common.lora import LoRAConfig, mark_only_lora_as_trainable
 from fmengine.modeling.llama.lora import LoRALlamaMLP, LoRALlamaAttention
 
 class ParallelTransformerLayerPipe(LlamaDecoderLayer):
@@ -18,9 +18,9 @@ class ParallelTransformerLayerPipe(LlamaDecoderLayer):
         self.activation_checkpointing = activation_checkpointing
         self.lora_config = lora_config
         if self.lora_config:
-            print("🌴 Low Rank Adapters Enabled")
             self.self_attn = LoRALlamaAttention(config, lora_config)
             self.mlp = LoRALlamaMLP(config, lora_config)
+    
     def forward(self, args):
         if self.activation_checkpointing:
             return self._ckpt_forward(args)
@@ -119,3 +119,6 @@ class LlamaModelPipe(PipelineModule):
             ],
             **kwargs
         )
+        if lora_config:
+            print(f"🌴 Low Rank Adapters Enabled: r={lora_config.r}")
+            mark_only_lora_as_trainable(self, lora_config.bias)

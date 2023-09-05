@@ -80,3 +80,17 @@ class LoRALlamaAttention(LlamaAttention):
             lora_dropout=lora_config.dropout,
             bias=False
         )
+    def _load_from_state_dict(self, state_dict: Dict, prefix: str, *args: Any, **kwargs: Any) -> None:
+        """For compatibility with base checkpoints."""
+        mapping = {
+            "q_proj.weight": "q_proj.linear.weight",
+            "q_proj.bias": "q_proj.linear.bias",
+            "k_proj.weight": "k_proj.linear.weight",
+            "k_proj.bias": "k_proj.linear.bias",
+            "v_proj.weight": "v_proj.linear.weight",
+            "v_proj.bias": "v_proj.linear.bias",
+            "o_proj.weight": "o_proj.linear.weight",
+            "o_proj.bias": "o_proj.linear.bias",
+        }
+        state_dict = map_old_state_dict_weights(state_dict, mapping, prefix)
+        super()._load_from_state_dict(state_dict, prefix, *args, **kwargs)
