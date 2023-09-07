@@ -1,7 +1,7 @@
 deepspeed --num_gpus 4 --num_nodes 1 starter.py \
     --output_dir .cache/models \
-    --init_ckpt /mnt/scratch/xiayao/cache/pretrained_weights/pythia-160m-deduped \
-    --data_path /mnt/scratch/xiayao/cache/datasets/quantitative_natural_instructions/train/all.train.jsonl \
+    --init_ckpt .cache/ckpts/pythia-160m \
+    --data_path .cache/data/prompts.jsonl \
     --max_seq_len 1024 \
     --train_steps 1000 \
     --eval_steps 10 \
