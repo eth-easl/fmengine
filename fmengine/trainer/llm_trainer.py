@@ -49,6 +49,7 @@ class LLMTrainer:
             load_module_only=True,
             load_optimizer_states=False
         )
+        engine.optimizer.refresh_fp32_params()
         if profile:
             prof = FlopsProfiler(self.model)
         start = time.time()
