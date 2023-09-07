@@ -9,5 +9,6 @@ wandb/
 experiments
 autotuning_*
 *.pt
-*.sif
 scripts/hostfiles
+*.sif
+.triton
