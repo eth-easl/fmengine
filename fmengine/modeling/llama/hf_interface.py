@@ -5,7 +5,7 @@ from pathlib import Path
 from loguru import logger
 from transformers import AutoConfig, AutoTokenizer, LlamaForCausalLM
 from safetensors.torch import save_model
-from fmengine.modeling.llama.optimizations import (
+from fmengine.modeling.llama.flash_attention import (
     smart_tokenizer_and_embedding_resize,
 )
 from fmengine.dataloader.constants import (

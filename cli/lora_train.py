@@ -10,8 +10,8 @@ from fmengine.utils import jload
 from fmengine.trainer.llm_trainer import LLMTrainer
 from fmengine.modeling._common.model import get_model
 from fmengine.dataloader.jsonl_loader import get_jsonl_dataloader
-from fmengine.modeling.neox.optimizations import replace_neox_attn_with_flash_attn
-from fmengine.modeling.llama.optimizations import replace_llama_attn_with_flash_attn
+from fmengine.modeling.neox.flash_attention import replace_neox_attn_with_flash_attn
+from fmengine.modeling.llama.flash_attention import replace_llama_attn_with_flash_attn
 from fmengine.modeling._common.lora import LoRAConfig
 
 peft_config = LoRAConfig(
