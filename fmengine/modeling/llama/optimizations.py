@@ -7,7 +7,7 @@ from transformers.models.llama.modeling_llama import apply_rotary_pos_emb
 from einops import rearrange
 from flash_attn.flash_attn_interface import flash_attn_varlen_qkvpacked_func
 from flash_attn.bert_padding import unpad_input, pad_input
-
+from flash_attn.layers.rotary import RotaryEmbedding
 def smart_tokenizer_and_embedding_resize(
     special_tokens_dict: Dict,
     tokenizer: transformers.PreTrainedTokenizer,
@@ -77,8 +77,7 @@ def llama_flash_attn_forward(
     if key_padding_mask is None:
         qkv = rearrange(qkv, 'b s ... -> (b s) ...')
         max_s = q_len
-        cu_q_lens = torch.arange(0, (bsz + 1) * q_len, step=q_len, dtype=torch.int32,
-                                device=qkv.device)
+        cu_q_lens = torch.arange(0, (bsz + 1) * q_len, step=q_len, dtype=torch.int32, device=qkv.device)
         output = flash_attn_varlen_qkvpacked_func(
             qkv, cu_q_lens, max_s, 0.0,
             softmax_scale=None, causal=True
@@ -93,9 +92,7 @@ def llama_flash_attn_forward(
             x_unpad, cu_q_lens, max_s, 0.0,
             softmax_scale=None, causal=True
         )
-        output = rearrange(pad_input(rearrange(output_unpad, 'nnz h d -> nnz (h d)'),
-                                    indices, bsz, q_len),
-                        'b s (h d) -> b s h d', h=nheads)
+        output = rearrange(pad_input(rearrange(output_unpad, 'nnz h d -> nnz (h d)'), indices, bsz, q_len), 'b s (h d) -> b s h d', h=nheads)
     return self.o_proj(rearrange(output,
                                     'b s h d -> b s (h d)')), None, None
 

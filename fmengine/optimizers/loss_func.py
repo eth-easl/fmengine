@@ -1,11 +1,17 @@
 import torch.nn.functional as F
-from fmengine.fused_ops.fused_crossentropy import SoftmaxCrossEntropyLossFn
+import torch
+
+try:
+    from flash_attn.losses.cross_entropy import CrossEntropyLoss
+    print("⚡⚡⚡ [Flash Attention] fused cross entropy")
+except ImportError:
+    CrossEntropyLoss = torch.nn.CrossEntropyLoss
 
 def cross_entropy_fn(outputs, labels):
     # unpack
     logits, = outputs
     # all labels are `ignore_index` will cause nan
-    return SoftmaxCrossEntropyLossFn(
+    return CrossEntropyLoss()(
         logits.view(-1, logits.shape[-1]),
         labels.view(-1),
     )

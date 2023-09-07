@@ -1,7 +1,7 @@
-deepspeed --num_gpus 4 --num_nodes 1 starter.py \
+deepspeed --num_gpus 1 --num_nodes 1 cli/train.py \
     --output_dir .cache/models \
     --init_ckpt .cache/ckpts/pythia-160m \
-    --data_path .cache/data/prompts.jsonl \
+    --data_path .cache/data/prompt.jsonl \
     --max_seq_len 1024 \
     --train_steps 1000 \
     --eval_steps 10 \

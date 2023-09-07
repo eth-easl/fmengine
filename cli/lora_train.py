@@ -79,7 +79,7 @@ if __name__=="__main__":
     deepspeed.runtime.utils.set_random_seed(ds_args.seed)
 
     if model_args.use_flash_attn:
-        print("⚡⚡⚡ enable flash attention.")
+        print("⚡⚡⚡ [Flash Attention] Enabled")
         replace_neox_attn_with_flash_attn()
         replace_llama_attn_with_flash_attn()
     
