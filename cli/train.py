@@ -4,14 +4,16 @@ import deepspeed
 import numpy as np
 import transformers
 from typing import Optional
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, asdict
 
 from fmengine.utils import jload
 from fmengine.trainer.llm_trainer import LLMTrainer
 from fmengine.modeling._common.model import get_model
 from fmengine.dataloader.jsonl_loader import get_jsonl_dataloader
+
 from fmengine.modeling.neox.flash_attention import replace_neox_attn_with_flash_attn
 from fmengine.modeling.llama.flash_attention import replace_llama_attn_with_flash_attn
+from fmengine.callbacks.monitor import speed_monitor
 from fmengine.modeling.llama.fused_ops import replace_llama_attn_with_fused_ops
 
 def read_ds_config(config_path):
@@ -57,7 +59,8 @@ class TrainerArguments:
 if __name__=="__main__":
     parser = transformers.HfArgumentParser((ModelArguments, DataArguments, TrainerArguments, DeepspeedArguments))
     model_args, data_args, trainer_args, ds_args = parser.parse_args_into_dataclasses()
-
+    # merge all configs
+    
     # setup deepspeed and other stuff
     assert ds_args.use_deepspeed
     deepspeed.init_distributed(dist_backend="nccl")
@@ -66,6 +69,13 @@ if __name__=="__main__":
     torch.cuda.set_device(ds_args.local_rank)
 
     ds_config = read_ds_config(ds_args.deepspeed_config)
+
+    merged_configs = {
+        'model': asdict(model_args),
+        'data': asdict(data_args),
+        'trainer': asdict(trainer_args),
+        'deepspeed': ds_config
+    }
 
     data_args.num_workers = 2 * ds_args.world_size // ds_args.pipe_parallel_size // ds_args.model_parallel_size
     data_args.batch_size = ds_config.get("train_micro_batch_size_per_gpu", 1)
@@ -115,11 +125,12 @@ if __name__=="__main__":
         ds_config = ds_config,
         init_ckpt = model_args.init_ckpt,
         save_dir=trainer_args.output_dir,
-        pretrain = trainer_args.pretrain
+        pretrain = trainer_args.pretrain,
+        callbacks = [speed_monitor]
     )
     trainer.fit(
         steps = trainer_args.train_steps,
         profile = True,
-        log_per_steps = trainer_args.log_steps,
-        save_per_steps = trainer_args.save_steps
+        save_per_steps = trainer_args.save_steps,
+        configs = merged_configs
     )
