@@ -5,8 +5,8 @@ deepspeed --num_gpus 2 --num_nodes 1 cli/train.py \
     --max_seq_len 128 \
     --train_steps 1000 \
     --eval_steps 10 \
-    --save_steps 100 \
-    --log_steps 1 \
+    --save_steps 1000 \
+    --log_steps 10 \
     --pipe_parallel_size 2 \
     --model_parallel_size 1 \
     --use_flash_attn true \

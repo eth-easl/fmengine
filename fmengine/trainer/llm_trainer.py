@@ -1,7 +1,6 @@
 import time
 import wandb
 import deepspeed
-from dataclasses import asdict
 from typing import Dict
 from deepspeed.pipe import PipelineModule
 from fmengine.utils import logger_rank0
