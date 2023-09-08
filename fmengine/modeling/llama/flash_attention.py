@@ -1,13 +1,13 @@
-from typing import List, Optional, Tuple, Dict
+from typing import Optional, Tuple, Dict
 
 import torch
 import transformers
 from transformers.models.llama.modeling_llama import apply_rotary_pos_emb
-
 from einops import rearrange
+
 from flash_attn.flash_attn_interface import flash_attn_varlen_qkvpacked_func
 from flash_attn.bert_padding import unpad_input, pad_input
-from flash_attn.layers.rotary import RotaryEmbedding
+
 
 def smart_tokenizer_and_embedding_resize(
     special_tokens_dict: Dict,

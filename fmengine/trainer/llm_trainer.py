@@ -18,28 +18,31 @@ class LLMTrainer:
         init_ckpt: str = None,
         save_dir: str = None,
         pretrain:bool = False,
+        callbacks: list = []
     ) -> None:
+        
         self.ds_args = ds_args
         self.model = model
         self.dataloader = dataloader
         self.init_ckpt = init_ckpt
         self.save_dir = save_dir
         self.ds_config = ds_config
-        self.config = self.ds_config
         self.pretrain = pretrain
+        self.callbacks = callbacks
+
     def fit(
         self,
         steps: int,
         profile: bool = True,
-        log_per_steps: int = 10,
         save_per_steps: int = 100,
         profile_step = 10,
         project='fmengine',
+        configs: dict = None,
     ):
         rank0_init_wandb(
             # set the wandb project where this run will be logged
             project=project,
-            config = self.config
+            config = configs
         )
         # print("Trainable params:", sum([p.numel() for p in params]))
         engine, _, _, _ = deepspeed.initialize(
@@ -60,20 +63,15 @@ class LLMTrainer:
         for step in range(1, steps + 1):
             if profile and step % profile_step == 0:
                 prof.start_profile()
-            
             loss = engine.train_batch(data_iter=self.dataloader)
-            
             rank0_log({
                 "loss": loss.item(),
                 "lr": engine.optimizer.param_groups[0]["lr"],
                 "step": step,
             })
             if self.ds_args.local_rank == 0:
-                if step % log_per_steps == 0:
-                    now = time.time()
-                    avg_time = (now-start) / log_per_steps
-                    logger_rank0.info(f"Step={step:>6}, loss={loss.item():.4f}, {avg_time:.2f} s/it")
-                    start = now
+                for cb in self.callbacks:
+                    cb(time.time() - start, step, loss, configs)
                 if step == profile_step:
                     prof.stop_profile()
                     prof.print_model_profile(profile_step=profile_step)
