@@ -11,3 +11,4 @@ autotuning_*
 *.pt
 scripts/hostfiles
 *.sif
+.triton

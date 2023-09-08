@@ -1,6 +1,6 @@
 import torch.nn.functional as F
 
-def loss_fn(outputs, labels):
+def cross_entropy_fn(outputs, labels):
     # unpack
     logits, = outputs
     # all labels are `ignore_index` will cause nan
