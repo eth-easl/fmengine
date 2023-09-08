@@ -125,7 +125,7 @@ def get_jsonl_dataloader(
             streaming = False,
             args = None
         ):
-    seed = args.get('seed', 42)
+    seed = args.get('seed', 3407)
     seq_length = args.get('seq_length', 1024)
     batch_size = args.get('batch_size', 1)
     data_group_size = args.get('data_group_size', 1)

@@ -2,13 +2,10 @@ import os
 import torch
 import transformers
 from pathlib import Path
-from typing import Optional, Literal
 from loguru import logger
 from transformers import AutoConfig, AutoTokenizer, LlamaForCausalLM
 from safetensors.torch import save_model
-
-
-from fmengine.modeling.llama.optimizations import (
+from fmengine.modeling.llama.flash_attention import (
     smart_tokenizer_and_embedding_resize,
 )
 from fmengine.dataloader.constants import (
@@ -35,6 +32,7 @@ def write_ckpt(outpath: Path, model: torch.nn.Module, model_config: transformers
     for layer_i in range(n_layers):
         sd = {nm.replace(f"model.layers.{layer_i}.", f""): weight for nm, weight in loaded.items() if nm.startswith(f"model.layers.{layer_i}.")}
         torch.save(sd, os.path.join(outpath, f"layer_{layer_i + 1:02d}-model_00-model_states.pt"))
+    
     model_state = {
         "dp_world_size": 1,
         "mp_world_size": mp,
@@ -44,6 +42,7 @@ def write_ckpt(outpath: Path, model: torch.nn.Module, model_config: transformers
         "skipped_steps": 1,
         "iteration": 1,
     }
+    
     for rank in range(mp):
         torch.save(model_state, os.path.join(outpath, f"mp_rank_{rank:02d}_model_states.pt"))
 

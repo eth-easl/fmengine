@@ -15,3 +15,5 @@ peft
 sentencepiece
 scikit-build
 Cython
+scalene
+torchmetrics
