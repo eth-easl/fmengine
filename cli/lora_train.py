@@ -10,12 +10,17 @@ from fmengine.utils import jload
 from fmengine.trainer.llm_trainer import LLMTrainer
 from fmengine.modeling._common.model import get_model
 from fmengine.dataloader.jsonl_loader import get_jsonl_dataloader
-from fmengine.modeling.neox.optimizations import replace_neox_attn_with_flash_attn
+from fmengine.modeling.neox.flash_attention import replace_neox_attn_with_flash_attn
+from fmengine.modeling.llama.flash_attention import replace_llama_attn_with_flash_attn
+from fmengine.modeling._common.lora import LoRAConfig
+
+peft_config = LoRAConfig(
+    r=2,
+)
 
 def read_ds_config(config_path):
     config = jload(config_path)
     return config
-
 
 @dataclass
 class ModelArguments:
@@ -27,6 +32,7 @@ class DeepspeedArguments:
     use_deepspeed: Optional[bool] = field(default=True)
     rank: int = field(default=None)
     local_rank: int = field(default=None)
+    
     pipe_parallel_size: int = field(default=1)
     model_parallel_size: int = field(default=1)
     world_size: int = field(default=None)
@@ -48,6 +54,7 @@ class TrainerArguments:
     eval_steps: int = field(default=100)
     save_steps: int = field(default=100)
     log_steps: int = field(default=1)
+    pretrain: bool = field(default=False)
 
 if __name__=="__main__":
     parser = transformers.HfArgumentParser((ModelArguments, DataArguments, TrainerArguments, DeepspeedArguments))
@@ -56,15 +63,14 @@ if __name__=="__main__":
     # setup deepspeed and other stuff
     assert ds_args.use_deepspeed
     deepspeed.init_distributed(dist_backend="nccl")
+
     ds_args.world_size = torch.distributed.get_world_size()
     torch.cuda.set_device(ds_args.local_rank)
 
     ds_config = read_ds_config(ds_args.deepspeed_config)
     
     data_args.num_workers = 2 * ds_args.world_size // ds_args.pipe_parallel_size // ds_args.model_parallel_size
-    
     data_args.batch_size = ds_config.get("train_micro_batch_size_per_gpu", 1)
-
     activation_checkpointing_config = ds_config.pop("activation_checkpointing", None)
 
     random.seed(ds_args.seed)
@@ -73,9 +79,10 @@ if __name__=="__main__":
     deepspeed.runtime.utils.set_random_seed(ds_args.seed)
 
     if model_args.use_flash_attn:
-        print("⚡⚡⚡ enable flash attention.")
+        print("⚡⚡⚡ [Flash Attention] Enabled")
         replace_neox_attn_with_flash_attn()
-
+        replace_llama_attn_with_flash_attn()
+    
     tokenizer = transformers.AutoTokenizer.from_pretrained(
         model_args.init_ckpt,
         model_max_length=trainer_args.max_seq_len,
@@ -83,6 +90,7 @@ if __name__=="__main__":
         use_fast=True,
     )
     tokenizer.pad_token = tokenizer.eos_token
+
     model_config = transformers.AutoConfig.from_pretrained(model_args.init_ckpt)
 
     train_dataloader = get_jsonl_dataloader(
@@ -96,7 +104,8 @@ if __name__=="__main__":
     model = get_model(
         model_config,
         ds_args,
-        activation_checkpointing_config
+        activation_checkpointing_config,
+        peft_config
     )
     ds_config['data_path'] = data_args.data_path
     trainer = LLMTrainer(
@@ -106,6 +115,7 @@ if __name__=="__main__":
         ds_config = ds_config,
         init_ckpt = model_args.init_ckpt,
         save_dir=trainer_args.output_dir,
+        pretrain = trainer_args.pretrain
     )
     trainer.fit(
         steps = trainer_args.train_steps,

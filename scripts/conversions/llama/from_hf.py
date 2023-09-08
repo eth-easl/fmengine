@@ -1,4 +1,3 @@
-
 import transformers
 from typing import Optional
 from dataclasses import dataclass, field
@@ -16,7 +15,7 @@ def main():
     from_hf(
         args.model_name_or_path,
         args.output_dir,
-        args.mp_world_size
+        args.mp_world_size,
     )
  
 if __name__ == "__main__":
