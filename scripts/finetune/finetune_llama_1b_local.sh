@@ -1,7 +1,7 @@
 deepspeed --num_gpus 2 --num_nodes 1 cli/train.py \
-    --output_dir .cache/models \
-    --init_ckpt /mnt/scratch/xiayao/cache/pretrained_weights/tinyllama-2-1b \
-    --data_path .cache/data/prompt.jsonl \
+    --output_dir /workspace/.cache/models \
+    --init_ckpt /pretrained/tinyllama-2-1b \
+    --data_path /datasets/qi/ar/task112_asset_simple_sentence_identification.train.jsonl \
     --max_seq_len 128 \
     --train_steps 1000 \
     --eval_steps 10 \

@@ -90,6 +90,7 @@ if __name__=="__main__":
         model_max_length=trainer_args.max_seq_len,
         padding_side="right",
         use_fast=True,
+        repo_type=""
     )
     tokenizer.pad_token = tokenizer.eos_token
     model_config = transformers.AutoConfig.from_pretrained(model_args.init_ckpt)
