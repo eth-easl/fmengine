@@ -107,9 +107,6 @@ if __name__=="__main__":
         activation_checkpointing_config,
         peft_config
     )
-    print("---- model params ----")
-    for name, param in model.named_parameters():
-        print(f"{name}: {param.requires_grad}")
     ds_config['data_path'] = data_args.data_path
     trainer = LLMTrainer(
         model = model,

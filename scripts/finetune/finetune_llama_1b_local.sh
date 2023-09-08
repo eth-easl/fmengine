@@ -10,4 +10,5 @@ deepspeed --num_gpus 2 --num_nodes 1 cli/train.py \
     --pipe_parallel_size 2 \
     --model_parallel_size 1 \
     --use_flash_attn true \
+    --use_fused_ops true \
     --deepspeed_config ./configs/llama.json

@@ -12,6 +12,7 @@ from fmengine.modeling._common.model import get_model
 from fmengine.dataloader.jsonl_loader import get_jsonl_dataloader
 from fmengine.modeling.neox.flash_attention import replace_neox_attn_with_flash_attn
 from fmengine.modeling.llama.flash_attention import replace_llama_attn_with_flash_attn
+from fmengine.modeling.llama.fused_ops import replace_llama_attn_with_fused_ops
 
 def read_ds_config(config_path):
     config = jload(config_path)
@@ -79,7 +80,11 @@ if __name__=="__main__":
         print("⚡⚡⚡ [Flash Attention] Enabled")
         replace_neox_attn_with_flash_attn()
         replace_llama_attn_with_flash_attn()
-
+        
+    if model_args.use_fused_ops:
+        print("🔥🔥🔥 [Fused Ops] Enabled")
+        replace_llama_attn_with_fused_ops()
+    
     tokenizer = transformers.AutoTokenizer.from_pretrained(
         model_args.init_ckpt,
         model_max_length=trainer_args.max_seq_len,

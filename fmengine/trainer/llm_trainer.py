@@ -41,8 +41,6 @@ class LLMTrainer:
             project=project,
             config = self.config
         )
-        for name, param in self.model.named_parameters():
-            print(f"{name}: {param.requires_grad}")
         # print("Trainable params:", sum([p.numel() for p in params]))
         engine, _, _, _ = deepspeed.initialize(
             self.ds_args,
