@@ -17,3 +17,6 @@ scikit-build
 Cython
 scalene
 torchmetrics
+sphinx-autobuild
+myst-parser
+furo
