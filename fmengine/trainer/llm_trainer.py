@@ -9,6 +9,9 @@ from deepspeed.profiling.flops_profiler import FlopsProfiler
 from torch.profiler import ProfilerActivity, profile as torch_profile
 
 class LLMTrainer:
+    """
+    LLM Trainer
+    """
     def __init__(
         self,
         model: PipelineModule,
