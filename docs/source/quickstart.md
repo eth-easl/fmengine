@@ -2,9 +2,12 @@
 
 ## Installation
 
-We are not providing any pre-built releases at the moment, due to the complexity of the requirements and dependencies. A singularity image is provided, with all environment bundled in and can be used as a starting point.
+We provide a docker image and singularity image for the dependencies of FMEngine. You can download the docker image by running:
 
-Currently, fmengine supports two model family: GPT-NeoX and Llama.
+```bash
+docker pull xzyaoi/fmsys:0.0.3
+```
+
 
 ## Training preparation
 
