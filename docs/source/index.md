@@ -17,9 +17,12 @@ For now, FMEngine supports two families of models: [GPT-NeoX](https://github.com
 | OpenLlama-3B | tba | tba | tba | tba | [Download](https://drive.google.com/file/d/1EYTaPXoBrAk4OTXqNug2N62poCCsv0Ru/view?usp=drive_link) | Yes |
 | Llama-2-70b | tba | tba | tba | tba | tba | Yes |
 
+
+
 ```{toctree}
 :hidden:
 
 quickstart
+distributed
 references
 ```
