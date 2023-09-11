@@ -38,7 +38,7 @@ class ParallelTransformerLayerPipe(GPTNeoXLayer):
         return (outputs, position_ids, mask)
 
 class NeoxModelPipe(PipelineModule):
-    def __init__(self, model_config: GPTNeoXConfig, activation_checkpointing_config, **kwargs):
+    def __init__(self, args, model_config: GPTNeoXConfig, activation_checkpointing_config, **kwargs):
         if activation_checkpointing_config:
             deepspeed.checkpointing.configure(
                 None,

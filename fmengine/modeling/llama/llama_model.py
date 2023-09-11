@@ -10,7 +10,6 @@ from fmengine.modeling._common._nn import EmbeddingPipe, LMLayerPipe
 from fmengine.modeling._common.lora import LoRAConfig, mark_only_lora_as_trainable
 from fmengine.modeling.llama.lora import LoRALlamaMLP, LoRALlamaAttention
 
-
 class ParallelTransformerLayerPipe(LlamaDecoderLayer):
     def __init__(
         self,
@@ -71,6 +70,7 @@ class LayerNormPipe(LlamaRMSNorm):
 class LlamaModelPipe(PipelineModule):
     def __init__(
         self,
+        args,
         model_config,
         activation_checkpointing_config,
         lora_config: LoRAConfig,

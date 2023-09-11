@@ -1,12 +1,9 @@
 import torch
-import transformers
 from typing import Optional, Tuple
 from flash_attn.flash_attn_interface import flash_attn_kvpacked_func
-
-from fmengine.utils.monitor import rank0_print
 from fmengine.modeling.llama.rotary_embedding import RotaryEmbedding
 
-def _init_rope(self):
+def init_rope(self):
     if self.config.rope_scaling is None:
         scaling_factor = max(self.max_position_embeddings / 4096, 1.0)
     else:
@@ -62,7 +59,3 @@ def fused_rotary_emb_llama_flash_attn_forward(
     attn_output = self.o_proj(attn_output)
     return attn_output, None, None
 
-def replace_llama_attn_with_fused_ops():
-    rank0_print("[Warning] Replacing Rotary Embedding with Fused Ops. Only linear scaling is supported for now.")
-    transformers.models.llama.modeling_llama.LlamaAttention._init_rope = _init_rope
-    transformers.models.llama.modeling_llama.LlamaAttention.forward = fused_rotary_emb_llama_flash_attn_forward

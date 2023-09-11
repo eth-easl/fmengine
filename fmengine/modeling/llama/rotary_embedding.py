@@ -2,7 +2,6 @@ import torch
 from einops import rearrange
 from flash_attn.layers.rotary import RotaryEmbedding as _RotaryEmbedding
 
-
 class RotaryEmbedding(_RotaryEmbedding):
     def __init__(
         self,

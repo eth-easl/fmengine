@@ -26,6 +26,7 @@ def get_model(
         args.seed = args.seed + (stage_id * mp)
     if isinstance(model_config, LlamaConfig):
         return LlamaModelPipe(
+            args,
             model_config,
             loss_fn=cross_entropy_fn,
             topology=topo,
@@ -35,6 +36,7 @@ def get_model(
         )
     elif isinstance(model_config, GPTNeoXConfig):
         return NeoxModelPipe(
+            args,
             model_config,
             loss_fn=cross_entropy_fn,
             topology=topo,
