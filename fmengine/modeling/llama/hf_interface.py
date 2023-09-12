@@ -20,7 +20,9 @@ def write_ckpt(outpath: Path, model: torch.nn.Module, model_config: transformers
     n_layers = model_config.num_hidden_layers
     if mp == 1:
         # embedding
-        sd = {"weight": loaded['model.embed_tokens.weight']}
+        sd = {
+            "weight": loaded['model.embed_tokens.weight']
+        }
         torch.save(sd, os.path.join(outpath,  "layer_00-model_00-model_states.pt"))
         # norm
         sd = {"weight": loaded['model.norm.weight']}
