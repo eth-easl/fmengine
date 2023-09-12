@@ -19,7 +19,7 @@ def get_tp_llama_attention(args: dict):
             self.k_proj = mpu.ColumnParallelLinear(
                 args=args,
                 input_size=self.hidden_size,
-                output_size=self.num_kv_heads * self.head_dim,
+                output_size=self.num_key_value_heads * self.head_dim,
                 gather_output=False,
                 init_method=nn.init.xavier_normal_,
                 skip_bias_add=True,
@@ -28,7 +28,7 @@ def get_tp_llama_attention(args: dict):
             self.v_proj = mpu.ColumnParallelLinear(
                 args=args,
                 input_size=self.hidden_size,
-                output_size=self.num_kv_heads * self.head_dim,
+                output_size=self.num_key_value_heads * self.head_dim,
                 gather_output=False,
                 init_method=nn.init.xavier_normal_,
                 skip_bias_add=True,

@@ -1,5 +1,6 @@
 import torch
 import fmengine.mpu as mpu
+from fmengine.utils import logger_rank0
 
 def initialize_megatron(args, fp32_allreduce=False):
 
@@ -40,3 +41,4 @@ def initialize_megatron(args, fp32_allreduce=False):
                 topology=topo,
                 fp32_allreduce=fp32_allreduce,
             )
+    logger_rank0.info("megatron initialized (for tensor parallelism)")

@@ -9,7 +9,6 @@ from functools import wraps
 
 __all__ = ["rank_zero"]
 
-
 def rank_zero(func):
     @wraps(func)
     def wrapper(*args, **kwargs):

@@ -100,7 +100,7 @@ class LlamaModelPipe(PipelineModule):
             layers=[
                 LayerSpec(
                     EmbeddingPipe,
-                    model_config.vocab_size + 1,
+                    model_config.vocab_size,
                     model_config.hidden_size,
                 ),
                 *[
@@ -120,7 +120,7 @@ class LlamaModelPipe(PipelineModule):
                 LayerSpec(
                     LMLayerPipe,
                     model_config.hidden_size,
-                    model_config.vocab_size + 1,
+                    model_config.vocab_size,
                     bias=False,
                 ),
             ],

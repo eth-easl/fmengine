@@ -115,11 +115,15 @@ if __name__=="__main__":
             'batch_size': data_args.batch_size
         }
     )
+    _tmp = torch.nn.Linear.reset_parameters
+    torch.nn.Linear.reset_parameters = lambda x: None
     model = get_model(
         model_config,
         ds_args,
         activation_checkpointing_config
     )
+    torch.nn.Linear.reset_parameters = _tmp
+
     ds_config['data_path'] = data_args.data_path
     trainer = LLMTrainer(
         model = model,

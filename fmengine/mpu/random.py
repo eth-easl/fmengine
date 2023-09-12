@@ -28,10 +28,12 @@ _CHECKPOINTED_ACTIVATIONS_MEMORY_BUFFER = None
 
 # RNG tracker object.
 _CUDA_RNG_STATE_TRACKER = deepspeed.checkpointing._CUDA_RNG_STATE_TRACKER
+_CUDA_RNG_STATE_TRACKER.add(_MODEL_PARALLEL_RNG_TRACKER_NAME, 0)
 
 # Deepspeed checkpointing functions
 # TODO: replace calls to these in our codebase with calls to the deepspeed ones
 _set_cuda_rng_state = checkpointing._set_cuda_rng_state
 checkpoint = checkpointing.checkpoint
 model_parallel_cuda_manual_seed = checkpointing.model_parallel_cuda_manual_seed
+
 get_cuda_rng_tracker = checkpointing.get_cuda_rng_tracker
