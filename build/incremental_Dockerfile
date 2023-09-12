@@ -1,0 +1,2 @@
+FROM xzyaoi/fmsys:0.0.3
+RUN pip install munch

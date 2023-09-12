@@ -1,6 +1,6 @@
 import transformers
 from fmengine.utils.monitor import rank0_print
-from .tensor_parallel import TensorParallelLlamaAttention
+from .tensor_parallel import get_tp_llama_attention
 
 def replace_llama_attn_with_fused_ops():
     from .fused_ops import fused_rotary_emb_llama_flash_attn_forward, init_rope
@@ -15,12 +15,12 @@ def replace_llama_attn_with_flash_attn():
  
     transformers.models.llama.modeling_llama.LlamaAttention.forward = llama_flash_attn_forward
 
-def enable_tensor_parallel():
-    transformers.models.llama.modeling_llama.LlamaAttention = TensorParallelLlamaAttention
+def enable_tensor_parallel(args: dict):
+    transformers.models.llama.modeling_llama.LlamaAttention = get_tp_llama_attention(args)
 
-def patch(enable_flash_attention: bool, enable_fused_ops: bool):
-    enable_tensor_parallel()
+def patch_llama(enable_flash_attention: bool, enable_fused_ops: bool, args):
+    enable_tensor_parallel(args)
     if enable_flash_attention:
         replace_llama_attn_with_flash_attn()
-    if replace_llama_attn_with_fused_ops:
+    if enable_fused_ops:
         replace_llama_attn_with_fused_ops()

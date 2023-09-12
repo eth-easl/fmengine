@@ -11,10 +11,10 @@ from fmengine.trainer.llm_trainer import LLMTrainer
 from fmengine.modeling._common.model import get_model
 from fmengine.dataloader.jsonl_loader import get_jsonl_dataloader
 
-from fmengine.modeling.neox.flash_attention import replace_neox_attn_with_flash_attn
-from fmengine.modeling.llama.flash_attention import replace_llama_attn_with_flash_attn
+from fmengine.utils.megatron import initialize_megatron
 from fmengine.callbacks.monitor import speed_monitor
-from fmengine.modeling.llama.fused_ops import replace_llama_attn_with_fused_ops
+from fmengine.modeling.llama.patching import patch_llama
+from munch import munchify
 
 def read_ds_config(config_path):
     config = jload(config_path)
@@ -68,7 +68,12 @@ if __name__=="__main__":
     torch.cuda.set_device(ds_args.local_rank)
 
     ds_config = read_ds_config(ds_args.deepspeed_config)
+    ds_args.deepspeed_config = munchify(ds_config)
+    ds_args.use_cpu_initialization = False
+    ds_args.params_dtype = torch.bfloat16
+    ds_args.use_mup = False
 
+    initialize_megatron(ds_args)
     merged_configs = {
         'model': asdict(model_args),
         'data': asdict(data_args),
@@ -86,15 +91,12 @@ if __name__=="__main__":
     torch.manual_seed(ds_args.seed)
     deepspeed.runtime.utils.set_random_seed(ds_args.seed)
 
-    if model_args.use_flash_attn:
-        print("⚡⚡⚡ [Flash Attention] Enabled")
-        replace_neox_attn_with_flash_attn()
-        replace_llama_attn_with_flash_attn()
-        
-    if model_args.use_fused_ops:
-        print("🔥🔥🔥 [Fused Ops] Enabled")
-        replace_llama_attn_with_fused_ops()
-    
+    patch_llama(
+        model_args.use_flash_attn,
+        model_args.use_fused_ops,
+        ds_args
+    )
+
     tokenizer = transformers.AutoTokenizer.from_pretrained(
         model_args.init_ckpt,
         model_max_length=trainer_args.max_seq_len,
