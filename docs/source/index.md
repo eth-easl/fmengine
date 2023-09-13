@@ -5,7 +5,7 @@ FMEngine is a utility library for training very large foundation models. The goa
 * **Ergonomic** interface for training foundation models. It is sufficient easy for a beginner to use, but also provides enough flexibility for advanced users to customize their training.
 * **Efficient** optimizations built in. FMEngine is equipped with [Flash Attention](https://github.com/Dao-AILab/flash-attention) and various fused ops to accelerate training.
 * **HPC-friendly** installation with pre-built docker and singularity/apptainer containers. FMEngine is mainly designed and tested on [Slurm](https://slurm.schedmd.com/) clusters. We provide starter scripts for running FMEngine on Slurm clusters.
-* **Compatible** with existing frameworks and tools, particularly with [HuggingFace](https://hugggingface.co). Since FMEngine is built with [DeepSpeed](https://deepspeed.ai), it is also compatible with all DeepSpeed features.
+* **Compatible** with existing frameworks and tools, particularly with [HuggingFace](https://huggingface.co). Since FMEngine is built with [DeepSpeed](https://deepspeed.ai), it is also compatible with all DeepSpeed features.
 
 For now, FMEngine supports two families of models: [GPT-NeoX](https://github.com/EleutherAI/gpt-neox) and [LLama](https://ai.meta.com/blog/large-language-model-llama-meta-ai/). 
 
@@ -18,6 +18,11 @@ For now, FMEngine supports two families of models: [GPT-NeoX](https://github.com
 | Llama-2-70b | tba | tba | tba | tba | tba | Yes |
 
 
+## Acknowledgement
+
+FMEngine is primarily implemented at the [Efficient Architecture and Systems Labs](https://systems.ethz.ch/research/easl.html).
+
+![https://systems.ethz.ch/research/easl.html](https://systems.ethz.ch/research/easl/_jcr_content/par/textimage_842607556/image.imageformat.textsingle.745562631.png)
 
 ```{toctree}
 :hidden:
