@@ -1,50 +1,13 @@
 # FMEngine
 
-## Training preparation
+FMEngine is a utility library for training very large foundation models. The goal of fmengine is to provide a 
 
-* *Prepare checkpoints*. As the first step, you will need to split a large model checkpoint into smaller pieces for each layer. This can be done by running the following command:
+* **Ergonomic** interface for training foundation models. It is sufficient easy for a beginner to use, but also provides enough flexibility for advanced users to customize their training.
+* **Efficient** optimizations built in. FMEngine is equipped with [Flash Attention](https://github.com/Dao-AILab/flash-attention) and various fused ops to accelerate training.
+* **HPC-friendly** installation with pre-built docker and singularity/apptainer containers. FMEngine is mainly designed and tested on [Slurm](https://slurm.schedmd.com/) clusters. We provide starter scripts for running FMEngine on Slurm clusters.
+* **Compatible** with existing frameworks and tools, particularly with [HuggingFace](https://huggingface.co). Since FMEngine is built with [DeepSpeed](https://deepspeed.ai), it is also compatible with all DeepSpeed features.
 
-```bash
-python scripts/conversions/llama/from_hf.py \
---model_name_or_path meta-llama/Llama-2-7b-hf  \
---output_dir path_to_outdir/llama2-7b \
---mp_world_size 1
-```
-
-You can download pre-configured checkpoints here: [Google Drive](https://drive.google.com/drive/folders/1rKfR-rJFsV5VFpC_Y9FjUynDUdkg45Lk?usp=sharing).
-
-* *Prepare datasets*. We now only supports `.jsonl` format, which is a list of json objects, each of which contains a `text` field. For example, a sample of the dataset can be:
-
-```json
-{"text": "I love this movie!"}
-{"text": "I hate this movie!"}
-{"text": "I don't know."}
-```
-
-## Training
-
-In `/scripts`, we show some examples of training scripts, for example, to finetune a pythia-2.8b model, you can run the following command:
-``` bash
-deepspeed --num_gpus 4 --num_nodes 1 starter.py \
-    --output_dir .cache/models \
-    --init_ckpt /pretrained_weights/pythia-160m-deduped \
-    --data_path /datasets/quantitative_natural_instructions/train/all.train.jsonl \
-    --max_seq_len 1024 \
-    --train_steps 1000 \
-    --eval_steps 10 \
-    --save_steps 100 \
-    --log_steps 1 \
-    --pipe_parallel_size 1 \
-    --model_parallel_size 1 \
-    --use_flash_attn true \
-    --deepspeed_config ./configs/pythia.json
-```
-
-You are also advised to read `./configs/pythia.json` for the deepspeed configuration, which convers the learning rate, batch size, etc.
-
-## Supported Models
-
-(we only tried finetuning but not pretraining - but it should work)
+For now, FMEngine supports two families of models: [GPT-NeoX](https://github.com/EleutherAI/gpt-neox) and [LLama](https://ai.meta.com/blog/large-language-model-llama-meta-ai/). 
 
 | Model | #Params | #Layers | #Heads |  #Dim | Pretrained Checkpoint | Flash Attention |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -52,22 +15,11 @@ You are also advised to read `./configs/pythia.json` for the deepspeed configura
 | Pythia-1.4B | 1.2B | 24 | 16 | 2048 | [Download](https://drive.google.com/file/d/16EB64Y0YmYpcr022EO4gxmDszGkLHl8a/view?usp=drive_link) | Yes |
 | Pythia-2.8B | 2.5B | 32 | 32 | 2560 | [Download](https://drive.google.com/file/d/1Q03nrVOP7rLDrADgQsWA_BM8_ojD2qbE/view?usp=drive_link) | Yes |
 | OpenLlama-3B | tba | tba | tba | tba | [Download](https://drive.google.com/file/d/1EYTaPXoBrAk4OTXqNug2N62poCCsv0Ru/view?usp=drive_link) | Yes |
+| Llama-2-70b | tba | tba | tba | tba | tba | Yes |
 
-### Multi-host training
 
-We support multi-host training with deepspeed. To run multi-host training, you need to install [`pdsh`](https://github.com/chaos/pdsh) first, by running the following command:
+## Acknowledgement
 
-```bash
-git clone https://github.com/chaos/pdsh.git
-cd pdsh
-./configure --enable-static-modules --without-rsh --with-ssh --without-ssh-connect-timeout-option --prefix=/your/preferred/path
-make
-make install
-```
+FMEngine is primarily implemented at the [Efficient Architecture and Systems Labs](https://systems.ethz.ch/research/easl.html).
 
-If you have root access, it might be easier.
-
-## References
-
-- [Deepspeed Configuration References](https://www.deepspeed.ai/docs/config-json/#automatic-mixed-precision-amp-training-options)
-
+![https://systems.ethz.ch/research/easl.html](https://systems.ethz.ch/research/easl/_jcr_content/par/textimage_842607556/image.imageformat.textsingle.745562631.png)
