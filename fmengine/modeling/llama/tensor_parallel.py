@@ -47,7 +47,7 @@ class TensorParallelLlamaMLP(nn.Module):
         return self.down_proj(self.act_fn(self.gate_proj(x)[0]) * self.up_proj(x)[0])[0]
 
 class TensorParallelLlamaAttention(LlamaAttention):
-    def __init__(self, args, config: LlamaConfig):
+    def __init__(self, args, config: LlamaConfig, no_reduce=False):
         super().__init__(config)
         self.q_proj = mpu.ColumnParallelLinear(
             args=args,
@@ -83,6 +83,6 @@ class TensorParallelLlamaAttention(LlamaAttention):
             input_is_parallel=True,
             init_method=nn.init.xavier_normal_,
             skip_bias_add=True,
-            parallel_output=False, # True if gpt-j-parallel
+            parallel_output=no_reduce, # True if gpt-j-parallel
             bias=False,
         )

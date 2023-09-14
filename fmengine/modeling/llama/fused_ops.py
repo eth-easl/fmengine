@@ -37,16 +37,15 @@ def fused_rotary_emb_llama_flash_attn_forward(
     """
     bsz, q_len, _ = hidden_states.size()
 
-    query_states = (self.q_proj(hidden_states)).view(
-        bsz, q_len, self.num_heads, self.head_dim
+    query_states = self.q_proj(hidden_states)[0].view(
+            bsz, q_len, -1, self.head_dim
+        )
+    key_states = self.k_proj(hidden_states)[0].view(
+        bsz, q_len, -1, self.head_dim
     )
-    key_states = self.k_proj(hidden_states).view(
-        bsz, q_len, self.num_key_value_heads, self.head_dim
+    value_states = self.v_proj(hidden_states)[0].view(
+        bsz, q_len, -1, self.head_dim
     )
-    value_states = (self.v_proj(hidden_states)).view(
-        bsz, q_len, self.num_key_value_heads, self.head_dim
-    )
-
     q = query_states
     kv = torch.stack([key_states, value_states], dim=2)
     q, kv = self.rotary_emb(q, kv)
@@ -55,7 +54,7 @@ def fused_rotary_emb_llama_flash_attn_forward(
         q, kv, 0.0,
         causal=True,
     )
-    attn_output = attn_output.view(bsz, q_len, self.num_heads * self.head_dim)
-    attn_output = self.o_proj(attn_output)
-    return attn_output, None, None
+    attn_output = attn_output.view(bsz, q_len, -1)
+    attn_output = self.o_proj(attn_output)[0]
 
+    return attn_output, None, None
