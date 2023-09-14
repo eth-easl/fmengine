@@ -19,7 +19,11 @@ def get_model(
     assert args.world_size % (pp * mp) == 0
     dp = args.world_size // (pp * mp)
 
-    topo = PipeModelDataParallelTopology(num_pp=pp, num_mp=mp, num_dp=dp)
+    topo = PipeModelDataParallelTopology(
+        num_pp=pp,
+        num_mp=mp,
+        num_dp=dp
+    )
     # Offset base seeds for the interior pipeline stages.
     stage_id = topo.get_coord(rank=torch.distributed.get_rank()).pipe
     if 0 < stage_id < topo.get_dim("pipe") - 1:
