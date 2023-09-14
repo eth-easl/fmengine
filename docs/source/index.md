@@ -29,5 +29,6 @@ FMEngine is primarily implemented at the [Efficient Architecture and Systems Lab
 
 quickstart
 distributed
+add_new_model
 references
 ```
