@@ -28,8 +28,9 @@ class ParallelTransformerLayerPipe(LlamaDecoderLayer):
             self.self_attn = LoRALlamaAttention(config, lora_config)
             self.mlp = LoRALlamaMLP(config, lora_config)
             mark_only_lora_as_trainable(self, lora_config.bias)
-        
+
         tensor_parallel_enabled = args.model_parallel_size > 1
+        
         if tensor_parallel_enabled:
             self.self_attn =  TensorParallelLlamaAttention(args, config)
             self.mlp = TensorParallelLlamaMLP(
@@ -79,26 +80,6 @@ class ParallelTransformerLayerPipe(LlamaDecoderLayer):
             x = self.mlp_res(x)
 
         return (x, position_ids, mask)
-
-    def _ckpt_forward(self, args):
-        hidden_states, position_ids, mask = args
-        attention_mask = torch.where(mask == True, float("-inf"), 0).long()
-
-        def create_custom_forward(module):
-            def custom_forward(*inputs):
-                return LlamaDecoderLayer.forward(module, *inputs)
-
-            return custom_forward
-
-        # deepspeed checkpoint auto use outputs[0] if len(outputs) == 1
-        outputs = deepspeed.checkpointing.checkpoint(
-            create_custom_forward(self),
-            hidden_states,
-            attention_mask,
-            position_ids,
-        )
-        return (outputs, position_ids, mask)
-
 
 class LayerNormPipe(LlamaRMSNorm):
     def forward(self, args):
