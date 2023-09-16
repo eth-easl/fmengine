@@ -12,3 +12,4 @@ autotuning_*
 scripts/hostfiles
 *.sif
 .triton
+**/*/*_slurm.sh

@@ -19,13 +19,18 @@ def get_model(
     assert args.world_size % (pp * mp) == 0
     dp = args.world_size // (pp * mp)
 
-    topo = PipeModelDataParallelTopology(num_pp=pp, num_mp=mp, num_dp=dp)
+    topo = PipeModelDataParallelTopology(
+        num_pp=pp,
+        num_mp=mp,
+        num_dp=dp
+    )
     # Offset base seeds for the interior pipeline stages.
     stage_id = topo.get_coord(rank=torch.distributed.get_rank()).pipe
     if 0 < stage_id < topo.get_dim("pipe") - 1:
         args.seed = args.seed + (stage_id * mp)
     if isinstance(model_config, LlamaConfig):
         return LlamaModelPipe(
+            args,
             model_config,
             loss_fn=cross_entropy_fn,
             topology=topo,
@@ -35,6 +40,7 @@ def get_model(
         )
     elif isinstance(model_config, GPTNeoXConfig):
         return NeoxModelPipe(
+            args,
             model_config,
             loss_fn=cross_entropy_fn,
             topology=topo,

@@ -17,21 +17,49 @@ from fmengine.dataloader.constants import (
 
 def write_ckpt(outpath: Path, model: torch.nn.Module, model_config: transformers.AutoConfig, mp: int):
     loaded = model.state_dict()
-
     n_layers = model_config.num_hidden_layers
-    # embedding
-    sd = {"weight": loaded['model.embed_tokens.weight']}
-    torch.save(sd, os.path.join(outpath,  "layer_00-model_00-model_states.pt"))
-    # norm
-    sd = {f"weight": loaded['model.norm.weight']}
-    torch.save(sd, os.path.join(outpath, f"layer_{n_layers + 1}-model_00-model_states.pt"))
-    # lm head
-    sd = {f"weight": loaded['lm_head.weight']}
-    torch.save(sd, os.path.join(outpath, f"layer_{n_layers + 2}-model_00-model_states.pt"))
-    # decoder layers
-    for layer_i in range(n_layers):
-        sd = {nm.replace(f"model.layers.{layer_i}.", f""): weight for nm, weight in loaded.items() if nm.startswith(f"model.layers.{layer_i}.")}
-        torch.save(sd, os.path.join(outpath, f"layer_{layer_i + 1:02d}-model_00-model_states.pt"))
+    if mp == 1:
+        # embedding
+        sd = {
+            "weight": loaded['model.embed_tokens.weight']
+        }
+        torch.save(sd, os.path.join(outpath,  "layer_00-model_00-model_states.pt"))
+        # norm
+        sd = {"weight": loaded['model.norm.weight']}
+        torch.save(sd, os.path.join(outpath, f"layer_{n_layers+1:02d}-model_00-model_states.pt"))
+        # lm head
+        sd = {"weight": loaded['lm_head.weight']}
+        torch.save(sd, os.path.join(outpath, f"layer_{n_layers+2:02d}-model_00-model_states.pt"))
+        # decoder layers
+        for layer_i in range(n_layers):
+            sd = {nm.replace(f"model.layers.{layer_i}.", f""): weight for nm, weight in loaded.items() if nm.startswith(f"model.layers.{layer_i}.")}
+            torch.save(sd, os.path.join(outpath, f"layer_{layer_i+1:02d}-model_00-model_states.pt"))
+    else:
+        # embedding
+        for i_mp in range(mp):
+            vocab_size = loaded['model.embed_tokens.weight'].size(0) // mp
+            sd = {"weight": loaded['model.embed_tokens.weight'][i_mp*vocab_size: (i_mp+1)*vocab_size]}
+            torch.save(sd, os.path.join(outpath,  f"layer_00-model_{i_mp:02d}-model_states.pt"))
+
+            sd = {"weight": loaded['model.norm.weight']}
+            torch.save(sd, os.path.join(outpath, f"layer_{n_layers+1:02d}-model_{i_mp:02d}-model_states.pt"))
+
+            assert loaded['lm_head.weight'].size(0)  // mp == vocab_size
+            sd = {"weight": loaded['lm_head.weight'][i_mp*vocab_size: (i_mp+1)*vocab_size]}
+            torch.save(sd, os.path.join(outpath,  f"layer_{n_layers+2:02d}-model_{i_mp:02d}-model_states.pt"))
+
+            for layer_i in range(n_layers):
+                sd = {nm.replace(f"model.layers.{layer_i}.", f""): weight for nm, weight in loaded.items() if nm.startswith(f"model.layers.{layer_i}.")}
+                for n, p in sd.items():
+                    if 'gate_proj' in n or 'up_proj' in n \
+                      or 'q_proj' in n or 'k_proj' in n or 'v_proj' in n:
+                        dim = p.size(0) // mp
+                        sd[n] = p[i_mp*dim: (i_mp+1)*dim]
+
+                    elif 'down_proj' in n or 'o_proj' in n:
+                        dim = p.size(1) // mp
+                        sd[n] = p[:, i_mp*dim: (i_mp+1)*dim]
+                torch.save(sd, os.path.join(outpath, f"layer_{layer_i+1:02d}-model_{i_mp:02d}-model_states.pt"))
     
     model_state = {
         "dp_world_size": 1,
@@ -51,12 +79,6 @@ def from_hf(model_name_or_path: str, outdir: str, mp_size:int):
     tokenizer = transformers.AutoTokenizer.from_pretrained(model_name_or_path)
     model_config = transformers.AutoConfig.from_pretrained(model_name_or_path)
     model = transformers.AutoModelForCausalLM.from_pretrained(model_name_or_path)
-    if tokenizer.pad_token is None:
-        smart_tokenizer_and_embedding_resize(
-            special_tokens_dict = dict(pad_token=DEFAULT_PAD_TOKEN),
-            tokenizer=tokenizer,
-            model=model,
-        )
     tokenizer.add_special_tokens(
         {
             "eos_token": DEFAULT_EOS_TOKEN,
@@ -65,6 +87,13 @@ def from_hf(model_name_or_path: str, outdir: str, mp_size:int):
             "pad_token": DEFAULT_PAD_TOKEN,
         }
     )
+    if tokenizer.pad_token is None:
+        print("smart_tokenizer_and_embedding_resize")
+        smart_tokenizer_and_embedding_resize(
+            special_tokens_dict = dict(pad_token=DEFAULT_PAD_TOKEN),
+            tokenizer=tokenizer,
+            model=model,
+        )
     outpath = Path(outdir)
     if outpath.exists():
         print(f"Output directory {outpath} already exists. Exiting.")

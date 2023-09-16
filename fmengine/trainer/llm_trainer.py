@@ -23,7 +23,6 @@ class LLMTrainer:
         pretrain:bool = False,
         callbacks: list = []
     ) -> None:
-        
         self.ds_args = ds_args
         self.model = model
         self.dataloader = dataloader
@@ -32,7 +31,6 @@ class LLMTrainer:
         self.ds_config = ds_config
         self.pretrain = pretrain
         self.callbacks = callbacks
-
     def fit(
         self,
         steps: int,
@@ -75,7 +73,7 @@ class LLMTrainer:
             if self.ds_args.local_rank == 0:
                 for cb in self.callbacks:
                     cb(time.time() - start, step, loss, configs)
-                if step == profile_step:
+                if profile and step == profile_step:
                     prof.stop_profile()
                     prof.print_model_profile(profile_step=profile_step)
                     prof.end_profile()
