@@ -60,10 +60,10 @@ class LLMTrainer:
         engine.optimizer.refresh_fp32_params()
         if profile:
             prof = FlopsProfiler(self.model)
-        start = time.time()
         for step in range(1, steps + 1):
             if profile and step % profile_step == 0:
                 prof.start_profile()
+            start = time.time()
             loss = engine.train_batch(data_iter=self.dataloader)
             rank0_log({
                 "loss": loss.item(),
