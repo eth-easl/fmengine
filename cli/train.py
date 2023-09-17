@@ -1,3 +1,4 @@
+import os
 import torch
 import random
 import deepspeed
@@ -65,8 +66,11 @@ if __name__=="__main__":
     deepspeed.init_distributed(dist_backend="nccl")
 
     ds_args.world_size = torch.distributed.get_world_size()
+    if ds_args.local_rank is None:
+        ds_args.local_rank = int(os.environ["LOCAL_RANK"])
+    print(ds_args)
     torch.cuda.set_device(ds_args.local_rank)
-
+    
     ds_config = read_ds_config(ds_args.deepspeed_config)
     ds_args.deepspeed_config = munchify(ds_config)
     ds_args.use_cpu_initialization = False

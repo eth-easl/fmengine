@@ -147,7 +147,7 @@ def get_jsonl_dataloader(
         batch_size = batch_size * data_group_size,
         shuffle = shuffle,
         num_workers = num_workers,
-        pin_memory = True,
+        pin_memory = False,
         collate_fn = collator
     )
     return iter(deepspeed.utils.RepeatingLoader(train_data_loader))
