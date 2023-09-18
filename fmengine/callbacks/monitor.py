@@ -1,5 +1,6 @@
 from fmengine.utils import logger_rank0
 from fmengine.utils.monitor import rank0_log
+
 def speed_monitor(elapsed_time, current_step, current_loss, configs, engine):
     if current_step % configs['trainer']['log_steps'] == 0:
         logger_rank0.info(f"Step={current_step:>6}, Loss={current_loss.item():.4f}")
