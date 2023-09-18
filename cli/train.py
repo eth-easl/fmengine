@@ -12,10 +12,10 @@ from fmengine.trainer.llm_trainer import LLMTrainer
 from fmengine.modeling._common.model import get_model
 from fmengine.dataloader.jsonl_loader import get_jsonl_dataloader
 
-from fmengine.utils.megatron import initialize_megatron
-from fmengine.callbacks.monitor import speed_monitor
-from fmengine.modeling.llama.patching import patch_llama
 from munch import munchify
+from fmengine.utils.megatron import initialize_megatron
+from fmengine.modeling.llama.patching import patch_llama
+from fmengine.callbacks.monitor import speed_monitor, wandb_monitor
 
 def read_ds_config(config_path):
     config = jload(config_path)
@@ -137,7 +137,7 @@ if __name__=="__main__":
         init_ckpt = model_args.init_ckpt,
         save_dir=trainer_args.output_dir,
         pretrain = trainer_args.pretrain,
-        callbacks = [speed_monitor]
+        callbacks = [speed_monitor, wandb_monitor]
     )
     trainer.fit(
         steps = trainer_args.train_steps,
