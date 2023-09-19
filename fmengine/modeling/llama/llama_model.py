@@ -30,15 +30,13 @@ class ParallelTransformerLayerPipe(LlamaDecoderLayer):
             mark_only_lora_as_trainable(self, lora_config.bias)
 
         tensor_parallel_enabled = args.model_parallel_size > 1
-        
-        if tensor_parallel_enabled:
-            self.self_attn =  TensorParallelLlamaAttention(args, config)
-            self.mlp = TensorParallelLlamaMLP(
-                args, 
-                config.hidden_size, 
-                config.intermediate_size, 
-                config.hidden_act
-            )
+        self.self_attn =  TensorParallelLlamaAttention(args, config)
+        self.mlp = TensorParallelLlamaMLP(
+            args, 
+            config.hidden_size, 
+            config.intermediate_size, 
+            config.hidden_act
+        )
         
         def mlp_res(hidden_states: torch.Tensor) -> torch.Tensor:
             # Fully Connected

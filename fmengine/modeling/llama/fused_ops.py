@@ -46,7 +46,9 @@ def fused_rotary_emb_llama_flash_attn_forward(
     value_states = self.v_proj(hidden_states)[0].view(
         bsz, q_len, -1, self.head_dim
     )
+
     q = query_states
+
     kv = torch.stack([key_states, value_states], dim=2)
     q, kv = self.rotary_emb(q, kv)
 

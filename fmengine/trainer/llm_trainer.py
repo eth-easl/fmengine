@@ -3,10 +3,9 @@ import wandb
 import deepspeed
 from typing import Dict
 from deepspeed.pipe import PipelineModule
-from fmengine.utils import logger_rank0
-from fmengine.utils.monitor import rank0_init_wandb, rank0_log
 from deepspeed.profiling.flops_profiler import FlopsProfiler
-from torch.profiler import ProfilerActivity, profile as torch_profile
+from fmengine.utils import logger_rank0
+from fmengine.utils.monitor import rank0_init_wandb
 
 class LLMTrainer:
     """
@@ -31,6 +30,7 @@ class LLMTrainer:
         self.ds_config = ds_config
         self.pretrain = pretrain
         self.callbacks = callbacks
+    
     def fit(
         self,
         steps: int,
@@ -60,19 +60,17 @@ class LLMTrainer:
         engine.optimizer.refresh_fp32_params()
         if profile:
             prof = FlopsProfiler(self.model)
+        
         for step in range(1, steps + 1):
             if profile and step % profile_step == 0:
                 prof.start_profile()
             start = time.time()
-            loss = engine.train_batch(data_iter=self.dataloader)
-            rank0_log({
-                "loss": loss.item(),
-                "lr": engine.optimizer.param_groups[0]["lr"],
-                "step": step,
-            })
+            loss = engine.train_batch(
+                data_iter=self.dataloader
+            )
+            end = time.time()
             if self.ds_args.local_rank == 0:
-                for cb in self.callbacks:
-                    cb(time.time() - start, step, loss, configs)
+                [cb(end-start, step, loss, configs, engine) for cb in self.callbacks]
                 if profile and step == profile_step:
                     prof.stop_profile()
                     prof.print_model_profile(profile_step=profile_step)
@@ -80,7 +78,6 @@ class LLMTrainer:
             if step % save_per_steps == 0:
                 logger_rank0.info(f"Saving at step {step}")
                 engine.save_checkpoint(self.save_dir)
-        
         logger_rank0.info("Finished training... saving checkpoints & closing monitoring")
         engine.save_checkpoint(self.save_dir)
         wandb.finish()
