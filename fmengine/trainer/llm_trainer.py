@@ -1,4 +1,3 @@
-import time
 import wandb
 import deepspeed
 from typing import Dict
@@ -6,6 +5,7 @@ from deepspeed.pipe import PipelineModule
 from deepspeed.profiling.flops_profiler import FlopsProfiler
 from fmengine.utils import logger_rank0
 from fmengine.utils.monitor import rank0_init_wandb
+from timeit import default_timer as timer
 
 class LLMTrainer:
     """
@@ -64,11 +64,11 @@ class LLMTrainer:
         for step in range(1, steps + 1):
             if profile and step % profile_step == 0:
                 prof.start_profile()
-            start = time.time()
+            start = timer()
             loss = engine.train_batch(
                 data_iter=self.dataloader
             )
-            end = time.time()
+            end = timer()
             if self.ds_args.local_rank == 0:
                 [cb(end-start, step, loss, configs, engine) for cb in self.callbacks]
                 if profile and step == profile_step:
