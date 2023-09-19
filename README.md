@@ -17,9 +17,8 @@ For now, FMEngine supports two families of models: [GPT-NeoX](https://github.com
 | OpenLlama-3B | tba | tba | tba | tba | [Download](https://drive.google.com/file/d/1EYTaPXoBrAk4OTXqNug2N62poCCsv0Ru/view?usp=drive_link) | Yes |
 | Llama-2-70b | tba | tba | tba | tba | tba | Yes |
 
-
 ## Acknowledgement
 
-FMEngine is primarily implemented at the [Efficient Architecture and Systems Labs](https://systems.ethz.ch/research/easl.html).
+FMEngine is primarily implemented and maintained by the [Efficient Architecture and Systems Labs @ ETH Zurich](https://systems.ethz.ch/research/easl.html).
 
-![https://systems.ethz.ch/research/easl.html](https://systems.ethz.ch/research/easl/_jcr_content/par/textimage_842607556/image.imageformat.textsingle.745562631.png)
+<a href="https://systems.ethz.ch/research/easl.html"><img src="https://systems.ethz.ch/research/easl/_jcr_content/par/textimage_842607556/image.imageformat.textsingle.745562631.png" width="120"></a>
