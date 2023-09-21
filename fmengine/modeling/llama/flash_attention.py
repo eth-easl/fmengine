@@ -59,9 +59,9 @@ def llama_flash_attn_forward(
     """
     bsz, q_len, _ = hidden_states.size()
 
-    query_states = self.q_proj(hidden_states).view(bsz, q_len, self.num_heads, self.head_dim).transpose(1, 2)
-    key_states = self.k_proj(hidden_states).view(bsz, q_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
-    value_states = self.v_proj(hidden_states).view(bsz, q_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
+    query_states = self.q_proj(hidden_states)[0].view(bsz, q_len, self.num_heads, self.head_dim).transpose(1, 2)
+    key_states = self.k_proj(hidden_states)[0].view(bsz, q_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
+    value_states = self.v_proj(hidden_states)[0].view(bsz, q_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
     # [bsz, q_len, nh, hd]
     # [bsz, nh, q_len, hd]
 
@@ -115,8 +115,10 @@ def llama_flash_attn_forward(
             softmax_scale=None, causal=True
         )
         output = rearrange(pad_input(rearrange(output_unpad, 'nnz h d -> nnz (h d)'), indices, bsz, q_len), 'b s (h d) -> b s h d', h=nheads)
-    return self.o_proj(rearrange(output,
-                                    'b s h d -> b s (h d)')), None, None
+
+    attn_output = self.o_proj(rearrange(output,
+                                    'b s h d -> b s (h d)'))[0]
+    return attn_output, None, None
 
 # Disable the transformation of the attention mask in LlamaModel as the flash attention
 # requires the attention mask to be the same as the key_padding_mask

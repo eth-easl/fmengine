@@ -29,7 +29,6 @@ class ParallelTransformerLayerPipe(LlamaDecoderLayer):
             self.mlp = LoRALlamaMLP(config, lora_config)
             mark_only_lora_as_trainable(self, lora_config.bias)
 
-        tensor_parallel_enabled = args.model_parallel_size > 1
         self.self_attn =  TensorParallelLlamaAttention(args, config)
         self.mlp = TensorParallelLlamaMLP(
             args, 
@@ -37,7 +36,7 @@ class ParallelTransformerLayerPipe(LlamaDecoderLayer):
             config.intermediate_size, 
             config.hidden_act
         )
-        
+
         def mlp_res(hidden_states: torch.Tensor) -> torch.Tensor:
             # Fully Connected
             residual = hidden_states
@@ -50,7 +49,7 @@ class ParallelTransformerLayerPipe(LlamaDecoderLayer):
             residual = hidden_states
             hidden_states = self.input_layernorm(hidden_states)
             # Self Attention
-            hidden_states,_,_ = self.self_attn(
+            hidden_states, _ ,_ = self.self_attn(
                 hidden_states=hidden_states,
                 attention_mask=None,
             )
