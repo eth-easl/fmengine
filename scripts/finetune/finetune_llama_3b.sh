@@ -2,7 +2,7 @@ torchrun --nnodes 1 --nproc-per-node 4 --node_rank 0 \
  cli/train.py \
     --output_dir /workspace/.cache/models \
     --init_ckpt /pretrained/open_llama_3b_v2 \
-    --data_path /datasets/prompt.jsonl \
+    --data_path /datasets/data.jsonl \
     --max_seq_len 2048 \
     --train_steps 10000 \
     --eval_steps 10 \

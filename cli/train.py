@@ -11,7 +11,6 @@ from fmengine.utils import jload
 from fmengine.trainer.llm_trainer import LLMTrainer
 from fmengine.modeling._common.model import get_model
 from fmengine.dataloader.jsonl_loader import get_jsonl_dataloader
-
 from munch import munchify
 from fmengine.utils.megatron import initialize_megatron
 from fmengine.modeling.llama.patching import patch_llama
