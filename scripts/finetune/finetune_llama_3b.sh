@@ -7,7 +7,7 @@ torchrun --nnodes 1 --nproc-per-node 4 --node_rank 0 \
     --train_steps 10000 \
     --eval_steps 10 \
     --save_steps 1000 \
-    --log_steps 10 \
+    --log_steps 50 \
     --pipe_parallel_size 4 \
     --model_parallel_size 1 \
     --use_flash_attn true \
