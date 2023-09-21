@@ -87,7 +87,7 @@ if __name__=="__main__":
     }
 
     data_args.num_workers = 2 * ds_args.world_size // ds_args.pipe_parallel_size // ds_args.model_parallel_size
-    
+
     data_args.batch_size = ds_config.get("train_micro_batch_size_per_gpu", 1)
     activation_checkpointing_config = ds_config.pop("activation_checkpointing", None)
 

@@ -66,7 +66,8 @@ class JSONLDataset(IterableDataset):
                  data,
                  tokenizer: Tokenizer,
                  seq_length: int, 
-                 doc_sep='\n'
+                 doc_sep='\n',
+                 field='text',
                 ) -> None:
         self.data = data
         self.tokenizer = tokenizer
@@ -95,7 +96,7 @@ class JSONLDataset(IterableDataset):
             try:
                 for x in self.data:
                     self.iter_count += 1
-                    curr_tokens = self.tokenizer(self.doc_sep + x['text'])['input_ids']
+                    curr_tokens = self.tokenizer(self.doc_sep + x[self.field])['input_ids']
                     buffer_tokens += curr_tokens
                     while len(buffer_tokens) >= self.seq_length:
                         tokens = buffer_tokens[:self.seq_length]
@@ -118,30 +119,29 @@ class JSONLDataset(IterableDataset):
         return self.it
 
 def get_jsonl_dataloader(
-            path_to_jsonl_file: str,
-            tokenizer: Tokenizer,
-            num_workers = 0,
-            state_dict = None,
-            streaming = False,
-            args = None
-        ):
+        path_to_jsonl_file: str,
+        tokenizer: Tokenizer,
+        num_workers = 0,
+        state_dict = None,
+        streaming = False,
+        args = None
+    ):
     seed = args.get('seed', 3407)
     seq_length = args.get('seq_length', 1024)
     batch_size = args.get('batch_size', 1)
     data_group_size = args.get('data_group_size', 1)
     shuffle = args.get('shuffle', False)
     data = load_dataset(
-            'json',
-            split='train',
-            data_files=path_to_jsonl_file,
-            streaming=streaming
-        ).shuffle(seed=seed).with_format('torch')
+        'json',
+        split='train',
+        data_files=path_to_jsonl_file,
+        streaming=streaming
+    ).shuffle(seed=seed).with_format('torch')
     
     stream_dataset = JSONLDataset(data, tokenizer, seq_length)
     collator = AutoregressiveLanguageModelDataCollator(tokenizer)
     if state_dict:
         stream_dataset.load_state_dict(state_dict)
-
     train_data_loader = torch.utils.data.DataLoader(
         stream_dataset,
         batch_size = batch_size * data_group_size,
