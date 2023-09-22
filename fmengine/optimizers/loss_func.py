@@ -3,9 +3,11 @@ import torch
 
 try:
     from flash_attn.losses.cross_entropy import CrossEntropyLoss
+
     print("⚡⚡⚡ [Flash Attention] fused cross entropy enabled")
 except ImportError:
     CrossEntropyLoss = torch.nn.CrossEntropyLoss
+
 
 def cross_entropy_fn(outputs, labels):
     # unpack

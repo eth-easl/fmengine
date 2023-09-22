@@ -249,6 +249,7 @@ class ParallelRelativePositionBias(torch.nn.Module):
         self.sparse = False
         self._weight = None
         self.model_parallel_size = get_model_parallel_world_size()
+
         self.model_parallel_rank = get_model_parallel_rank()
 
         # Divide the weight matrix along the heads dimension.

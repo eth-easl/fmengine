@@ -26,18 +26,17 @@ class ParallelTransformerLayerPipe(LlamaDecoderLayer):
         args,
         config: LlamaConfig,
         activation_checkpointing=False,
-        lora_config: LoRAConfig = None,
         layer_id=0,
     ):
         super().__init__(config)
         self.activation_checkpointing = activation_checkpointing
-        self.lora_config = lora_config
         self.layer_id = layer_id
         if "lora" in args.deepspeed_config:
             self.self_attn = TensorParallelLoraAttention(args, config)
+            print(f"🌴 Low Rank Adapters Enabled: r={args.deepspeed_config.lora.r}")
         else:
             self.self_attn = TensorParallelLlamaAttention(args, config)
-        
+
         self.mlp = TensorParallelLlamaMLP(
             args, config.hidden_size, config.intermediate_size, config.hidden_act
         )
@@ -95,7 +94,6 @@ class LlamaModelPipe(PipelineModule):
         args,
         model_config,
         activation_checkpointing_config,
-        lora_config: LoRAConfig,
         **kwargs,
     ):
         if activation_checkpointing_config:
@@ -154,7 +152,6 @@ class LlamaModelPipe(PipelineModule):
                         args,
                         model_config,
                         activation_checkpointing_config is not None,
-                        lora_config=lora_config,
                         layer_id=layer_id,
                     )
                     for layer_id in range(model_config.num_hidden_layers)
@@ -168,5 +165,3 @@ class LlamaModelPipe(PipelineModule):
             ],
             **kwargs,
         )
-        if lora_config:
-            print(f"🌴 Low Rank Adapters Enabled: r={lora_config.r}")

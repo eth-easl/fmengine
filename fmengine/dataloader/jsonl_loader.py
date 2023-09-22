@@ -66,6 +66,7 @@ def get_jsonl_dataloader(jsonl_path, tokenizer, args):
     ctx_length = args.get("seq_length", 1024)
     streaming = args.get("streaming", False)
     seed = args.get("seed", 3407)
+    batch_size = args.get("batch_size", 1)
 
     def tokenize(examples):
         examples = tokenizer(examples["text"], truncation=True, max_length=ctx_length)
@@ -88,9 +89,6 @@ def get_jsonl_dataloader(jsonl_path, tokenizer, args):
     ).with_format("torch")
 
     dataloader = DataLoader(
-        raw_datasets,
-        shuffle=False,
-        collate_fn=data_collator,
-        batch_size=1,
+        raw_datasets, shuffle=False, collate_fn=data_collator, batch_size=batch_size
     )
     return iter(deepspeed.utils.RepeatingLoader(dataloader))

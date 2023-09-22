@@ -34,6 +34,7 @@ class LLMTrainer:
         self.pretrain = pretrain
         self.callbacks = callbacks
         self.load_module_strict = load_module_strict
+
     def fit(
         self,
         steps: int,
@@ -57,7 +58,7 @@ class LLMTrainer:
         if not self.pretrain:
             engine.load_checkpoint(
                 self.init_ckpt,
-                load_module_only=True, 
+                load_module_only=True,
                 load_optimizer_states=False,
                 load_module_strict=self.load_module_strict,
             )

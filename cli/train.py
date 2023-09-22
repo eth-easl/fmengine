@@ -78,7 +78,7 @@ if __name__ == "__main__":
     ds_args.world_size = torch.distributed.get_world_size()
     if ds_args.local_rank is None:
         ds_args.local_rank = int(os.environ["LOCAL_RANK"])
-    print(ds_args)
+
     torch.cuda.set_device(ds_args.local_rank)
 
     ds_config = read_ds_config(ds_args.deepspeed_config)
@@ -130,27 +130,28 @@ if __name__ == "__main__":
             "batch_size": data_args.batch_size,
         },
     )
-    
+
     _tmp = torch.nn.Linear.reset_parameters
     torch.nn.Linear.reset_parameters = lambda x: None
     model = get_model(model_config, ds_args, activation_checkpointing_config)
-    
+
     if ds_config.get("precision", "bfloat16"):
         print("Using bfloat16")
         model = model.bfloat16()
-    for n, p in model.named_parameters():
-        if 'lora' in n.lower():
-            p.requires_grad_(True)
-        else:
-            p.requires_grad_(False)
-    torch.nn.Linear.reset_parameters = _tmp
-    
-    ds_config["data_path"] = data_args.data_path
-    
     if "lora" in ds_config:
-        load_module_strict=False
+        for n, p in model.named_parameters():
+            if "lora" in n.lower():
+                p.requires_grad_(True)
+            else:
+                p.requires_grad_(False)
+    torch.nn.Linear.reset_parameters = _tmp
+
+    ds_config["data_path"] = data_args.data_path
+
+    if "lora" in ds_config:
+        load_module_strict = False
     else:
-        load_module_strict=True
+        load_module_strict = True
 
     trainer = LLMTrainer(
         model=model,
