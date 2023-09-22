@@ -60,5 +60,10 @@
         "top_modules": 1,
         "detailed": true,
         "output_file": null
+    },
+    "lora": {
+        "r": 16,
+        "lora_alpha": 0.5,
+        "lora_dropout": 0
     }
 }

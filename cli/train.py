@@ -136,6 +136,12 @@ if __name__ == "__main__":
     torch.nn.Linear.reset_parameters = _tmp
 
     ds_config["data_path"] = data_args.data_path
+    
+    if "lora" in ds_config:
+        load_module_strict=False
+    else:
+        load_module_strict=True
+
     trainer = LLMTrainer(
         model=model,
         ds_args=ds_args,
@@ -144,6 +150,7 @@ if __name__ == "__main__":
         init_ckpt=model_args.init_ckpt,
         save_dir=trainer_args.output_dir,
         pretrain=trainer_args.pretrain,
+        load_module_strict=load_module_strict,
         callbacks=[speed_monitor, wandb_monitor],
     )
     trainer.fit(

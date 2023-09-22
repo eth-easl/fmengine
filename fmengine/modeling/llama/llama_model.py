@@ -12,7 +12,7 @@ from fmengine.modeling._common._nn import (
     ParallelEmbeddingPipe,
     ParallelLMLayerPipe,
 )
-from fmengine.modeling._common.lora import LoRAConfig, mark_only_lora_as_trainable
+from fmengine.modeling._common.lora import LoRAConfig
 from fmengine.modeling.llama.lora import TensorParallelLoraAttention
 from fmengine.modeling.llama.tensor_parallel import (
     TensorParallelLlamaAttention,
@@ -33,12 +33,13 @@ class ParallelTransformerLayerPipe(LlamaDecoderLayer):
         self.activation_checkpointing = activation_checkpointing
         self.lora_config = lora_config
         self.layer_id = layer_id
-        print(args)
-        self.self_attn = TensorParallelLlamaAttention(args, config)
+        if "lora" in args.deepspeed_config:
+            self.self_attn = TensorParallelLoraAttention(args, config)
+        else:
+            self.self_attn = TensorParallelLlamaAttention(args, config)
         self.mlp = TensorParallelLlamaMLP(
             args, config.hidden_size, config.intermediate_size, config.hidden_act
         )
-
         def mlp_res(hidden_states: torch.Tensor) -> torch.Tensor:
             # Fully Connected
             residual = hidden_states
@@ -50,7 +51,6 @@ class ParallelTransformerLayerPipe(LlamaDecoderLayer):
         def attn_res(hidden_states: torch.Tensor) -> torch.Tensor:
             residual = hidden_states
             hidden_states = self.input_layernorm(hidden_states)
-            # Self Attention
             hidden_states, _, _ = self.self_attn(
                 hidden_states=hidden_states,
                 attention_mask=None,

@@ -37,7 +37,6 @@ def fused_rotary_emb_llama_flash_attn_forward(
     attention_mask: [bsz, q_len]
     """
     bsz, q_len, _ = hidden_states.size()
-
     query_states = self.q_proj(hidden_states)[0].view(bsz, q_len, -1, self.head_dim)
     key_states = self.k_proj(hidden_states)[0].view(bsz, q_len, -1, self.head_dim)
     value_states = self.v_proj(hidden_states)[0].view(bsz, q_len, -1, self.head_dim)
