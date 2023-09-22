@@ -1,9 +1,9 @@
 import math
 import torch
 import torch.nn as nn
-from fmengine.modeling.llama.llama_model import TensorParallelLlamaAttention
 import fmengine.mpu as mpu
 import torch.nn.functional as F
+from transformers.models.llama.modeling_llama import LlamaAttention
 
 
 class LoRARowParallelLinear(mpu.ColumnParallelLinear):
@@ -78,3 +78,56 @@ class LoRARowParallelLinear(mpu.ColumnParallelLinear):
         x = F.linear(x, self.lora_B)
         x = x * self.scaling
         return (pretrained + x,)
+
+
+class TensorParallelLoraAttention(LlamaAttention):
+    def __init__(
+        self,
+        args,
+        config,
+    ):
+        super().__init__(config)
+        self.q_proj = LoRARowParallelLinear(
+            args=args,
+            input_size=self.hidden_size,
+            output_size=self.num_heads * self.head_dim,
+            gather_output=False,
+            init_method=nn.init.xavier_normal_,
+            skip_bias_add=True,
+            bias=False,
+            r=args.deepspeed_config.lora.r,
+            lora_alpha=args.deepspeed_config.lora.lora_alpha,
+            lora_dropout=args.deepspeed_config.lora.lora_dropout,
+        )
+
+        self.k_proj = mpu.ColumnParallelLinear(
+            args=args,
+            input_size=self.hidden_size,
+            output_size=self.num_key_value_heads * self.head_dim,
+            gather_output=False,
+            init_method=nn.init.xavier_normal_,
+            skip_bias_add=True,
+            bias=False,
+        )
+        self.v_proj = LoRARowParallelLinear(
+            args=args,
+            input_size=self.hidden_size,
+            output_size=self.num_key_value_heads * self.head_dim,
+            gather_output=False,
+            init_method=nn.init.xavier_normal_,
+            skip_bias_add=True,
+            bias=False,
+            r=args.deepspeed_config.lora.r,
+            lora_alpha=args.deepspeed_config.lora.lora_alpha,
+            lora_dropout=args.deepspeed_config.lora.lora_dropout,
+        )
+        self.o_proj = mpu.RowParallelLinear(
+            args=args,
+            input_size=self.num_heads * self.head_dim,
+            output_size=self.hidden_size,
+            input_is_parallel=True,
+            init_method=nn.init.xavier_normal_,
+            skip_bias_add=True,
+            parallel_output=False,  # True if gpt-j-parallel
+            bias=False,
+        )

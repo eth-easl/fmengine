@@ -13,7 +13,7 @@ from fmengine.modeling._common._nn import (
     ParallelLMLayerPipe,
 )
 from fmengine.modeling._common.lora import LoRAConfig, mark_only_lora_as_trainable
-from fmengine.modeling.llama.lora import LoRALlamaMLP, LoRALlamaAttention
+from fmengine.modeling.llama.lora import TensorParallelLoraAttention
 from fmengine.modeling.llama.tensor_parallel import (
     TensorParallelLlamaAttention,
     TensorParallelLlamaMLP,
@@ -33,11 +33,7 @@ class ParallelTransformerLayerPipe(LlamaDecoderLayer):
         self.activation_checkpointing = activation_checkpointing
         self.lora_config = lora_config
         self.layer_id = layer_id
-        if self.lora_config:
-            self.self_attn = LoRALlamaAttention(config, lora_config)
-            self.mlp = LoRALlamaMLP(config, lora_config)
-            mark_only_lora_as_trainable(self, lora_config.bias)
-
+        print(args)
         self.self_attn = TensorParallelLlamaAttention(args, config)
         self.mlp = TensorParallelLlamaMLP(
             args, config.hidden_size, config.intermediate_size, config.hidden_act
