@@ -11,10 +11,10 @@ from fmengine.utils import jload
 from fmengine.trainer.llm_trainer import LLMTrainer
 from fmengine.modeling._common.model import get_model
 from fmengine.dataloader.jsonl_loader import get_jsonl_dataloader
-
 from munch import munchify
 from fmengine.utils.megatron import initialize_megatron
 from fmengine.modeling.llama.patching import patch_llama
+from fmengine.modeling.neox.flash_attention import replace_neox_attn_with_flash_attn
 from fmengine.callbacks.monitor import speed_monitor, wandb_monitor
 
 def read_ds_config(config_path):
@@ -86,7 +86,7 @@ if __name__=="__main__":
     }
 
     data_args.num_workers = 2 * ds_args.world_size // ds_args.pipe_parallel_size // ds_args.model_parallel_size
-    
+
     data_args.batch_size = ds_config.get("train_micro_batch_size_per_gpu", 1)
     activation_checkpointing_config = ds_config.pop("activation_checkpointing", None)
 
@@ -100,7 +100,7 @@ if __name__=="__main__":
         model_args.use_fused_ops,
         ds_args
     )
-
+    replace_neox_attn_with_flash_attn()
     tokenizer = transformers.AutoTokenizer.from_pretrained(
         model_args.init_ckpt,
         model_max_length=trainer_args.max_seq_len,

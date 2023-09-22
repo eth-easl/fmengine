@@ -13,3 +13,4 @@ scripts/hostfiles
 *.sif
 .triton
 **/*/*_slurm.sh
+my_scripts/

@@ -60,9 +60,8 @@ class LLMTrainer:
         engine.optimizer.refresh_fp32_params()
         if profile:
             prof = FlopsProfiler(self.model)
-        
         for step in range(1, steps + 1):
-            if profile and step % profile_step == 0:
+            if profile and step == profile_step:
                 prof.start_profile()
             start = timer()
             loss = engine.train_batch(
@@ -75,6 +74,7 @@ class LLMTrainer:
                     prof.stop_profile()
                     prof.print_model_profile(profile_step=profile_step)
                     prof.end_profile()
+                    del prof
             if step % save_per_steps == 0:
                 logger_rank0.info(f"Saving at step {step}")
                 engine.save_checkpoint(self.save_dir)

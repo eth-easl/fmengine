@@ -1,26 +1,19 @@
 {
     "train_micro_batch_size_per_gpu": 1,
     "train_batch_size": 32,
-    "steps_per_print": 100,
+    "steps_per_print": 1,
     "gradient_clipping": 1.0,
     "lr-decay-style": "cosine",
     "warmup": 0.1,
+    "precision": "bfloat16",
     "bf16": {
-        "enabled": false
-    },
-    "fp16": {
-        "enabled": true,
-        "loss_scale": 0,
-        "loss_scale_window": 1000,
-        "initial_scale_power": 12,
-        "hysteresis": 2,
-        "min_loss_scale": 1
-    },
-    "autotuning": {
         "enabled": true
     },
+    "fp16": {
+        "enabled": false
+    },
     "data_types": { 
-        "grad_accum_dtype": "fp16" 
+        "grad_accum_dtype": "fp32" 
     },
     "zero_optimization": {
         "stage": 0,
@@ -46,22 +39,22 @@
         "type": "WarmupLR",
         "params": {
             "warmup_min_lr": 1e-6,
-            "warmup_max_lr": 1e-5,
+            "warmup_max_lr": 5e-5,
             "warmup_num_steps": 50
         }
     },
     "min_lr": 5e-7,
     "activation_checkpointing": {
-        "partition_activations": false,
+        "partition_activations": true,
         "cpu_checkpointing": false,
         "contiguous_memory_optimization": false,
         "number_checkpoints": null,
         "synchronize_checkpoint_boundary": false,
         "profile": false
     },
-    "wall_clock_breakdown": true,
+    "wall_clock_breakdown": false,
     "flops_profiler": {
-        "enabled": true,
+        "enabled": false,
         "profile_step": 1,
         "module_depth": -1,
         "top_modules": 1,

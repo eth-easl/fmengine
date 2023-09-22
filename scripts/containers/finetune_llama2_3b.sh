@@ -3,8 +3,8 @@ singularity run --nv \
 --bind /mnt/scratch/xiayao/cache/HF/hub:/.hf_cache \
 --env HF_HOME=/.hf_cache \
 --bind /mnt/scratch/xiayao/cache/pretrained_weights:/pretrained \
---bind /mnt/scratch/xiayao/cache/datasets:/datasets \
+--bind .cache/data/dialogs.jsonl:/datasets/data.jsonl \
 --bind $PWD:/workspace \
 --pwd /workspace \
 fmsys.sif \
-bash scripts/finetune/finetune_llama_1b_torchrun.sh
+bash scripts/finetune/finetune_llama_3b.sh

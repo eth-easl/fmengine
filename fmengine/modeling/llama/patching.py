@@ -10,11 +10,12 @@ def replace_llama_attn_with_fused_ops():
 def replace_llama_attn_with_flash_attn():
     from .flash_attention import prepare_decoder_attention_mask
     from .flash_attention import llama_flash_attn_forward
-    transformers.models.llama.modeling_llama.LlamaModel._prepare_decoder_attention_mask = prepare_decoder_attention_mask
- 
+    transformers.models.llama.modeling_llama.LlamaModel._prepare_decoder_attention_mask = prepare_decoder_attention_mask 
     transformers.models.llama.modeling_llama.LlamaAttention.forward = llama_flash_attn_forward
 
 def patch_llama(enable_flash_attention: bool, enable_fused_ops: bool, args):
+    if enable_fused_ops and not enable_flash_attention:
+        raise ValueError("use_fused_ops requires use_flash_attention to be True")
     if enable_flash_attention:
         replace_llama_attn_with_flash_attn()
     if enable_fused_ops:
