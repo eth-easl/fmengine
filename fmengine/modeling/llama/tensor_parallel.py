@@ -85,6 +85,7 @@ class TensorParallelLlamaAttention(LlamaAttention):
             input_is_parallel=True,
             init_method=nn.init.xavier_normal_,
             skip_bias_add=True,
-            parallel_output=no_reduce,  # True if gpt-j-parallel
+            # True if gpt-j-parallel
+            parallel_output=no_reduce,  
             bias=False,
         )

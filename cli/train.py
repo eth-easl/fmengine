@@ -130,11 +130,21 @@ if __name__ == "__main__":
             "batch_size": data_args.batch_size,
         },
     )
+    
     _tmp = torch.nn.Linear.reset_parameters
     torch.nn.Linear.reset_parameters = lambda x: None
     model = get_model(model_config, ds_args, activation_checkpointing_config)
+    
+    if ds_config.get("precision", "bfloat16"):
+        print("Using bfloat16")
+        model = model.bfloat16()
+    for n, p in model.named_parameters():
+        if 'lora' in n.lower():
+            p.requires_grad_(True)
+        else:
+            p.requires_grad_(False)
     torch.nn.Linear.reset_parameters = _tmp
-
+    
     ds_config["data_path"] = data_args.data_path
     
     if "lora" in ds_config:
@@ -155,7 +165,7 @@ if __name__ == "__main__":
     )
     trainer.fit(
         steps=trainer_args.train_steps,
-        profile=True,
+        profile=ds_args.deepspeed_config.flops_profiler.enabled,
         save_per_steps=trainer_args.save_steps,
         configs=merged_configs,
     )

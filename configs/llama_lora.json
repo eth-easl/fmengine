@@ -62,8 +62,8 @@
         "output_file": null
     },
     "lora": {
-        "r": 16,
-        "lora_alpha": 0.5,
-        "lora_dropout": 0
+        "r": 8,
+        "lora_alpha": 1,
+        "lora_dropout": 0.0
     }
 }
