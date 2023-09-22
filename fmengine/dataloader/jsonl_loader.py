@@ -9,6 +9,7 @@ from fmengine.utils import logger_rank0 as logger
 from torch.utils.data.dataloader import DataLoader
 from typing import Dict, List
 
+
 @dataclass
 class AutoregressiveLanguageModelDataCollator(object):
     """
@@ -17,7 +18,7 @@ class AutoregressiveLanguageModelDataCollator(object):
 
     tokenizer: transformers.PreTrainedTokenizer
     ignore_index: int = -100
-    
+
     def get_attn_mask(self, input_ids):
         """
         Get triangular attention mask for a given sequence length / device.
@@ -59,44 +60,37 @@ class AutoregressiveLanguageModelDataCollator(object):
             labels,
         )
 
+
 def get_jsonl_dataloader(jsonl_path, tokenizer, args):
     data_collator = AutoregressiveLanguageModelDataCollator(tokenizer)
-    ctx_length = args.get('seq_length', 1024)
-    streaming = args.get('streaming', False)
-    seed = args.get('seed', 3407)
+    ctx_length = args.get("seq_length", 1024)
+    streaming = args.get("streaming", False)
+    seed = args.get("seed", 3407)
 
     def tokenize(examples):
         examples = tokenizer(examples["text"])
-        concatenated_examples = {
-            k: list(chain(*examples[k]))
-            for k in examples.keys()
-        }
+        concatenated_examples = {k: list(chain(*examples[k])) for k in examples.keys()}
         total_length = len(concatenated_examples[list(examples.keys())[0]])
         if total_length >= ctx_length:
             total_length = (total_length // ctx_length) * ctx_length
         result = {
-            k: [t[i: i + ctx_length]
-                for i in range(0, total_length, ctx_length)]
+            k: [t[i : i + ctx_length] for i in range(0, total_length, ctx_length)]
             for k, t in concatenated_examples.items()
         }
         return result
 
     raw_datasets = load_dataset(
-        'json',
-        split='train',
-        data_files=jsonl_path,
-        streaming=streaming
+        "json", split="train", data_files=jsonl_path, streaming=streaming
     ).shuffle(seed=seed)
 
     raw_datasets = raw_datasets.map(
-        tokenize,
-        batched=True,
-        remove_columns=raw_datasets.column_names
-    ).with_format('torch')
+        tokenize, batched=True, remove_columns=raw_datasets.column_names
+    ).with_format("torch")
 
-    dataloader = DataLoader(raw_datasets,
-                            shuffle=False,
-                            collate_fn=data_collator,
-                            batch_size=1,
-                            )
+    dataloader = DataLoader(
+        raw_datasets,
+        shuffle=False,
+        collate_fn=data_collator,
+        batch_size=1,
+    )
     return iter(deepspeed.utils.RepeatingLoader(dataloader))

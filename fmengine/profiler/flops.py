@@ -32,14 +32,41 @@ GPU_AVAILABLE_FLOPS = {
         "bf16-mixed": 312e12,
     },
     # source: https://www.nvidia.com/content/dam/en-zz/Solutions/Data-Center/a10/pdf/a10-datasheet.pdf
-    "a10g": {"32-true": 31.2e12, "16-true": 125e12, "16-mixed": 125e12, "bf16-true": 125e12, "bf16-mixed": 125e12},
+    "a10g": {
+        "32-true": 31.2e12,
+        "16-true": 125e12,
+        "16-mixed": 125e12,
+        "bf16-true": 125e12,
+        "bf16-mixed": 125e12,
+    },
     # source: https://images.nvidia.com/content/technologies/volta/pdf/volta-v100-datasheet-update-us-1165301-r5.pdf
-    "v100-sxm": {"64-true": 7.8e12, "32-true": 15.7e12, "16-true": 125e12, "16-mixed": 125e12},
-    "v100-pcie": {"64-true": 7e12, "32-true": 14e12, "16-true": 112e12, "16-mixed": 112e12},
-    "v100s-pcie": {"64-true": 8.2e12, "32-true": 16.4e12, "16-true": 130e12, "16-mixed": 130e12},
+    "v100-sxm": {
+        "64-true": 7.8e12,
+        "32-true": 15.7e12,
+        "16-true": 125e12,
+        "16-mixed": 125e12,
+    },
+    "v100-pcie": {
+        "64-true": 7e12,
+        "32-true": 14e12,
+        "16-true": 112e12,
+        "16-mixed": 112e12,
+    },
+    "v100s-pcie": {
+        "64-true": 8.2e12,
+        "32-true": 16.4e12,
+        "16-true": 130e12,
+        "16-mixed": 130e12,
+    },
     # source: https://www.nvidia.com/content/dam/en-zz/Solutions/Data-Center/tesla-t4/t4-tensor-core-datasheet-951643.pdf
     # sxm and pcie have same flop counts
-    "t4": {"32-true": 8.1e12, "16-true": 65e12, "16-mixed": 65e12, "8-true": 130e12, "int4": 260e12},
+    "t4": {
+        "32-true": 8.1e12,
+        "16-true": 65e12,
+        "16-mixed": 65e12,
+        "8-true": 130e12,
+        "int4": 260e12,
+    },
     # https://www.nvidia.com/content/dam/en-zz/Solutions/design-visualization/quadro-product-literature/quadro-rtx-5000-data-sheet-us-nvidia-704120-r4-web.pdf
     "quadro rtx 5000": {"32-true": 11.2e12, "16-true": 89.2e12, "16-mixed": 89.2e12},
 }

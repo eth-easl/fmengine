@@ -5,30 +5,33 @@ from transformers.models.gpt_neox.modeling_gpt_neox import GPTNeoXLayer, GPTNeoX
 
 from fmengine.modeling._common._nn import EmbeddingPipe, LMLayerPipe, LayerNormPipe
 
+
 class ParallelTransformerLayerPipe(GPTNeoXLayer):
-    def __init__(self,
-                 config: GPTNeoXConfig,
-                 activation_checkpointing=False
-                ):
+    def __init__(self, config: GPTNeoXConfig, activation_checkpointing=False):
         super().__init__(config)
         self.activation_checkpointing = activation_checkpointing
-    
+
     def forward(self, args):
         if self.activation_checkpointing:
             return self._ckpt_forward(args)
         hidden_states, position_ids, mask = args
         attention_mask = torch.where(mask == True, float("-inf"), 0).long()
 
-        outputs = GPTNeoXLayer.forward(self, hidden_states, attention_mask, position_ids)
+        outputs = GPTNeoXLayer.forward(
+            self, hidden_states, attention_mask, position_ids
+        )
         return (outputs[0], position_ids, mask)
 
     def _ckpt_forward(self, args):
         hidden_states, position_ids, mask = args
         attention_mask = torch.where(mask == True, float("-inf"), 0).long()
+
         def create_custom_forward(module):
             def custom_forward(*inputs):
                 return GPTNeoXLayer.forward(module, *inputs)
+
             return custom_forward
+
         outputs = deepspeed.checkpointing.checkpoint(
             create_custom_forward(self),
             hidden_states,
@@ -37,8 +40,15 @@ class ParallelTransformerLayerPipe(GPTNeoXLayer):
         )
         return (outputs, position_ids, mask)
 
+
 class NeoxModelPipe(PipelineModule):
-    def __init__(self, args, model_config: GPTNeoXConfig, activation_checkpointing_config, **kwargs):
+    def __init__(
+        self,
+        args,
+        model_config: GPTNeoXConfig,
+        activation_checkpointing_config,
+        **kwargs
+    ):
         if activation_checkpointing_config:
             deepspeed.checkpointing.configure(
                 None,
@@ -82,7 +92,7 @@ class NeoxModelPipe(PipelineModule):
                     LMLayerPipe,
                     model_config.hidden_size,
                     model_config.vocab_size,
-                    bias = False
+                    bias=False,
                 ),
             ],
             **kwargs

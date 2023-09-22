@@ -1,112 +1,80 @@
-# LoRA components
+import math
 import torch
-from typing import Dict, Any
-from transformers.models.llama.configuration_llama import LlamaConfig
-from transformers.models.llama.modeling_llama import LlamaMLP, LlamaAttention
-from fmengine.modeling._common.lora import LoRAConfig, LoRALinear, map_old_state_dict_weights
+import torch.nn as nn
+from fmengine.modeling.llama.llama_model import TensorParallelLlamaAttention
+import fmengine.mpu as mpu
+import torch.nn.functional as F
 
-class LoRALlamaMLP(LlamaMLP):
-    def __init__(self, config: LlamaConfig, lora_config: LoRAConfig) -> None:
-        super().__init__(config)
-        self.gate_proj = LoRALinear(
-            config.hidden_size,
-            config.intermediate_size,
-            bias=False,
-            r=(lora_config.r if lora_config.to_mlp else 0),
-            lora_alpha=lora_config.alpha,
-            lora_dropout=lora_config.dropout,
-        )
-        self.up_proj = LoRALinear(
-            config.hidden_size,
-            config.intermediate_size,
-            bias=False,
-            r=(lora_config.r if lora_config.to_mlp else 0),
-            lora_alpha=lora_config.alpha,
-            lora_dropout=lora_config.dropout,
-        )
-        self.down_proj = LoRALinear(
-            config.intermediate_size,
-            config.hidden_size,
-            bias=False,
-            r=(lora_config.r if lora_config.to_mlp else 0),
-            lora_alpha=lora_config.alpha,
-            lora_dropout=lora_config.dropout,
-        )
 
-    def _load_from_state_dict(self, state_dict: Dict, prefix: str, *args: Any, **kwargs: Any) -> None:
-        """For compatibility with base checkpoints."""
-        mapping = {
-            "gate_proj.weight": "gate_proj.linear.weight",
-            "gate_proj.bias": "gate_proj.linear.bias",
-            "up_proj.weight": "up_proj.linear.weight",
-            "up_proj.bias": "up_proj.linear.bias",
-            "down_proj.weight": "down_proj.linear.weight",
-            "down_proj.bias": "down_proj.linear.bias",
-        }
-        state_dict = map_old_state_dict_weights(state_dict, mapping, prefix)
-        super()._load_from_state_dict(state_dict, prefix, *args, **kwargs)
-
-class LoRALlamaAttention(LlamaAttention):
-    def __init__(self, config: LlamaConfig, lora_config: LoRAConfig) -> None:
-        super().__init__(config)
-        self.lora_config = lora_config
-        self.q_proj = LoRALinear(
-            self.hidden_size,
-            self.num_key_value_heads * self.head_dim,
-            r = lora_config.r,
-            lora_alpha=lora_config.alpha,
-            lora_dropout=lora_config.dropout,
-            bias=False
+class LoRARowParallelLinear(mpu.ColumnParallelLinear):
+    # LoRA implemented in a dense layer
+    def __init__(
+        self,
+        args,
+        # ↓ this part is for pretrained ColumnParallelLinear weights
+        input_size: int,
+        output_size: int,
+        gather_output=False,
+        init_method=nn.init.xavier_normal_,
+        skip_bias_add=True,
+        bias=False,
+        # ↓ the remaining part is for LoRA
+        r: int = 0,
+        lora_alpha: int = 1,
+        lora_dropout: float = 0.0,
+        **kwargs,
+    ):
+        super().__init__(
+            args=args,
+            input_size=input_size,
+            output_size=output_size,
+            gather_output=gather_output,
+            init_method=init_method,
+            skip_bias_add=skip_bias_add,
+            bias=bias,
         )
-        self.k_proj = LoRALinear(
-            self.hidden_size,
-            self.num_key_value_heads * self.head_dim,
-            r = lora_config.r,
-            lora_alpha=lora_config.alpha,
-            lora_dropout=lora_config.dropout,
-            bias=False
-        )
-        self.v_proj = LoRALinear(
-            self.hidden_size,
-            self.num_key_value_heads * self.head_dim,
-            r = lora_config.r,
-            lora_alpha=lora_config.alpha,
-            lora_dropout=lora_config.dropout,
-            bias=False
-        )
-        self.o_proj = LoRALinear(
-            self.num_heads * self.head_dim,
-            self.hidden_size,
-            r = lora_config.r,
-            lora_alpha=lora_config.alpha,
-            lora_dropout=lora_config.dropout,
-            bias=False
-        )
+        assert gather_output == False
+        assert r >= 0
+        self.r = r
+        self.lora_alpha = lora_alpha
+        # Optional dropout
+        if lora_dropout > 0.0:
+            self.lora_dropout = nn.Dropout(p=lora_dropout)
+        else:
+            self.lora_dropout = lambda x: x
+        # Mark the weight as unmerged
+        self.merged = False
 
-    def _load_from_state_dict(self, state_dict: Dict, prefix: str, *args: Any, **kwargs: Any) -> None:
-        """For compatibility with base checkpoints."""
-        mapping = {
-            "q_proj.weight": "q_proj.linear.weight",
-            "q_proj.bias": "q_proj.linear.bias",
-            "k_proj.weight": "k_proj.linear.weight",
-            "k_proj.bias": "k_proj.linear.bias",
-            "v_proj.weight": "v_proj.linear.weight",
-            "v_proj.bias": "v_proj.linear.bias",
-            "o_proj.weight": "o_proj.linear.weight",
-            "o_proj.bias": "o_proj.linear.bias",
-        }
-        state_dict = map_old_state_dict_weights(state_dict, mapping, prefix)
-        # initialize LoRA weights
-        state_dict['self_attn.q_proj.lora_A'] = torch.nn.Parameter(torch.zeros((self.lora_config.r, self.config.hidden_size)))
-        state_dict['self_attn.q_proj.lora_B'] = torch.nn.Parameter(torch.zeros((self.num_key_value_heads * self.head_dim, self.lora_config.r)))
-        state_dict['self_attn.k_proj.lora_A'] = torch.nn.Parameter(torch.zeros((self.lora_config.r, self.config.hidden_size)))
-        state_dict['self_attn.k_proj.lora_B'] = torch.nn.Parameter(torch.zeros((self.num_key_value_heads * self.head_dim, self.lora_config.r)))
-        state_dict['self_attn.v_proj.lora_A'] = torch.nn.Parameter(torch.zeros((self.lora_config.r, self.config.hidden_size)))
-        state_dict['self_attn.v_proj.lora_B'] = torch.nn.Parameter(torch.zeros((self.num_key_value_heads * self.head_dim, self.lora_config.r)))
-        state_dict['self_attn.o_proj.lora_A'] = torch.nn.Parameter(torch.zeros((self.lora_config.r, self.num_heads * self.head_dim)))
-        state_dict['self_attn.o_proj.lora_B'] = torch.nn.Parameter(torch.zeros((self.hidden_size, self.lora_config.r)))
-        self.rotary_emb.inv_freq = state_dict['self_attn.rotary_emb.inv_freq']
+        # Actual trainable parameters
+        if r > 0:
+            self.lora_A = nn.Parameter(self.weight.new_zeros((r, self.weight.size(1))))
+            self.lora_B = nn.Parameter(self.weight.new_zeros((self.weight.size(0)), r))
+            self.scaling = self.lora_alpha / self.r
+            self.reset_parameters()
 
-        del state_dict['self_attn.rotary_emb.inv_freq']
+    def reset_parameters(self):
+        """Reset all the weights, even including pretrained ones."""
+        if hasattr(self, "lora_A"):
+            # initialize A the same way as the default for nn.Linear and B to zero
+            # Wondering why 'a' is equal to math.sqrt(5)?: https://github.com/pytorch/pytorch/issues/15314
+            nn.init.kaiming_uniform_(self.lora_A, a=math.sqrt(5))
+            nn.init.zeros_(self.lora_B)
 
-        super()._load_from_state_dict(state_dict, prefix, *args, **kwargs)
+    def merge(self):
+        """Merges the LoRA weights into the full-rank weights (W = W + delta_W)."""
+        if self.r > 0 and not self.merged:
+            # Merge the weights and mark it
+            self.linear.weight.data += (self.lora_B @ self.lora_A) * self.scaling
+            self.merged = True
+
+    def forward(self, x: torch.Tensor):
+        # if weights are merged or rank is less or equal to zero (LoRA is disabled) - it's only a regular nn.Linear forward pass;
+        # otherwise in addition do the forward pass with LoRA weights and add it's output to the output from pretrained weights
+        pretrained = super().forward(x)[0]
+        if self.r == 0 or self.merged:
+            return (pretrained,)
+        x = self.lora_dropout(x)
+        x = F.linear(x, self.lora_A)
+        x = F.linear(x, self.lora_B)
+        x = x * self.scaling
+        return (pretrained + x,)

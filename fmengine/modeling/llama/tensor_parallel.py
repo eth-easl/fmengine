@@ -3,6 +3,7 @@ import fmengine.mpu as mpu
 from transformers.models.llama.modeling_llama import LlamaAttention, ACT2FN
 from transformers.models.llama.configuration_llama import LlamaConfig
 
+
 class TensorParallelLlamaMLP(nn.Module):
     def __init__(
         self,
@@ -29,7 +30,7 @@ class TensorParallelLlamaMLP(nn.Module):
             input_is_parallel=True,
             init_method=nn.init.xavier_normal_,
             skip_bias_add=True,
-            parallel_output=no_reduce, # True if gpt-j-parallel
+            parallel_output=no_reduce,  # True if gpt-j-parallel
             bias=False,
         )
         self.up_proj = mpu.ColumnParallelLinear(
@@ -45,6 +46,7 @@ class TensorParallelLlamaMLP(nn.Module):
 
     def forward(self, x):
         return self.down_proj(self.act_fn(self.gate_proj(x)[0]) * self.up_proj(x)[0])[0]
+
 
 class TensorParallelLlamaAttention(LlamaAttention):
     def __init__(self, args, config: LlamaConfig, no_reduce=False):
@@ -83,6 +85,6 @@ class TensorParallelLlamaAttention(LlamaAttention):
             input_is_parallel=True,
             init_method=nn.init.xavier_normal_,
             skip_bias_add=True,
-            parallel_output=no_reduce, # True if gpt-j-parallel
+            parallel_output=no_reduce,  # True if gpt-j-parallel
             bias=False,
         )

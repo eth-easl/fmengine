@@ -469,9 +469,7 @@ class ColumnParallelLinear(torch.nn.Module):
         if bias:
             if args.use_cpu_initialization:
                 self.bias = Parameter(
-                    torch.empty(
-                        self.output_size_per_partition, dtype=args.params_dtype
-                    )
+                    torch.empty(self.output_size_per_partition, dtype=args.params_dtype)
                 )
             else:
                 self.bias = Parameter(

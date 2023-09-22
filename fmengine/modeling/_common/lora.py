@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from torch.nn import functional as F
 from typing import Any, Dict, Tuple, Union, Mapping
 
+
 class LoRALayer(nn.Module):
     def __init__(self, r: int, lora_alpha: int, lora_dropout: float):
         """Store LoRA specific attributes in a class.
@@ -91,7 +92,11 @@ class LoRALinear(LoRALayer):
         pretrained = self.linear(x)
         if self.r == 0 or self.merged:
             return pretrained
-        lora = (self.lora_dropout(x) @ self.lora_A.transpose(0, 1) @ self.lora_B.transpose(0, 1)) * self.scaling
+        lora = (
+            self.lora_dropout(x)
+            @ self.lora_A.transpose(0, 1)
+            @ self.lora_B.transpose(0, 1)
+        ) * self.scaling
         return pretrained + lora
 
 
@@ -134,7 +139,9 @@ class LoRAQKVLinear(LoRALinear):
                 don't want to apply LoRA we can set it as False. For example if we want to apply LoRA only to `query`
                 and `value` but keep `key` without weight updates we should pass `[True, False, True]`
         """
-        super(LoRALinear, self).__init__(r=r, lora_alpha=lora_alpha, lora_dropout=lora_dropout)
+        super(LoRALinear, self).__init__(
+            r=r, lora_alpha=lora_alpha, lora_dropout=lora_dropout
+        )
         self.linear = torch.nn.Linear(in_features, out_features, **kwargs)
         self.n_head = n_head
         self.n_query_groups = n_query_groups
@@ -150,7 +157,9 @@ class LoRAQKVLinear(LoRALinear):
         # ⚬ r: 2
         # ⚬ enable_lora: [True, False, True]
         if r > 0 and any(enable_lora):
-            self.lora_A = nn.Parameter(self.linear.weight.new_zeros((r * sum(enable_lora), in_features)))  # (4, 128)
+            self.lora_A = nn.Parameter(
+                self.linear.weight.new_zeros((r * sum(enable_lora), in_features))
+            )  # (4, 128)
             enable_q, enable_k, enable_v = enable_lora
             self.kv_embd_size = self.linear.in_features // (n_head // n_query_groups)
             # qkv_shapes will be used to split a tensor with weights correctly
@@ -160,7 +169,9 @@ class LoRAQKVLinear(LoRALinear):
                 self.kv_embd_size * enable_v,
             )
             self.qkv_shapes = [s for s in qkv_shapes if s]
-            self.lora_B = nn.Parameter(self.linear.weight.new_zeros(sum(self.qkv_shapes), r))  # (256, 2))
+            self.lora_B = nn.Parameter(
+                self.linear.weight.new_zeros(sum(self.qkv_shapes), r)
+            )  # (256, 2))
             # Notes about shapes above
             # - self.lora_A has shape (4, 128): 4 because rank is 2 and LoRA is applied only to two matrices;
             # 128 is the input size of the x (embedding size). (4, 128) and not (128, 4) because later on in
@@ -193,9 +204,19 @@ class LoRAQKVLinear(LoRALinear):
             if enable_q:
                 self.lora_ind.extend(range(0, self.linear.in_features))
             if enable_k:
-                self.lora_ind.extend(range(self.linear.in_features, self.linear.in_features + self.kv_embd_size))
+                self.lora_ind.extend(
+                    range(
+                        self.linear.in_features,
+                        self.linear.in_features + self.kv_embd_size,
+                    )
+                )
             if enable_v:
-                self.lora_ind.extend(range(self.linear.in_features + self.kv_embd_size, self.linear.out_features))
+                self.lora_ind.extend(
+                    range(
+                        self.linear.in_features + self.kv_embd_size,
+                        self.linear.out_features,
+                    )
+                )
             self.reset_parameters()
 
     def zero_pad(self, x: torch.Tensor) -> torch.Tensor:
@@ -236,9 +257,13 @@ class LoRAQKVLinear(LoRALinear):
         result = x.new_zeros((*x.shape[:-1], self.linear.out_features))  # (64, 64, 384)
         result = result.view(-1, self.linear.out_features)  # (4096, 384)
         result = result.index_copy(
-            1, torch.tensor(self.lora_ind, device=result.device), x.reshape(-1, sum(self.qkv_shapes))
+            1,
+            torch.tensor(self.lora_ind, device=result.device),
+            x.reshape(-1, sum(self.qkv_shapes)),
         )  # (4096, 256)
-        return result.view((*x.shape[:-1], self.linear.out_features)).transpose(0, 1)  # (64, 64, 384)
+        return result.view((*x.shape[:-1], self.linear.out_features)).transpose(
+            0, 1
+        )  # (64, 64, 384)
 
     def conv1d(self, input: torch.Tensor, weight: torch.Tensor) -> torch.Tensor:
         """An extension of the `torch.nn.functional.conv1d` function with a logic specific to grouped queries.
@@ -261,7 +286,9 @@ class LoRAQKVLinear(LoRALinear):
             A tensor with a shape (B, C_output, T)
         """
         if self.n_head == self.n_query_groups:
-            return F.conv1d(input, weight, groups=sum(self.enable_lora))  # (B, C_output, T)
+            return F.conv1d(
+                input, weight, groups=sum(self.enable_lora)
+            )  # (B, C_output, T)
 
         # Notation:
         # ⚬ N: number of enabled LoRA layers (self.enable_lora)
@@ -271,7 +298,8 @@ class LoRAQKVLinear(LoRALinear):
         input_splitted = input.chunk(sum(self.enable_lora), dim=1)  # N * (B, C // N, T)
         weight_splitted = weight.split(self.qkv_shapes)  # N * (C_output', r, 1)
         return torch.cat(
-            [F.conv1d(a, b) for a, b in zip(input_splitted, weight_splitted)], dim=1  # (B, C_output', T)
+            [F.conv1d(a, b) for a, b in zip(input_splitted, weight_splitted)],
+            dim=1,  # (B, C_output', T)
         )  # (B, C_output, T)
 
     def merge(self):
@@ -289,7 +317,9 @@ class LoRAQKVLinear(LoRALinear):
                 0
             )  # (1, 4, 128) @ (256, 2, 1) -> (1, 256, 128) -> (256, 128)
             # W = W + delta_W (merge)
-            self.linear.weight.data += self.zero_pad(delta_w * self.scaling)  # (256, 128) after zero_pad (384, 128)
+            self.linear.weight.data += self.zero_pad(
+                delta_w * self.scaling
+            )  # (256, 128) after zero_pad (384, 128)
             self.merged = True
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -316,7 +346,9 @@ class LoRAQKVLinear(LoRALinear):
         pretrained = self.linear(x)
         if self.r == 0 or not any(self.enable_lora) or self.merged:
             return pretrained
-        after_A = F.linear(self.lora_dropout(x), self.lora_A)  # (64, 64, 128) @ (4, 128) -> (64, 64, 4)
+        after_A = F.linear(
+            self.lora_dropout(x), self.lora_A
+        )  # (64, 64, 128) @ (4, 128) -> (64, 64, 4)
         # For F.conv1d:
         # ⚬ input: input tensor of shape (mini-batch, in_channels, iW)
         # ⚬ weight: filters of shape (out_channels, in_channels/groups, kW)
@@ -326,8 +358,11 @@ class LoRAQKVLinear(LoRALinear):
         ).transpose(
             -2, -1
         )  # (64, 4, 64) @ (256, 2, 1) -> (64, 256, 64) -> (64, 64, 256)
-        lora = self.zero_pad(after_B) * self.scaling  # (64, 64, 256) after zero_pad (64, 64, 384)
+        lora = (
+            self.zero_pad(after_B) * self.scaling
+        )  # (64, 64, 256) after zero_pad (64, 64, 384)
         return pretrained + lora
+
 
 def mark_only_lora_as_trainable(model: nn.Module, bias: str = "none") -> None:
     """Freeze all modules except LoRA's and depending on 'bias' value unfreezes bias weights.
@@ -359,14 +394,17 @@ def mark_only_lora_as_trainable(model: nn.Module, bias: str = "none") -> None:
             if isinstance(m, LoRALayer) and hasattr(m, "bias") and m.bias is not None:
                 m.bias.requires_grad = True
     else:
-        raise ValueError(f"bias should be one of ['none', 'lora_only', 'all'], got {bias}")
+        raise ValueError(
+            f"bias should be one of ['none', 'lora_only', 'all'], got {bias}"
+        )
 
 
 def lora_filter(key: str, value: Any) -> bool:
     return "lora_" in key
 
+
 @dataclass
-class LoRAConfig():
+class LoRAConfig:
     """
     Args:
         r: rank of the weight update matrices. To make sense of using LoRA the rank should be smaller than the rank of
@@ -377,6 +415,7 @@ class LoRAConfig():
         dropout: dropout that is applied on the input in the LoRA branch (before multiplying by matrix A)
         to_*: either apply LoRA to the specified weights or not
     """
+
     r: int = 0
     alpha: int = 1
     dropout: float = 0.0
@@ -387,6 +426,7 @@ class LoRAConfig():
     to_mlp: bool = False
     to_head: bool = False
     bias: Union[str, bool] = "none"
+
 
 def map_old_state_dict_weights(state_dict: Dict, mapping: Mapping, prefix: str) -> Dict:
     for checkpoint_name, attribute_name in mapping.items():

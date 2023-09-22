@@ -3,8 +3,10 @@ import torch
 import psutil
 import threading
 
+
 def b2mb(x):
     return int(x / 2**20)
+
 
 class TorchTracemalloc:
     def __enter__(self):
