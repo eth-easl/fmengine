@@ -32,10 +32,14 @@ def get_model(
     args,
     activation_checkpointing_config=None,
 ):
+    
     pp = args.pipe_parallel_size
     mp = args.model_parallel_size
+    # from https://www.deepspeed.ai/tutorials/ds-sequence/
     sp = args.sequence_parallel_size # need to define this arg
     if sp and _SEQUENCE_PARALLEL_GROUP is None:
+        ## set the degree of parallelism using the –ds-sequence-parallel-size argument. You also need to ensure that the number of attention heads is divisible by this value.
+        assert (args.sequence_parallel_size % args.num_head)== 0 ## is args.num_head defined?
         initialize_model_parallel(args)
         
     assert args.world_size % (pp * mp) == 0
