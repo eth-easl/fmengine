@@ -112,10 +112,11 @@ if __name__ == "__main__":
 
     patch_llama(model_args.use_flash_attn, model_args.use_fused_ops, ds_args)
     replace_neox_attn_with_flash_attn()
+
     tokenizer = transformers.AutoTokenizer.from_pretrained(
         model_args.init_ckpt,
         model_max_length=trainer_args.max_seq_len,
-        padding_side="right",
+        padding_side="left",
         use_fast=True,
         repo_type="",
     )
@@ -138,12 +139,14 @@ if __name__ == "__main__":
     if ds_config.get("precision", "bfloat16"):
         print("Using bfloat16")
         model = model.bfloat16()
+
     if "lora" in ds_config:
         for n, p in model.named_parameters():
             if "lora" in n.lower():
                 p.requires_grad_(True)
             else:
                 p.requires_grad_(False)
+
     torch.nn.Linear.reset_parameters = _tmp
 
     ds_config["data_path"] = data_args.data_path

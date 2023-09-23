@@ -11,5 +11,5 @@ torchrun --nnodes 1 --nproc-per-node 4 --node_rank 0 \
     --pipe_parallel_size 4 \
     --model_parallel_size 1 \
     --use_flash_attn true \
-    --use_fused_ops false \
+    --use_fused_ops true \
     --deepspeed_config ./configs/llama_lessmem.json

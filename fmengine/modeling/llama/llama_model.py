@@ -2,7 +2,6 @@ import torch
 import deepspeed
 from transformers.models.llama.modeling_llama import (
     LlamaDecoderLayer,
-    LlamaRMSNorm,
     LlamaConfig,
 )
 from deepspeed.pipe import PipelineModule, LayerSpec
@@ -12,12 +11,12 @@ from fmengine.modeling._common._nn import (
     ParallelEmbeddingPipe,
     ParallelLMLayerPipe,
 )
-from fmengine.modeling._common.lora import LoRAConfig
 from fmengine.modeling.llama.lora import TensorParallelLoraAttention
 from fmengine.modeling.llama.tensor_parallel import (
     TensorParallelLlamaAttention,
     TensorParallelLlamaMLP,
 )
+from fmengine.modeling.llama.fused_ops import LastRMSNorm
 
 
 class ParallelTransformerLayerPipe(LlamaDecoderLayer):
@@ -81,13 +80,6 @@ class ParallelTransformerLayerPipe(LlamaDecoderLayer):
         return (x, position_ids, mask)
 
 
-class LayerNormPipe(LlamaRMSNorm):
-    def forward(self, args):
-        hidden_states, *_ = args
-        last_hidden_states = super().forward(hidden_states)
-        return (last_hidden_states,)
-
-
 class LlamaModelPipe(PipelineModule):
     def __init__(
         self,
@@ -116,36 +108,15 @@ class LlamaModelPipe(PipelineModule):
                 ),
                 profile=activation_checkpointing_config.get("profile", False),
             )
-        tensor_parallel_enabled = args.model_parallel_size > 1
-
-        if tensor_parallel_enabled:
-            embedding_pipe = LayerSpec(
-                ParallelEmbeddingPipe,
-                args,
-                model_config.vocab_size,
-                model_config.hidden_size,
-            )
-            lmlayer_pipe = LayerSpec(
-                ParallelLMLayerPipe,
-                args,
-                model_config.hidden_size,
-                model_config.vocab_size,
-                bias=False,
-            )
-        else:
-            embedding_pipe = LayerSpec(
-                EmbeddingPipe, model_config.vocab_size, model_config.hidden_size
-            )
-            lmlayer_pipe = LayerSpec(
-                LMLayerPipe,
-                model_config.hidden_size,
-                model_config.vocab_size,
-                bias=False,
-            )
 
         super().__init__(
             layers=[
-                embedding_pipe,
+                LayerSpec(
+                    ParallelEmbeddingPipe,
+                    args,
+                    model_config.vocab_size+1,
+                    model_config.hidden_size,
+                ),
                 *[
                     LayerSpec(
                         ParallelTransformerLayerPipe,
@@ -157,11 +128,17 @@ class LlamaModelPipe(PipelineModule):
                     for layer_id in range(model_config.num_hidden_layers)
                 ],
                 LayerSpec(
-                    LayerNormPipe,
+                    LastRMSNorm,
                     model_config.hidden_size,
                     model_config.rms_norm_eps,
                 ),
-                lmlayer_pipe,
+                LayerSpec(
+                    ParallelLMLayerPipe,
+                    args,
+                    model_config.hidden_size,
+                    model_config.vocab_size+1,
+                    bias=False,
+                ),
             ],
             **kwargs,
         )

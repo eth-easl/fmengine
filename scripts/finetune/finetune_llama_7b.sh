@@ -3,7 +3,7 @@ torchrun --nnodes 1 --nproc-per-node 4 --node_rank 0 \
     --output_dir /workspace/.cache/models \
     --init_ckpt /pretrained/llama-2-7b-mp1 \
     --data_path /datasets/data.jsonl \
-    --max_seq_len 1024 \
+    --max_seq_len 2048 \
     --train_steps 10000 \
     --eval_steps 10 \
     --save_steps 250 \

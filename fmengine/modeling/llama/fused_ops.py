@@ -1,7 +1,9 @@
 import torch
+import torch.nn as nn
 from typing import Optional, Tuple
 from flash_attn.flash_attn_interface import flash_attn_kvpacked_func
 from fmengine.modeling.llama.rotary_embedding import RotaryEmbedding
+from flash_attn.ops.rms_norm import rms_norm as rmsnorm_func
 
 
 def init_rope(self):
@@ -52,7 +54,31 @@ def fused_rotary_emb_llama_flash_attn_forward(
         0.0,
         causal=True,
     )
-    attn_output = attn_output.view(bsz, q_len, -1)
+    attn_output = attn_output.contiguous().view(bsz, q_len, -1)
     attn_output = self.o_proj(attn_output)[0]
 
     return attn_output, None, None
+
+
+class RMSNorm(nn.Module):
+    def __init__(self, hidden_size, eps=1e-6):
+        """
+        LlamaRMSNorm is equivalent to T5LayerNorm
+        """
+        super().__init__()
+        self.weight = nn.Parameter(torch.ones(hidden_size))
+        self.register_buffer(
+            "variance_epsilon",
+            torch.tensor(eps),
+            persistent=False,
+        )
+
+    def forward(self, hidden_states):
+        return rmsnorm_func(hidden_states, self.weight, self.variance_epsilon)
+
+
+class LastRMSNorm(RMSNorm):
+    def forward(self, fw_args):
+        hidden_states, *_ = fw_args
+        hidden_states = rmsnorm_func(hidden_states, self.weight, self.variance_epsilon)
+        return (hidden_states,)
