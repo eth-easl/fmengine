@@ -47,8 +47,6 @@ class AutoregressiveLanguageModelDataCollator(object):
         input_ids = [input_id[:-1] for input_id in input_ids]
         labels = [label[1:] for label in labels]
         input_ids = torch.stack(input_ids)
-        logger.info(f"input_ids.shape: {input_ids.shape}")
-        logger.info(f"max input ids: {input_ids.max()}")
         labels = torch.stack(labels)
         labels = torch.where(
             labels == self.tokenizer.pad_token_id, 
@@ -69,7 +67,7 @@ def get_jsonl_dataloader(jsonl_path, tokenizer, args):
     data_collator = AutoregressiveLanguageModelDataCollator(tokenizer)
     ctx_length = args.get("seq_length", 1024) + 1  # +1 for shifting
     streaming = args.get("streaming", False)
-    seed = args.get("seed", 42)
+    seed = args.get("seed", 3407)
     batch_size = args.get("batch_size", 1)
 
     def tokenize(examples):
