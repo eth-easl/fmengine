@@ -249,6 +249,7 @@ class ParallelRelativePositionBias(torch.nn.Module):
         self.sparse = False
         self._weight = None
         self.model_parallel_size = get_model_parallel_world_size()
+
         self.model_parallel_rank = get_model_parallel_rank()
 
         # Divide the weight matrix along the heads dimension.
@@ -469,9 +470,7 @@ class ColumnParallelLinear(torch.nn.Module):
         if bias:
             if args.use_cpu_initialization:
                 self.bias = Parameter(
-                    torch.empty(
-                        self.output_size_per_partition, dtype=args.params_dtype
-                    )
+                    torch.empty(self.output_size_per_partition, dtype=args.params_dtype)
                 )
             else:
                 self.bias = Parameter(

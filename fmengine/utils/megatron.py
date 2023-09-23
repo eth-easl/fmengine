@@ -2,8 +2,8 @@ import torch
 import fmengine.mpu as mpu
 from fmengine.utils import logger_rank0
 
-def initialize_megatron(args, fp32_allreduce=False):
 
+def initialize_megatron(args, fp32_allreduce=False):
     device_count = torch.cuda.device_count()
     assert torch.distributed.is_initialized()
 

@@ -1,13 +1,10 @@
-deepspeed --num_gpus 8 --num_nodes 2 tests/train.py \
-    --output_dir .cache/models \
-    --init_ckpt .cache/ckpts/ \
-    --data_path .cache/data/prompt.jsonl \
-    --max_seq_len 1024 \
-    --train_steps 1000 \
-    --eval_steps 10 \
-    --save_steps 200 \
-    --log_steps 1 \
-    --pipe_parallel_size 1 \
-    --model_parallel_size 1 \
-    --use_flash_attn true \
-    --deepspeed_config ./configs/7b.json
+singularity run --nv \
+--home /mnt/scratch/xiayao:/home/xiayao \
+--bind /mnt/scratch/xiayao/cache/HF/hub:/.hf_cache \
+--env HF_HOME=/.hf_cache \
+--bind /mnt/scratch/xiayao/cache/pretrained_weights:/pretrained \
+--bind .cache/data/dialogs.jsonl:/datasets/data.jsonl \
+--bind $PWD:/workspace \
+--pwd /workspace \
+fmsys.sif \
+bash scripts/finetune/finetune_llama_7b.sh

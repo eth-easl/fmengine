@@ -1,10 +1,10 @@
 singularity run --nv \
---home /mnt/scratch/xiayao:/home/xiayao \
---bind /mnt/scratch/xiayao/cache/HF/hub:/.hf_cache \
+--home /home/xzyao:/home/xiayao \
+--bind /home/xzyao/.cache/huggingface/hub:/.hf_cache \
 --env HF_HOME=/.hf_cache \
---bind /mnt/scratch/xiayao/cache/pretrained_weights:/pretrained \
---bind /mnt/scratch/xiayao/cache/datasets:/datasets \
+--bind .cache/ckpts:/pretrained \
+--bind .cache/data:/datasets \
 --bind $PWD:/workspace \
 --pwd /workspace \
 fmsys.sif \
-bash scripts/finetune/finetune_llama_1b_local.sh
+bash scripts/finetune/finetune_llama_1b.sh
