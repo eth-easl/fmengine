@@ -17,7 +17,7 @@ from fmengine.modeling.llama.tensor_parallel import (
     TensorParallelLlamaMLP,
 )
 from fmengine.modeling.llama.fused_ops import LastRMSNorm
-
+from deepspeed.sequence.layer import DistributedAttention
 
 class ParallelTransformerLayerPipe(LlamaDecoderLayer):
     def __init__(
@@ -31,11 +31,21 @@ class ParallelTransformerLayerPipe(LlamaDecoderLayer):
         self.activation_checkpointing = activation_checkpointing
         self.layer_id = layer_id
         if "lora" in args.deepspeed_config:
-            self.self_attn = TensorParallelLoraAttention(args, config)
+            if rgs.sequence_parallel_size is not None:
+                # from https://www.deepspeed.ai/tutorials/ds-sequence/
+                self.local_attn = TensorParallelLoraAttention(args, config)
+                self.self_attn = DistributedAttention(self.local_attn, parallel_state.get_sequence_parallel_group())
+            else:
+                self.self_attn = TensorParallelLoraAttention(args, config)
             print(f"🌴 Low Rank Adapters Enabled: r={args.deepspeed_config.lora.r}")
         else:
-            self.self_attn = TensorParallelLlamaAttention(args, config)
-
+            if rgs.sequence_parallel_size is not None:
+                # from https://www.deepspeed.ai/tutorials/ds-sequence/
+                self.local_attn = TensorParallelLlamaAttention(args, config)
+                self.self_attn = DistributedAttention(self.local_attn, parallel_state.get_sequence_parallel_group())
+            else:
+                self.self_attn = TensorParallelLlamaAttention(args, config)
+                
         self.mlp = TensorParallelLlamaMLP(
             args, config.hidden_size, config.intermediate_size, config.hidden_act
         )
