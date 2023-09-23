@@ -7,7 +7,25 @@ from deepspeed.runtime.pipe.topology import PipeModelDataParallelTopology
 from fmengine.optimizers.loss_func import cross_entropy_fn
 from fmengine.modeling.llama.llama_model import LlamaModelPipe
 from fmengine.modeling.neox.neox_model import NeoxModelPipe
+_SEQUENCE_PARALLEL_GROUP = None
 
+# from https://www.deepspeed.ai/tutorials/ds-sequence/
+def initialize_model_parallel(
+    args
+):
+    num_sequence_parallel_groups: int = args.world_size // args.sequence_parallel_size
+    num_sequence_data_parallel_groups: int = args.world_size // args.sequence_parallel_size // args.data_parallel_size # do we define args.data_parallel_size ?
+    global _SEQUENCE_PARALLEL_GROUP
+    for i in range(num_sequence_parallel_groups):
+        ranks = range(i * sequence_parallel_size,
+                      (i + 1) * sequence_parallel_size)
+        group = torch.distributed.new_group(ranks)
+        if rank in ranks:
+            _SEQUENCE_PARALLEL_GROUP = group
+
+def get_sequence_parallel_group():
+    """Get the sequence parallel group the caller rank belongs to."""
+    return _SEQUENCE_PARALLEL_GROUP
 
 def get_model(
     model_config: PretrainedConfig,
@@ -16,6 +34,10 @@ def get_model(
 ):
     pp = args.pipe_parallel_size
     mp = args.model_parallel_size
+    sp = args.sequence_parallel_size # need to define this arg
+    if sp and _SEQUENCE_PARALLEL_GROUP is None:
+        initialize_model_parallel(args)
+        
     assert args.world_size % (pp * mp) == 0
     dp = args.world_size // (pp * mp)
 
