@@ -6,7 +6,7 @@ torchrun --nnodes 1 --nproc-per-node 4 --node_rank 0 \
     --max_seq_len 2048 \
     --train_steps 10000 \
     --eval_steps 10 \
-    --save_steps 250 \
+    --save_steps 500 \
     --log_steps 1 \
     --pipe_parallel_size 4 \
     --model_parallel_size 1 \

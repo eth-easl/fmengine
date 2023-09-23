@@ -51,7 +51,9 @@ class AutoregressiveLanguageModelDataCollator(object):
         logger.info(f"max input ids: {input_ids.max()}")
         labels = torch.stack(labels)
         labels = torch.where(
-            labels == self.tokenizer.pad_token_id, self.ignore_index, labels
+            labels == self.tokenizer.pad_token_id, 
+            self.ignore_index, 
+            labels
         )
         return (
             (

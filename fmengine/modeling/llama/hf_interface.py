@@ -134,7 +134,14 @@ def write_ckpt(
 def from_hf(model_name_or_path: str, outdir: str, mp_size: int):
     tokenizer = transformers.AutoTokenizer.from_pretrained(model_name_or_path)
     model_config = transformers.AutoConfig.from_pretrained(model_name_or_path)
+    torch.nn.Linear.reset_parameters = lambda x: None
     model = transformers.AutoModelForCausalLM.from_pretrained(model_name_or_path)
+    if tokenizer.pad_token is None:
+        smart_tokenizer_and_embedding_resize(
+            special_tokens_dict = dict(pad_token=DEFAULT_PAD_TOKEN),
+            tokenizer=tokenizer,
+            model=model,
+        )
     tokenizer.add_special_tokens(
         {
             "eos_token": DEFAULT_EOS_TOKEN,
@@ -143,13 +150,6 @@ def from_hf(model_name_or_path: str, outdir: str, mp_size: int):
             "pad_token": DEFAULT_PAD_TOKEN,
         }
     )
-    if tokenizer.pad_token is None:
-        print("smart_tokenizer_and_embedding_resize")
-        smart_tokenizer_and_embedding_resize(
-            special_tokens_dict=dict(pad_token=DEFAULT_PAD_TOKEN),
-            tokenizer=tokenizer,
-            model=model,
-        )
     outpath = Path(outdir)
     if outpath.exists():
         print(f"Output directory {outpath} already exists. Exiting.")
@@ -163,6 +163,7 @@ def from_hf(model_name_or_path: str, outdir: str, mp_size: int):
     write_ckpt(steppath, model, model_config, mp_size)
     tokenizer.save_pretrained(outpath)
     model_config.save_pretrained(outpath)
+
 
 
 def to_hf_model(

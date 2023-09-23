@@ -114,7 +114,7 @@ class LlamaModelPipe(PipelineModule):
                 LayerSpec(
                     ParallelEmbeddingPipe,
                     args,
-                    model_config.vocab_size+1,
+                    model_config.vocab_size,
                     model_config.hidden_size,
                 ),
                 *[
@@ -136,7 +136,7 @@ class LlamaModelPipe(PipelineModule):
                     ParallelLMLayerPipe,
                     args,
                     model_config.hidden_size,
-                    model_config.vocab_size+1,
+                    model_config.vocab_size,
                     bias=False,
                 ),
             ],
