@@ -165,7 +165,6 @@ def from_hf(model_name_or_path: str, outdir: str, mp_size: int):
     model_config.save_pretrained(outpath)
 
 
-
 def to_hf_model(
     in_model_path: str,
     model_family: str,

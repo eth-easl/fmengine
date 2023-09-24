@@ -8,6 +8,7 @@ def main(args):
 
 if __name__ == "__main__":
     import argparse
+
     parser = argparse.ArgumentParser()
     parser.add_argument("--in-model-path", type=str, help="Location of weights")
     parser.add_argument(

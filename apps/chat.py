@@ -29,7 +29,8 @@ def chat(model_path: str, system_prompt: str):
         )
         output = tokenizer.decode(output_ids[0], skip_special_tokens=True)
         dialogs += (
-            output.replace(model_input, "").split("<|endoftext|>")[0] + "<|endoftext|>\n"
+            output.replace(model_input, "").split("<|endoftext|>")[0]
+            + "<|endoftext|>\n"
         )
         printed_output = output.replace(model_input, "").split("<|endoftext|>")[0]
         print(f"System: {printed_output}")
@@ -41,7 +42,10 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--model-path", type=str, help="Location of model")
     parser.add_argument(
-        "--system-prompt", type=str, help="System prompt", default="You are a friendly and helpful chatbot built by the fmengine, and you are here to help the human."
+        "--system-prompt",
+        type=str,
+        help="System prompt",
+        default="You are a friendly and helpful chatbot built by the fmengine, and you are here to help the human.",
     )
     args = parser.parse_args()
     chat(args.model_path, args.system_prompt)
