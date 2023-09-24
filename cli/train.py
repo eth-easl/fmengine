@@ -116,7 +116,6 @@ if __name__ == "__main__":
     tokenizer = transformers.AutoTokenizer.from_pretrained(
         model_args.init_ckpt,
         model_max_length=trainer_args.max_seq_len,
-        padding_side="left",
         use_fast=True,
     )
     model_config = transformers.AutoConfig.from_pretrained(model_args.init_ckpt)

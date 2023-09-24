@@ -20,6 +20,5 @@ if __name__ == "__main__":
     parser.add_argument(
         "--out-model-path", type=str, help="Location to write HF model and tokenizer"
     )
-
     args = parser.parse_args()
     main(args)
