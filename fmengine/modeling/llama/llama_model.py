@@ -6,8 +6,6 @@ from transformers.models.llama.modeling_llama import (
 )
 from deepspeed.pipe import PipelineModule, LayerSpec
 from fmengine.modeling._common._nn import (
-    EmbeddingPipe,
-    LMLayerPipe,
     ParallelEmbeddingPipe,
     ParallelLMLayerPipe,
 )
