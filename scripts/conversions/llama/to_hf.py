@@ -8,7 +8,6 @@ def main(args):
 
 if __name__ == "__main__":
     import argparse
-
     parser = argparse.ArgumentParser()
     parser.add_argument("--in-model-path", type=str, help="Location of weights")
     parser.add_argument(
@@ -20,6 +19,5 @@ if __name__ == "__main__":
     parser.add_argument(
         "--out-model-path", type=str, help="Location to write HF model and tokenizer"
     )
-
     args = parser.parse_args()
     main(args)

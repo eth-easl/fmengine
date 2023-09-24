@@ -136,12 +136,12 @@ def from_hf(model_name_or_path: str, outdir: str, mp_size: int):
     model_config = transformers.AutoConfig.from_pretrained(model_name_or_path)
     torch.nn.Linear.reset_parameters = lambda x: None
     model = transformers.AutoModelForCausalLM.from_pretrained(model_name_or_path)
-    if tokenizer.pad_token is None:
-        smart_tokenizer_and_embedding_resize(
-            special_tokens_dict = dict(pad_token=DEFAULT_PAD_TOKEN),
-            tokenizer=tokenizer,
-            model=model,
-        )
+    # if tokenizer.pad_token is None:
+    #     smart_tokenizer_and_embedding_resize(
+    #         special_tokens_dict = dict(pad_token=DEFAULT_PAD_TOKEN),
+    #         tokenizer=tokenizer,
+    #         model=model,
+    #     )
     tokenizer.add_special_tokens(
         {
             "eos_token": DEFAULT_EOS_TOKEN,
