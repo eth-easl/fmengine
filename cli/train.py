@@ -118,6 +118,8 @@ if __name__ == "__main__":
         model_max_length=trainer_args.max_seq_len,
         use_fast=True,
     )
+    tokenizer.pad_token = tokenizer.eos_token
+    tokenizer.pad_token_id = tokenizer.eos_token_id
     model_config = transformers.AutoConfig.from_pretrained(model_args.init_ckpt)
 
     train_dataloader = get_jsonl_dataloader(
