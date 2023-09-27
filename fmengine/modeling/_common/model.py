@@ -7,6 +7,8 @@ from deepspeed.runtime.pipe.topology import PipeModelDataParallelTopology
 from fmengine.optimizers.loss_func import cross_entropy_fn
 from fmengine.modeling.llama.llama_model import LlamaModelPipe
 from fmengine.modeling.neox.neox_model import NeoxModelPipe
+from fmengine.modeling.mistral.mistral_model import MistralModelPipe, MistralConfig
+from fmengine.modeling.mistral.flacon_model import FalconModelPipe, FalconConfig
 _SEQUENCE_PARALLEL_GROUP = None
 
 # from https://www.deepspeed.ai/tutorials/ds-sequence/
@@ -68,5 +70,23 @@ def get_model(
             base_seed=args.seed,
             activation_checkpointing_config=activation_checkpointing_config,
         )
+    elif isinstance(model_config, FalconConfig):
+        return FalconModelPipe(
+            args,
+            model_config,
+            loss_fn=cross_entropy_fn,
+            topology=topo,
+            base_seed=args.seed,
+            activation_checkpointing_config=activation_checkpointing_config,
+        )
+    elif isinstance(model_config, MistralConfig):
+        return MistralModelPipe(
+            args,
+            model_config,
+            loss_fn=cross_entropy_fn,
+            topology=topo,
+            base_seed=args.seed,
+            activation_checkpointing_config=activation_checkpointing_config,
+        )          
     else:
         raise NotImplementedError
