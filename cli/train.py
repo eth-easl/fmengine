@@ -102,7 +102,7 @@ if __name__ == "__main__":
         // ds_args.model_parallel_size
     )
 
-    data_args.batch_size = ds_config.get("train_batch_size", 1)
+    data_args.batch_size = ds_config.get("train_micro_batch_size_per_gpu", 1)
     activation_checkpointing_config = ds_config.pop("activation_checkpointing", None)
 
     random.seed(ds_args.seed)
