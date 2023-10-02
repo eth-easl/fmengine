@@ -2,7 +2,7 @@ torchrun --nnodes 1 --nproc-per-node 1 --node_rank 0 cli/train.py \
     --output_dir /workspace/.cache/models \
     --init_ckpt /pretrained/tinyllama-2-1b-mp1 \
     --data_path /datasets/prompt.jsonl \
-    --max_seq_len 64 \
+    --max_seq_len 128 \
     --train_steps 1000 \
     --eval_steps 10 \
     --save_steps 1000 \

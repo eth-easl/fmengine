@@ -133,7 +133,6 @@ def write_ckpt(
 
 def from_hf(model_name_or_path: str, outdir: str, mp_size: int):
     tokenizer = transformers.AutoTokenizer.from_pretrained(model_name_or_path)
-    model_config = transformers.AutoConfig.from_pretrained(model_name_or_path)
     torch.nn.Linear.reset_parameters = lambda x: None
     model = transformers.AutoModelForCausalLM.from_pretrained(model_name_or_path)
     outpath = Path(outdir)
@@ -144,7 +143,9 @@ def from_hf(model_name_or_path: str, outdir: str, mp_size: int):
     outpath.mkdir()
     special_tokens_dict = dict()
     if tokenizer.pad_token is None:
-        special_tokens_dict["pad_token"] = DEFAULT_PAD_TOKEN
+        # this is not a typo: we explicitly try to avoid a new "pad_token"
+        # but use eos token instead for padding
+        special_tokens_dict["pad_token"] = DEFAULT_EOS_TOKEN
     if tokenizer.eos_token is None:
         special_tokens_dict["eos_token"] = DEFAULT_EOS_TOKEN
     if tokenizer.bos_token is None:
@@ -152,7 +153,7 @@ def from_hf(model_name_or_path: str, outdir: str, mp_size: int):
     if tokenizer.unk_token is None:
         special_tokens_dict["unk_token"] = DEFAULT_UNK_TOKEN
     smart_tokenizer_and_embedding_resize(
-        special_tokens_dict = special_tokens_dict,
+        special_tokens_dict=special_tokens_dict,
         tokenizer=tokenizer,
         model=model,
     )
@@ -163,6 +164,7 @@ def from_hf(model_name_or_path: str, outdir: str, mp_size: int):
     write_ckpt(steppath, model, model.config, mp_size)
     tokenizer.save_pretrained(outpath)
     model.config.save_pretrained(outpath)
+
 
 def to_hf_model(
     in_model_path: str,
@@ -212,7 +214,7 @@ def to_hf_model(
         tensors.update(layer_loaded)
     # with accelerate.init_empty_weights():
     model = LlamaForCausalLM(config)
-    model.load_state_dict(tensors, strict=True)
+    model.load_state_dict(tensors, strict=False)
     if fp16:
         model.half()
     save_model(

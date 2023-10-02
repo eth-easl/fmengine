@@ -15,7 +15,7 @@ from fmengine.modeling.llama.tensor_parallel import (
     TensorParallelLlamaMLP,
 )
 from fmengine.modeling.llama.fused_ops import LastRMSNorm
-
+from fmengine import mpu
 
 class ParallelTransformerLayerPipe(LlamaDecoderLayer):
     def __init__(
@@ -88,7 +88,7 @@ class LlamaModelPipe(PipelineModule):
     ):
         if activation_checkpointing_config:
             deepspeed.checkpointing.configure(
-                None,
+                mpu,
                 partition_activations=activation_checkpointing_config.get(
                     "partition_activations", False
                 ),
