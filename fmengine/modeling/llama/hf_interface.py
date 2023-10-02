@@ -153,7 +153,7 @@ def from_hf(model_name_or_path: str, outdir: str, mp_size: int):
     if tokenizer.unk_token is None:
         special_tokens_dict["unk_token"] = DEFAULT_UNK_TOKEN
     smart_tokenizer_and_embedding_resize(
-        special_tokens_dict = special_tokens_dict,
+        special_tokens_dict=special_tokens_dict,
         tokenizer=tokenizer,
         model=model,
     )
@@ -164,6 +164,7 @@ def from_hf(model_name_or_path: str, outdir: str, mp_size: int):
     write_ckpt(steppath, model, model.config, mp_size)
     tokenizer.save_pretrained(outpath)
     model.config.save_pretrained(outpath)
+
 
 def to_hf_model(
     in_model_path: str,
