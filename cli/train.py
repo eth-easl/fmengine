@@ -171,4 +171,5 @@ if __name__ == "__main__":
         profile=ds_args.deepspeed_config.flops_profiler.enabled,
         save_per_steps=trainer_args.save_steps,
         configs=merged_configs,
+        project='fmzip-llama'
     )
