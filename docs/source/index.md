@@ -19,6 +19,7 @@ With generous support from
 quickstart
 distributed
 references
+benchmark
 ```
 
 ```{toctree}
