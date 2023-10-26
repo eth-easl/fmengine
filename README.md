@@ -1,6 +1,6 @@
 # FMEngine
 
-![](/assets/logo.png)
+<img src="/assets/logo.png" width="240"/>
 
 FMEngine is a utility library for training very large foundation models. The goal of fmengine is to provide the following:
 
