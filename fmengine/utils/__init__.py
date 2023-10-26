@@ -1,11 +1,9 @@
 import io
 import os
-import sys
-import time
 import json
 from loguru import logger
-import torch.distributed as dist
 from functools import wraps
+import torch.distributed as dist
 
 __all__ = ["rank_zero"]
 
@@ -20,10 +18,8 @@ def rank_zero(func):
 
     return wrapper
 
-
 def is_rank_0() -> bool:
     return not dist.is_initialized() or dist.get_rank() == 0
-
 
 def _make_w_io_base(f, mode: str):
     if not isinstance(f, io.IOBase):

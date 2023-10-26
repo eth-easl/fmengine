@@ -5,8 +5,9 @@ from deepspeed.pipe import PipelineModule
 from deepspeed.profiling.flops_profiler import FlopsProfiler
 from fmengine.utils import logger_rank0
 from fmengine.utils.monitor import rank0_init_wandb
+from fmengine.profiler.malloc import TorchTracemalloc
 from timeit import default_timer as timer
-
+from torch.profiler import profile as torch_profiler, record_function, ProfilerActivity
 
 class LLMTrainer:
     """
@@ -49,7 +50,6 @@ class LLMTrainer:
             project=project,
             config=configs,
         )
-        # print("Trainable params:", sum([p.numel() for p in params]))
         engine, _, _, _ = deepspeed.initialize(
             self.ds_args,
             model=self.model,
@@ -69,13 +69,14 @@ class LLMTrainer:
             if profile and step == profile_step:
                 prof.start_profile()
             start = timer()
-            loss = engine.train_batch(data_iter=self.dataloader)
+            with TorchTracemalloc() as tracemalloc:
+                loss = engine.train_batch(data_iter=self.dataloader)
             end = timer()
             if self.ds_args.local_rank == 0:
                 [cb(end - start, step, loss, configs, engine) for cb in self.callbacks]
                 if profile and step == profile_step:
                     prof.stop_profile()
-                    prof.print_model_profile(profile_step=profile_step)
+                    prof.print_model_profile(profile_step=step)
                     prof.end_profile()
                     del prof
             if step % save_per_steps == 0:

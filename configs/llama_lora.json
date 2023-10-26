@@ -79,7 +79,7 @@
         "output_file": null
     },
     "lora": {
-        "r": 8,
+        "r": 32,
         "lora_alpha": 1,
         "lora_dropout": 0.0
     }
