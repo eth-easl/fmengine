@@ -26,3 +26,6 @@ def count_tokens_from_file(
     with open(filename, 'r') as f:
         data = [json.loads(x)[field] for x in f.readlines()]
     return sum([count(tokenizer, x) for x in data])
+
+def count_epoch_size(tokens, global_batch_size, dp_degree, seq_length):
+    return (tokens // (global_batch_size * dp_degree * seq_length))
