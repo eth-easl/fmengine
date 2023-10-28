@@ -14,3 +14,4 @@ scripts/hostfiles
 .triton
 **/*/*_slurm.sh
 my_scripts/
+logs/
