@@ -9,6 +9,7 @@ from fmengine.profiler.malloc import TorchTracemalloc
 from timeit import default_timer as timer
 from torch.profiler import profile as torch_profiler, record_function, ProfilerActivity
 
+
 class LLMTrainer:
     """
     LLM Trainer
@@ -44,11 +45,13 @@ class LLMTrainer:
         profile_step=10,
         project="fmengine",
         configs: dict = None,
+        experiment: str = None,
     ):
         rank0_init_wandb(
             # set the wandb project where this run will be logged
             project=project,
             config=configs,
+            name=experiment,
         )
         engine, _, _, _ = deepspeed.initialize(
             self.ds_args,

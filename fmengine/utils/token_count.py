@@ -14,18 +14,20 @@ def parallel_count(tokenizer, texts):
     with Pool(n_processor) as pool:
         return sum(pool.map(count, [tokenizer] * len(texts), texts))
 
+
 def count_tokens_from_file(
     filename: str,
     tokenizer_name: str,
-    field: str = 'text',
-    special_tokens: dict = None, 
+    field: str = "text",
+    special_tokens: dict = None,
 ):
     tokenizer = AutoTokenizer.from_pretrained(tokenizer_name)
     if special_tokens is None:
         special_tokens = {}
-    with open(filename, 'r') as f:
+    with open(filename, "r") as f:
         data = [json.loads(x)[field] for x in f.readlines()]
     return sum([count(tokenizer, x) for x in data])
 
+
 def count_epoch_size(tokens, global_batch_size, dp_degree, seq_length):
-    return (tokens // (global_batch_size * dp_degree * seq_length))
+    return tokens // (global_batch_size * dp_degree * seq_length)
