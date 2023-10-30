@@ -62,7 +62,8 @@ class TrainerArguments:
     save_steps: int = field(default=100)
     log_steps: int = field(default=1)
     pretrain: bool = field(default=False)
-
+    project_name: str = field(default="fmengine")
+    experiment_name: str = field(default="experiment")
 
 if __name__ == "__main__":
     parser = transformers.HfArgumentParser(
@@ -171,5 +172,6 @@ if __name__ == "__main__":
         profile=ds_args.deepspeed_config.flops_profiler.enabled,
         save_per_steps=trainer_args.save_steps,
         configs=merged_configs,
-        project='fmzip-llama'
+        project=trainer_args.project_name,
+        experiment=trainer_args.experiment_name,
     )

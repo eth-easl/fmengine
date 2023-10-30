@@ -4,6 +4,7 @@ import psutil
 import threading
 from fmengine.utils.monitor import rank0_print
 
+
 def b2mb(x):
     return int(x / 2**20)
 
@@ -40,8 +41,10 @@ class TorchTracemalloc:
                 break
 
     def report(self):
-        rank0_print(f"CUDA Memory: (PEAK/DELTA/BEGIN/END) /MB")
-        rank0_print(f"{b2mb(self.peak)}/{self.used}/{b2mb(self.begin)}/{b2mb(self.end)}")
+        rank0_print(f"CUDA Memory: (PEAK/DELTA/BEGIN/END)")
+        rank0_print(
+            f"{b2mb(self.peak)}/{self.used}/{b2mb(self.begin)}/{b2mb(self.end)} /MB"
+        )
 
     def __exit__(self, *exc):
         self.peak_monitoring = False

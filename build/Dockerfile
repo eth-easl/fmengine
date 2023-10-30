@@ -1,4 +1,4 @@
-FROM nvcr.io/nvidia/pytorch:23.08-py3
+FROM nvcr.io/nvidia/pytorch:23.09-py3
 
 ENV CUDA_HOME=/usr/local/cuda
 ENV CPATH=$CUDA_HOME/include:$CPATH
@@ -17,3 +17,4 @@ RUN pip install git+https://github.com/Dao-AILab/flash-attention.git#subdirector
     pip install git+https://github.com/Dao-AILab/flash-attention.git#subdirectory=csrc/fused_dense_lib && \
     pip install git+https://github.com/Dao-AILab/flash-attention.git#subdirectory=csrc/fused_softmax
 RUN mv /usr/local/cuda/include/cufile.h /tmp/cufile.h && git clone --branch branch-23.10 https://github.com/rapidsai/kvikio.git && cd kvikio && ./build.sh kvikio && cd .. && rm -rf kvikio && mv /tmp/cufile.h /usr/local/cuda/include/cufile.h
+RUN pip install -U xformers

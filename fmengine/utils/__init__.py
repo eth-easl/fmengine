@@ -18,8 +18,10 @@ def rank_zero(func):
 
     return wrapper
 
+
 def is_rank_0() -> bool:
     return not dist.is_initialized() or dist.get_rank() == 0
+
 
 def _make_w_io_base(f, mode: str):
     if not isinstance(f, io.IOBase):
