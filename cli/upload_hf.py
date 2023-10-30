@@ -3,15 +3,14 @@ import shutil
 import argparse
 from multiprocessing import Pool
 from fmengine.utils.hf import upload_hf
-from fmengine.modeling.neox.hf_interface import to_hf_model
+from fmengine.modeling.llama.hf_interface import to_hf_model
 
 def upload(args):
     print(args)
     os.makedirs(args.temp_path, exist_ok=True)
     os.makedirs(os.path.join(args.temp_path, 'hf'), exist_ok=True)
     steps = [x for x in os.listdir(args.ckpt_path) if x.startswith("global_step")]
-
-    os.system(f"cd {os.path.join(args.temp_path, 'hf')} && huggingface-cli repo create {args.hf_repo} --organization {args.hf_org} && git lfs install && git clone https://huggingface.co/{args.hf_org}/{args.hf_repo} .")
+    os.system(f"cd {args.temp_path} && huggingface-cli repo create {args.hf_repo} --organization {args.hf_org} && mkdir -p hf && cd hf && git lfs install && git clone https://huggingface.co/{args.hf_org}/{args.hf_repo} .")
     for step in steps:
         print(f"Exporting {step}")
         to_hf_model(
@@ -20,8 +19,8 @@ def upload(args):
             out_model_path = os.path.join(args.temp_path, step),
             step=step
         )
-        shutil.copytree(os.path.join(args.temp_path, step), os.path.join(args.temp_path, 'hf', step))
-        os.system(f"cd {os.path.join(args.temp_path, 'hf')} && git add . && git commit -m 'add step {step}' && git tag -a global_step{step} -m 'step{step}' && git push git@hf.co/{args.hf_org}/{args.hf_repo} global_step{step}")
+        shutil.copytree(os.path.join(args.temp_path, step), os.path.join(args.temp_path, 'hf'), dirs_exist_ok=True)
+        os.system(f"cd {os.path.join(args.temp_path, 'hf')} && git add . && git commit -m 'add step {step}' && git tag -a {step} -m 'add {step}' && git push git@hf.co:{args.hf_org}/{args.hf_repo} {step}")
 
 if __name__=="__main__":
     parser = argparse.ArgumentParser()
