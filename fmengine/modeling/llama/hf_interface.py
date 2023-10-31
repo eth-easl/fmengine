@@ -5,6 +5,8 @@ from pathlib import Path
 from loguru import logger
 from transformers import AutoConfig, AutoTokenizer, LlamaForCausalLM
 from safetensors.torch import save_model
+from safetensors.torch import save_file
+
 from fmengine.modeling.llama.flash_attention import (
     smart_tokenizer_and_embedding_resize,
 )
@@ -184,12 +186,13 @@ def to_hf_model(
         with open(os.path.join(in_model_path, "latest"), "r") as f:
             step = f.read().strip()
     logger.info("Processing step: {}", step)
+    is_lora_tuned = False
     for pt in Path(os.path.join(in_model_path, step)).iterdir():
         loaded = torch.load(pt, map_location="cpu")
 
         if not pt.name.startswith("layer_"):
             continue
-
+        
         if pt.name == "layer_00-model_00-model_states.pt":
             logger.info("Loading embedding layer")
             tensors["model.embed_tokens.weight"] = loaded["weight"][:tokenizer_size, :]
@@ -206,22 +209,50 @@ def to_hf_model(
             continue
 
         layer_i = int(pt.name.split("-")[0].replace("layer_", "")) - 1
-        logger.info(f"Loading {layer_i}th layer")
+        
+        for key in loaded.keys():
+            if "lora" in key.lower():
+                is_lora_tuned = True
+                break
 
-        layer_loaded = {
-            f"model.layers.{layer_i}.{nm}": weight for nm, weight in loaded.items()
-        }
+        if is_lora_tuned:
+            logger.info(f"Loading {layer_i}th layer, LoRA params only")
+            layer_loaded = {}
+            for nm, weight in loaded.items():
+                if "proj" in nm and "lora" in nm:
+                    layer_loaded[f"model.layers.{layer_i}.{nm}"] = weight
+                elif "proj" not in nm:
+                    layer_loaded[f"model.layers.{layer_i}.{nm}"] = weight
+                elif "mlp" in nm:
+                    layer_loaded[f"model.layers.{layer_i}.{nm}"] = weight
+                else:
+                    logger.info(f"Skipping {nm}")
+        else:
+            logger.info(f"Loading {layer_i}th layer, Full Params")
+            layer_loaded = {
+                f"model.layers.{layer_i}.{nm}": weight for nm, weight in loaded.items()
+            }
         tensors.update(layer_loaded)
     # with accelerate.init_empty_weights():
-    model = LlamaForCausalLM(config)
-    model.load_state_dict(tensors, strict=False)
-    if fp16:
-        model.half()
-    save_model(
-        model,
-        os.path.join(out_model_path, "model.safetensors"),
-        metadata={"step": step, "format": "pt"},
-    )
+    if not is_lora_tuned:
+        model = LlamaForCausalLM(config)
 
-    config.save_pretrained(out_model_path)
-    tokenizer.save_pretrained(out_model_path)
+        model.load_state_dict(tensors, strict=False)
+        if fp16:
+            model.bfloat16()
+        save_model(
+            model,
+            os.path.join(out_model_path, "model.safetensors"),
+            metadata={"step": step, "format": "pt"},
+        )
+        config.save_pretrained(out_model_path)
+        tokenizer.save_pretrained(out_model_path)
+    else:
+        logger.info("Saving adapters only")
+        save_file(
+            tensors,
+            os.path.join(out_model_path, "adapter.safetensors"),
+            metadata={"step": step, "format": "pt"}
+        )
+        config.save_pretrained(out_model_path)
+        tokenizer.save_pretrained(out_model_path)
