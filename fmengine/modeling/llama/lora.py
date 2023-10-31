@@ -5,7 +5,6 @@ import fmengine.mpu as mpu
 import torch.nn.functional as F
 from transformers.models.llama.modeling_llama import LlamaAttention
 
-
 class LoRARowParallelLinear(mpu.ColumnParallelLinear):
     # LoRA implemented in a dense layer
     def __init__(
@@ -87,6 +86,8 @@ class TensorParallelLoraAttention(LlamaAttention):
         config,
     ):
         super().__init__(config)
+        # we now apply lora to all linear layers in a single attention
+        # https://arxiv.org/abs/2305.14314 suggests that applying lora to all layers is better than just q,v
         self.q_proj = LoRARowParallelLinear(
             args=args,
             input_size=self.hidden_size,
@@ -100,7 +101,7 @@ class TensorParallelLoraAttention(LlamaAttention):
             lora_dropout=args.deepspeed_config.lora.lora_dropout,
         )
 
-        self.k_proj = mpu.ColumnParallelLinear(
+        self.k_proj = LoRARowParallelLinear(
             args=args,
             input_size=self.hidden_size,
             output_size=self.num_key_value_heads * self.head_dim,
@@ -108,6 +109,9 @@ class TensorParallelLoraAttention(LlamaAttention):
             init_method=nn.init.xavier_normal_,
             skip_bias_add=True,
             bias=False,
+            r=args.deepspeed_config.lora.r,
+            lora_alpha=args.deepspeed_config.lora.lora_alpha,
+            lora_dropout=args.deepspeed_config.lora.lora_dropout,
         )
         self.v_proj = LoRARowParallelLinear(
             args=args,
@@ -121,7 +125,7 @@ class TensorParallelLoraAttention(LlamaAttention):
             lora_alpha=args.deepspeed_config.lora.lora_alpha,
             lora_dropout=args.deepspeed_config.lora.lora_dropout,
         )
-        self.o_proj = mpu.RowParallelLinear(
+        self.o_proj = LoRARowParallelLinear(
             args=args,
             input_size=self.num_heads * self.head_dim,
             output_size=self.hidden_size,
@@ -130,4 +134,7 @@ class TensorParallelLoraAttention(LlamaAttention):
             skip_bias_add=True,
             parallel_output=False,  # True if gpt-j-parallel
             bias=False,
+            r=args.deepspeed_config.lora.r,
+            lora_alpha=args.deepspeed_config.lora.lora_alpha,
+            lora_dropout=args.deepspeed_config.lora.lora_dropout,
         )
