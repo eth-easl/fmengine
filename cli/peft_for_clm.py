@@ -1,0 +1,89 @@
+import torch
+import argparse
+import transformers
+
+from tqdm import tqdm
+from accelerate import Accelerator
+from torch.utils.data import DataLoader
+from peft.utils.other import fsdp_auto_wrap_policy
+from peft import get_peft_config, get_peft_model, LoraConfig, TaskType
+
+from fmengine.dataloader.jsonl_loader import get_jsonl_dataset
+from fmengine.dataloader.jsonl_loader import AutoregressiveLanguageModelDataCollator
+
+def train(args):
+    import os
+    os.environ["WANDB_PROJECT"] = args.project_name
+    accelerator = Accelerator()
+    peft_config = LoraConfig(
+        task_type=TaskType.CAUSAL_LM,
+        inference_mode=False,
+        r=args.lora_rank,
+        lora_alpha=args.lora_alpha,
+        lora_dropout=args.lora_dropout,
+    )
+    model = transformers.AutoModelForCausalLM.from_pretrained(args.model_name_or_path)
+    
+    model = get_peft_model(model, peft_config)
+
+    tokenizer = transformers.AutoTokenizer.from_pretrained(
+        args.model_name_or_path,
+        model_max_length=args.max_seq_len,
+        use_fast=True,
+    )
+    """
+    handle special tokens
+    """
+    tokenizer.pad_token = tokenizer.eos_token
+    tokenizer.padding_side = "left"
+    model.print_trainable_parameters()
+
+    train_dataset = get_jsonl_dataset(
+        args.data_path,
+        tokenizer=tokenizer,
+        args={
+            "seq_length": args.max_seq_len,
+            "batch_size": args.micro_batch_size,
+        },
+    )
+    train_dataset = train_dataset.map(lambda samples: tokenizer(samples["text"]), batched=True)
+    print(model)
+    trainer = transformers.Trainer(
+        model=model,
+        train_dataset=train_dataset,
+        args=transformers.TrainingArguments(
+            per_device_train_batch_size=4,
+            gradient_accumulation_steps=4,
+            warmup_steps=10,
+            max_steps=20,
+            learning_rate=3e-4,
+            fp16=True,
+            logging_steps=1,
+            output_dir="outputs",
+        ),
+        data_collator=transformers.DataCollatorForLanguageModeling(tokenizer, mlm=False),
+    )
+    model.config.use_cache = False  # silence the warnings. Please re-enable for inference!
+    trainer.train()
+
+
+
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--model-name-or-path", type=str, required=True)
+    parser.add_argument("--lora-rank", type=int, required=True)
+    parser.add_argument("--lora-alpha", type=int, default=32)
+    parser.add_argument("--lora-dropout", type=float, default=0.1)
+    parser.add_argument("--data-path", type=str, required=True)
+    parser.add_argument("--max-seq-len", type=int, required=True)
+    parser.add_argument("--micro-batch-size", type=int, default=1)
+    parser.add_argument("--gradient-accumulation-steps", type=int, default=1)
+    parser.add_argument("--num-epochs", type=int, default=1)
+    parser.add_argument("--learning-rate", type=float, default=5e-5)
+    parser.add_argument("--output-dir", type=str, default=".cache/peft")
+    parser.add_argument("--wandb-run-name", type=str, required=True)
+    parser.add_argument("--project-name", type=str, default="peft")
+    args = parser.parse_args()
+    train(args)
