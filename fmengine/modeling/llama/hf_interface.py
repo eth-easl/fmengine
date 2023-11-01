@@ -174,6 +174,7 @@ def to_hf_model(
     out_model_path: str,
     step="latest",
     fp16=True,
+    is_lora_tuned=False,
 ):
     os.makedirs(out_model_path, exist_ok=True)
     config = AutoConfig.from_pretrained(model_family)
@@ -186,51 +187,36 @@ def to_hf_model(
         with open(os.path.join(in_model_path, "latest"), "r") as f:
             step = f.read().strip()
     logger.info("Processing step: {}", step)
-    is_lora_tuned = False
+
     for pt in Path(os.path.join(in_model_path, step)).iterdir():
         loaded = torch.load(pt, map_location="cpu")
-
-        if not pt.name.startswith("layer_"):
-            continue
-        
-        if pt.name == "layer_00-model_00-model_states.pt":
-            logger.info("Loading embedding layer")
-            tensors["model.embed_tokens.weight"] = loaded["weight"][:tokenizer_size, :]
-            continue
-
-        if pt.name == f"layer_{n_layers + 1}-model_00-model_states.pt":
-            logger.info("Loading final layer norm")
-            tensors["model.norm.weight"] = loaded["weight"]
-            continue
-
-        if pt.name == f"layer_{n_layers + 2}-model_00-model_states.pt":
-            logger.info("Loading embedding output layer")
-            tensors["lm_head.weight"] = loaded["weight"][:tokenizer_size, :]
-            continue
-
-        layer_i = int(pt.name.split("-")[0].replace("layer_", "")) - 1
-        
-        for key in loaded.keys():
-            if "lora" in key.lower():
-                is_lora_tuned = True
-                break
-
-        if is_lora_tuned:
-            logger.info(f"Loading {layer_i}th layer, LoRA params only")
-            layer_loaded = {}
-            for nm, weight in loaded.items():
-                if "proj" in nm and "lora" in nm:
-                    layer_loaded[f"model.layers.{layer_i}.{nm}"] = weight
-                elif "proj" not in nm:
-                    layer_loaded[f"model.layers.{layer_i}.{nm}"] = weight
-                elif "mlp" in nm:
-                    layer_loaded[f"model.layers.{layer_i}.{nm}"] = weight
-                else:
-                    logger.info(f"Skipping {nm}")
-        else:
+        if not is_lora_tuned:
+            if not pt.name.startswith("layer_"):
+                continue
+            if pt.name == "layer_00-model_00-model_states.pt":
+                logger.info("Loading embedding layer")
+                tensors["model.embed_tokens.weight"] = loaded["weight"][:tokenizer_size, :]
+                continue
+            if pt.name == f"layer_{n_layers + 1}-model_00-model_states.pt":
+                logger.info("Loading final layer norm")
+                tensors["model.norm.weight"] = loaded["weight"]
+                continue
+            if pt.name == f"layer_{n_layers + 2}-model_00-model_states.pt":
+                logger.info("Loading embedding output layer")
+                tensors["lm_head.weight"] = loaded["weight"][:tokenizer_size, :]
+                continue
+            layer_i = int(pt.name.split("-")[0].replace("layer_", "")) - 1
             logger.info(f"Loading {layer_i}th layer, Full Params")
             layer_loaded = {
                 f"model.layers.{layer_i}.{nm}": weight for nm, weight in loaded.items()
+            }
+        else:
+            if not pt.name.startswith("layer_"):
+                continue
+            layer_i = int(pt.name.split("-")[0].replace("layer_", "")) - 1
+            logger.info(f"Loading {layer_i}th layer, LoRA params only")
+            layer_loaded = {
+                f"model.layers.{layer_i}.{nm}": weight for nm, weight in loaded.items() if "lora" in nm.lower()
             }
         tensors.update(layer_loaded)
     # with accelerate.init_empty_weights():
