@@ -1,5 +1,6 @@
 .cache/
 .vscode/
+.idea/
 *.log
 *.pyc
 *.pt
@@ -14,3 +15,6 @@ scripts/hostfiles
 .triton
 **/*/*_slurm.sh
 my_scripts/
+
+/output
+/local
