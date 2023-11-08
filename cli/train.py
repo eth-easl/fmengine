@@ -2,12 +2,13 @@ import os
 import torch
 import random
 import deepspeed
+import pathlib
 import numpy as np
 import transformers
 from typing import Optional
 from dataclasses import dataclass, field, asdict
 
-from fmengine.utils import jload
+from fmengine.utils import jload, get_rank
 from fmengine.trainer.llm_trainer import LLMTrainer
 from fmengine.modeling._common.model import get_model
 from fmengine.dataloader.jsonl_loader import get_jsonl_dataloader
@@ -62,9 +63,16 @@ class TrainerArguments:
     save_steps: int = field(default=100)
     log_steps: int = field(default=1)
     pretrain: bool = field(default=False)
+    dry_run: bool = field(default=False)  # only for memory information
+    res_dir: str = field(default="./output")  # save memory info result, not model checkpoint
+    exp_name: str = field(default="default")
 
 
 if __name__ == "__main__":
+    torch.cuda.reset_max_memory_allocated()
+    start = torch.cuda.memory_allocated()
+    print(f"[XIAOYUAN:{get_rank()}] cuda memory start {start / 2**30} GB")
+
     parser = transformers.HfArgumentParser(
         (ModelArguments, DataArguments, TrainerArguments, DeepspeedArguments)
     )
@@ -163,9 +171,11 @@ if __name__ == "__main__":
         init_ckpt=model_args.init_ckpt,
         save_dir=trainer_args.output_dir,
         pretrain=trainer_args.pretrain,
+        dry_run=trainer_args.dry_run,
         load_module_strict=load_module_strict,
         callbacks=[speed_monitor, wandb_monitor],
     )
+
     trainer.fit(
         steps=trainer_args.train_steps,
         profile=ds_args.deepspeed_config.flops_profiler.enabled,
@@ -173,3 +183,11 @@ if __name__ == "__main__":
         configs=merged_configs,
         project='fmzip-llama'
     )
+
+    exp_res_dir = pathlib.Path(trainer_args.res_dir) / trainer_args.exp_name
+    exp_res_dir.mkdir(parents=True, exist_ok=True)
+    end = torch.cuda.memory_allocated()
+    peak = torch.cuda.max_memory_allocated()
+    print(f"[XIAOYUAN:{get_rank()}] cuda memory peak {(peak - start) / 2**30} GB")
+    with open(exp_res_dir / f"mem-{get_rank()}.txt", "w") as f:
+        f.write(f"{(peak - start)}\n")

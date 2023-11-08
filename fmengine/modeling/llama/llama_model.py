@@ -30,7 +30,7 @@ class ParallelTransformerLayerPipe(LlamaDecoderLayer):
         self.layer_id = layer_id
         if "lora" in args.deepspeed_config:
             self.self_attn = TensorParallelLoraAttention(args, config)
-            print(f"🌴 Low Rank Adapters Enabled: r={args.deepspeed_config.lora.r}")
+            # print(f"🌴 Low Rank Adapters Enabled: r={args.deepspeed_config.lora.r}")
         else:
             self.self_attn = TensorParallelLlamaAttention(args, config)
 
