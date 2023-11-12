@@ -52,23 +52,21 @@ def train(args):
         model=model,
         train_dataset=train_dataset,
         args=transformers.TrainingArguments(
-            per_device_train_batch_size=4,
-            gradient_accumulation_steps=4,
+            per_device_train_batch_size=args.micro_batch_size,
+            gradient_accumulation_steps=args.gradient_accumulation_steps,
             warmup_steps=10,
-            max_steps=20,
-            learning_rate=3e-4,
+            num_train_epochs=args.num_epochs,
+            learning_rate=args.learning_rate,
             fp16=True,
+            save_strategy='epoch',
             logging_steps=1,
-            output_dir="outputs",
+            output_dir=args.output_dir,
         ),
         data_collator=transformers.DataCollatorForLanguageModeling(tokenizer, mlm=False),
     )
     model.config.use_cache = False  # silence the warnings. Please re-enable for inference!
     trainer.train()
-
-
-
-
+    trainer.save_model(args.output_dir)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -80,6 +78,7 @@ if __name__ == "__main__":
     parser.add_argument("--max-seq-len", type=int, required=True)
     parser.add_argument("--micro-batch-size", type=int, default=1)
     parser.add_argument("--gradient-accumulation-steps", type=int, default=1)
+    parser.add_argument("--save-steps", type=int, default=1000)
     parser.add_argument("--num-epochs", type=int, default=1)
     parser.add_argument("--learning-rate", type=float, default=5e-5)
     parser.add_argument("--output-dir", type=str, default=".cache/peft")
