@@ -8,13 +8,15 @@ def convert_to_hf_format(args):
     if args.step =='all':
         steps = os.listdir(args.in_model_path)
         for step in steps:
-            to_hf_model(
-                in_model_path=args.in_model_path,
-                model_family=args.base_model,
-                out_model_path=os.path.join(args.out_model_path, step),
-                step=step,
-                is_lora_tuned=args.is_lora_tuned,
-            )
+            if os.path.isdir(os.path.join(args.in_model_path, step)) and \
+            not os.path.exists(os.path.join(args.out_model_path, step)):
+                to_hf_model(
+                    in_model_path=args.in_model_path,
+                    model_family=args.base_model,
+                    out_model_path=os.path.join(args.out_model_path, step),
+                    step=step,
+                    is_lora_tuned=args.is_lora_tuned,
+                )
     else:
         to_hf_model(
             in_model_path=args.in_model_path,
