@@ -28,11 +28,16 @@ class ParallelTransformerLayerPipe(MistralDecoderLayer):
         super().__init__(config)
         self.activation_checkpointing = activation_checkpointing
         self.layer_id = layer_id
+
+        config.sliding_window = args.window_size
+        print(f"setting sliding window to {config.sliding_window}")
+
         if "lora" in args.deepspeed_config:
             self.self_attn = TensorParallelLoraAttention(args, config)
             print(f"🌴 Low Rank Adapters Enabled: r={args.deepspeed_config.lora.r}")
         else:
             self.self_attn = TensorParallelMistralFlashAttention2(args, config)
+
         self.mlp = TensorParallelMistralMLP(args, config)
         
         def mlp_res(hidden_states: torch.Tensor) -> torch.Tensor:
