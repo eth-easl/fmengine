@@ -67,7 +67,7 @@ class TensorParallelMistralFlashAttention2(MistralFlashAttention2):
         self.v_proj = mpu.ColumnParallelLinear(
             args=args,
             input_size=self.hidden_size,
-            output_size=self.num_heads * self.head_dim,
+            output_size=self.num_key_value_heads * self.head_dim,
             gather_output=False,
             init_method=nn.init.xavier_normal_,
             skip_bias_add=True,
