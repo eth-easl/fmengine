@@ -1,28 +1,27 @@
 import torch
 import deepspeed
-from transformers.models.llama.modeling_llama import (
-    LlamaDecoderLayer,
-    LlamaConfig,
-)
+
+from .modeling_mistral import MistralDecoderLayer
+from .configuration_mistral import MistralConfig
+
 from deepspeed.pipe import PipelineModule, LayerSpec
-from fmengine.modeling._common._nn import (
-    ParallelEmbeddingPipe,
-    ParallelLMLayerPipe,
+from fmengine.modeling._common._nn import ParallelEmbeddingPipe, ParallelLMLayerPipe
+from fmengine.modeling.mistral.lora import TensorParallelLoraAttention
+from fmengine.modeling.mistral.tensor_parallel import (
+    TensorParallelMistralMLP,
+    TensorParallelMistralFlashAttention2,
+    LastMistralRMSNorm
 )
-from fmengine.modeling.llama.lora import TensorParallelLoraAttention
-from fmengine.modeling.llama.tensor_parallel import (
-    TensorParallelLlamaAttention,
-    TensorParallelLlamaMLP,
-)
-from fmengine.modeling.llama.fused_ops import LastRMSNorm
 from fmengine import mpu
 
+from .tensor_parallel import LastMistralRMSNorm
 
-class ParallelTransformerLayerPipe(LlamaDecoderLayer):
+
+class ParallelTransformerLayerPipe(MistralDecoderLayer):
     def __init__(
         self,
-        args,
-        config: LlamaConfig,
+        args, 
+        config: MistralConfig,
         activation_checkpointing=False,
         layer_id=0,
     ):
@@ -31,19 +30,11 @@ class ParallelTransformerLayerPipe(LlamaDecoderLayer):
         self.layer_id = layer_id
         if "lora" in args.deepspeed_config:
             self.self_attn = TensorParallelLoraAttention(args, config)
-            # print(f"🌴 Low Rank Adapters Enabled: r={args.deepspeed_config.lora.r}")
+            print(f"🌴 Low Rank Adapters Enabled: r={args.deepspeed_config.lora.r}")
         else:
-            self.self_attn = TensorParallelLlamaAttention(args, config)
-
-        if args.window_size == -1:
-            window_size = (-1, -1)  # default: means no window limit
-        else:
-            window_size = (args.window_size, 0)
-
-        self.mlp = TensorParallelLlamaMLP(
-            args, config.hidden_size, config.intermediate_size, config.hidden_act
-        )
-
+            self.self_attn = TensorParallelMistralFlashAttention2(args, config)
+        self.mlp = TensorParallelMistralMLP(args, config)
+        
         def mlp_res(hidden_states: torch.Tensor) -> torch.Tensor:
             # Fully Connected
             residual = hidden_states
@@ -52,29 +43,35 @@ class ParallelTransformerLayerPipe(LlamaDecoderLayer):
             hidden_states = residual + hidden_states
             return hidden_states
 
-        def attn_res(hidden_states: torch.Tensor) -> torch.Tensor:
+        def attn_res(hidden_states: torch.Tensor, position_ids: torch.Tensor) -> torch.Tensor:
             residual = hidden_states
             hidden_states = self.input_layernorm(hidden_states)
             hidden_states, _, _ = self.self_attn(
                 hidden_states=hidden_states,
                 attention_mask=None,
-                window_size=window_size,
+                position_ids=position_ids,
             )
             hidden_states = residual + hidden_states
             return hidden_states
-
+    
         self.attn_res = attn_res
         self.mlp_res = mlp_res
-
+    
     def forward(self, args):
         x, position_ids, mask = args
         attention_mask = None
+        
+        if position_ids is None:
+            position_ids = torch.arange(
+                0, x.size(-2), dtype=torch.long, device=x.device
+            )
+            position_ids = position_ids.unsqueeze(0).view(-1, x.size(-2))
 
         if self.activation_checkpointing:
             x.requires_grad_(True)
-            x = deepspeed.checkpointing.checkpoint(self.attn_res, x)
+            x = deepspeed.checkpointing.checkpoint(self.attn_res, x, position_ids)
         else:
-            x = self.attn_res(x)
+            x = self.attn_res(x, attention_mask, position_ids)
 
         if self.activation_checkpointing:
             x.requires_grad_(True)
@@ -84,12 +81,11 @@ class ParallelTransformerLayerPipe(LlamaDecoderLayer):
 
         return (x, position_ids, mask)
 
-
-class LlamaModelPipe(PipelineModule):
+class MistralModelPipe(PipelineModule):
     def __init__(
         self,
         args,
-        model_config,
+        model_config: MistralConfig,
         activation_checkpointing_config,
         **kwargs,
     ):
@@ -133,7 +129,7 @@ class LlamaModelPipe(PipelineModule):
                     for layer_id in range(model_config.num_hidden_layers)
                 ],
                 LayerSpec(
-                    LastRMSNorm,
+                    LastMistralRMSNorm,
                     model_config.hidden_size,
                     model_config.rms_norm_eps,
                 ),

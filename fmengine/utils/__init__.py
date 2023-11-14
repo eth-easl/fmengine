@@ -1,11 +1,9 @@
 import io
 import os
-import sys
-import time
 import json
 from loguru import logger
-import torch.distributed as dist
 from functools import wraps
+import torch.distributed as dist
 
 __all__ = ["rank_zero", "get_rank", "jload", "logger_rank0"]
 

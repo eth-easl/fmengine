@@ -69,11 +69,7 @@ def get_jsonl_dataloader(jsonl_path, tokenizer, args):
     batch_size = args.get("batch_size", 1)
 
     def tokenize(examples):
-        examples = tokenizer(
-            examples["text"],
-            truncation=True,
-            max_length=ctx_length
-        )
+        examples = tokenizer(examples["text"], truncation=True, max_length=ctx_length)
         concatenated_examples = {k: list(chain(*examples[k])) for k in examples.keys()}
         total_length = len(concatenated_examples[list(examples.keys())[0]])
         if total_length >= ctx_length:

@@ -66,9 +66,10 @@ class TrainerArguments:
     save_steps: int = field(default=100)
     log_steps: int = field(default=1)
     pretrain: bool = field(default=False)
+    project_name: str = field(default="fmengine")
+    experiment_name: str = field(default="experiment")
     dry_run: bool = field(default=False)  # only for memory information
     res_dir: str = field(default="./output")  # save memory info result, not model checkpoint
-    exp_name: str = field(default="default")
 
 
 if __name__ == "__main__":
@@ -185,10 +186,11 @@ if __name__ == "__main__":
         profile=ds_args.deepspeed_config.flops_profiler.enabled,
         save_per_steps=trainer_args.save_steps,
         configs=merged_configs,
-        project='fmzip-llama'
+        project=trainer_args.project_name,
+        experiment=trainer_args.experiment_name,
     )
 
-    exp_res_dir = pathlib.Path(trainer_args.res_dir) / trainer_args.exp_name
+    exp_res_dir = pathlib.Path(trainer_args.res_dir) / trainer_args.experiment_name
     exp_res_dir.mkdir(parents=True, exist_ok=True)
     end = torch.cuda.memory_allocated()
     peak = torch.cuda.max_memory_allocated()

@@ -2,6 +2,7 @@ import gc
 import torch
 import psutil
 import threading
+from fmengine.utils.monitor import rank0_print
 
 
 def b2mb(x):
@@ -12,7 +13,7 @@ class TorchTracemalloc:
     def __enter__(self):
         gc.collect()
         torch.cuda.empty_cache()
-        torch.cuda.reset_max_memory_allocated()  # reset the peak gauge to zero
+        torch.cuda.reset_peak_memory_stats()  # reset the peak gauge to zero
         self.begin = torch.cuda.memory_allocated()
         self.process = psutil.Process()
 
@@ -39,6 +40,12 @@ class TorchTracemalloc:
             if not self.peak_monitoring:
                 break
 
+    def report(self):
+        rank0_print(f"CUDA Memory: (PEAK/DELTA/BEGIN/END)")
+        rank0_print(
+            f"{b2mb(self.peak)}/{self.used}/{b2mb(self.begin)}/{b2mb(self.end)} /MB"
+        )
+
     def __exit__(self, *exc):
         self.peak_monitoring = False
 
@@ -53,3 +60,4 @@ class TorchTracemalloc:
         self.cpu_used = b2mb(self.cpu_end - self.cpu_begin)
         self.cpu_peaked = b2mb(self.cpu_peak - self.cpu_begin)
         # print(f"delta used/peak {self.used:4d}/{self.peaked:4d}")
+        self.report()

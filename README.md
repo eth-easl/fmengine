@@ -1,24 +1,31 @@
 # FMEngine
 
-FMEngine is a utility library for training very large foundation models. The goal of fmengine is to provide a 
+<img src="/assets/logo.png" width="240"/>
+
+FMEngine is a utility library for training very large foundation models. The goal of fmengine is to provide the following:
 
 * **Ergonomic** interface for training foundation models. It is sufficient easy for a beginner to use, but also provides enough flexibility for advanced users to customize their training.
 * **Efficient** optimizations built in. FMEngine is equipped with [Flash Attention](https://github.com/Dao-AILab/flash-attention) and various fused ops to accelerate training.
 * **HPC-friendly** installation with pre-built docker and singularity/apptainer containers. FMEngine is mainly designed and tested on [Slurm](https://slurm.schedmd.com/) clusters. We provide starter scripts for running FMEngine on Slurm clusters.
 * **Compatible** with existing frameworks and tools, particularly with [HuggingFace](https://huggingface.co). Since FMEngine is built with [DeepSpeed](https://deepspeed.ai), it is also compatible with all DeepSpeed features.
 
-For now, FMEngine supports two families of models: [GPT-NeoX](https://github.com/EleutherAI/gpt-neox) and [LLama](https://ai.meta.com/blog/large-language-model-llama-meta-ai/). 
-
-| Model | #Params | #Layers | #Heads |  #Dim | Pretrained Checkpoint | Flash Attention |
-| --- | --- | --- | --- | --- | --- | --- |
-| Pythia-160M | 85M | 12 | 12 | 768 | [Download](https://drive.google.com/file/d/1QZNSCMEIldyUVe0ZqMRjlZJZ3WA8KAAE/view?usp=drive_link) | Yes |
-| Pythia-1.4B | 1.2B | 24 | 16 | 2048 | [Download](https://drive.google.com/file/d/16EB64Y0YmYpcr022EO4gxmDszGkLHl8a/view?usp=drive_link) | Yes |
-| Pythia-2.8B | 2.5B | 32 | 32 | 2560 | [Download](https://drive.google.com/file/d/1Q03nrVOP7rLDrADgQsWA_BM8_ojD2qbE/view?usp=drive_link) | Yes |
-| OpenLlama-3B | tba | tba | tba | tba | [Download](https://drive.google.com/file/d/1EYTaPXoBrAk4OTXqNug2N62poCCsv0Ru/view?usp=drive_link) | Yes |
-| Llama-2-70b | tba | tba | tba | tba | tba | Yes |
-
 ## Acknowledgement
 
 FMEngine is primarily implemented and maintained by the [Efficient Architecture and Systems Labs @ ETH Zurich](https://systems.ethz.ch/research/easl.html).
 
 <a href="https://systems.ethz.ch/research/easl.html"><img src="https://systems.ethz.ch/research/easl/_jcr_content/par/textimage_842607556/image.imageformat.textsingle.745562631.png" width="120"></a>
+
+We thank our friends for their generous support:
+
+<a href="https://laion.ai/"><img src="https://avatars.githubusercontent.com/u/92627801?s=200&v=4" width="80"/></a>
+<a href="https://github.com/ontocord/"><img src="https://avatars.githubusercontent.com/u/8900094?v=4" width="80"/></a>
+<a href="https://huggingface.co/Multi-Domain-Expert-Learning"><img src="https://aeiljuispo.cloudimg.io/v7/https://cdn-uploads.huggingface.co/production/uploads/5fc6879e1c5ee87b1164876d/IoeynCnY_cMdjPAzrdU-2.jpeg?w=200&h=200&f=face" width="80"/></a>
+<a href=""><img src="https://www.fz-juelich.de/static/media/Logo.2ceb35fc.svg" width="200"/></a>
+
+### Contributors
+
+* [@xzyaoi](https://github.com/xzyaoi/)
+* [@LorrinWWW](https://github.com/LorrinWWW)
+* [@fishiu](https://github.com/fishiu): Scaling up Low Rank Adapters + Longer Contexts
+* [@Taishi-N324](https://github.com/Taishi-N324/): Benchmarking and Scaling Experiments
+* [@chiennv2000](https://github.com/chiennv2000): Mistral Integration
