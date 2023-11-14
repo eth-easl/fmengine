@@ -43,6 +43,9 @@ class DeepspeedArguments:
     world_size: int = field(default=None)
     seed: int = field(default=3407)
     deepspeed_config: Optional[str] = field(default=None)
+    # TODO(xiaoyuan): should be 2 number, but now we make the second one be default 0
+    # TODO(xiaoyuan): should be in model args, which is not passed into Module init
+    window_size: Optional[int] = field(default=256)
 
 
 @dataclass
@@ -141,6 +144,7 @@ if __name__ == "__main__":
 
     _tmp = torch.nn.Linear.reset_parameters
     torch.nn.Linear.reset_parameters = lambda x: None
+    print("sliding window size:", ds_args.window_size)
     model = get_model(model_config, ds_args, activation_checkpointing_config)
 
     if ds_config.get("precision", "bfloat16"):

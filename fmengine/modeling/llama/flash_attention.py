@@ -59,6 +59,7 @@ def llama_flash_attn_forward(
     past_key_value: Optional[Tuple[torch.Tensor]] = None,
     output_attentions: bool = False,
     use_cache: bool = False,
+    window_size: Optional[Tuple[int]] = (-1, -1),
 ) -> Tuple[torch.Tensor, Optional[torch.Tensor], Optional[Tuple[torch.Tensor]]]:
     """Input shape: Batch x Time x Channel
 
@@ -126,7 +127,7 @@ def llama_flash_attn_forward(
             0, (bsz + 1) * q_len, step=q_len, dtype=torch.int32, device=qkv.device
         )
         output = flash_attn_varlen_qkvpacked_func(
-            qkv, cu_q_lens, max_s, 0.0, softmax_scale=None, causal=True
+            qkv, cu_q_lens, max_s, 0.0, softmax_scale=None, causal=True, window_size=window_size
         )
         output = rearrange(output, "(b s) ... -> b s ...", b=bsz)
     else:
@@ -137,7 +138,7 @@ def llama_flash_attn_forward(
             x_unpad, "nnz (three h d) -> nnz three h d", three=3, h=nheads
         )
         output_unpad = flash_attn_varlen_qkvpacked_func(
-            x_unpad, cu_q_lens, max_s, 0.0, softmax_scale=None, causal=True
+            x_unpad, cu_q_lens, max_s, 0.0, softmax_scale=None, causal=True, window_size=window_size
         )
         output = rearrange(
             pad_input(

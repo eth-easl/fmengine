@@ -34,6 +34,11 @@ class ParallelTransformerLayerPipe(LlamaDecoderLayer):
         else:
             self.self_attn = TensorParallelLlamaAttention(args, config)
 
+        if args.window_size == -1:
+            window_size = (-1, -1)  # default: means no window limit
+        else:
+            window_size = (args.window_size, 0)
+
         self.mlp = TensorParallelLlamaMLP(
             args, config.hidden_size, config.intermediate_size, config.hidden_act
         )
@@ -52,6 +57,7 @@ class ParallelTransformerLayerPipe(LlamaDecoderLayer):
             hidden_states, _, _ = self.self_attn(
                 hidden_states=hidden_states,
                 attention_mask=None,
+                window_size=window_size,
             )
             hidden_states = residual + hidden_states
             return hidden_states
@@ -67,7 +73,7 @@ class ParallelTransformerLayerPipe(LlamaDecoderLayer):
             x.requires_grad_(True)
             x = deepspeed.checkpointing.checkpoint(self.attn_res, x)
         else:
-            x = self.attn_res(x, attention_mask)
+            x = self.attn_res(x)
 
         if self.activation_checkpointing:
             x.requires_grad_(True)
