@@ -5,7 +5,7 @@
 We provide a docker image and singularity image for the dependencies of FMEngine. You can download the docker image by running:
 
 ```bash
-docker pull xzyaoi/fmsys:0.0.3
+docker pull xzyaoi/fmsys:0.0.7
 ```
 
 or download the singularity image [here](https://filedn.eu/lougUsdPvd1uJK2jfOYWogH/images/fmsys.sif).

@@ -1,7 +1,7 @@
 {
-    "train_micro_batch_size_per_gpu": 8,
+    "train_micro_batch_size_per_gpu": 4,
     "train_batch_size": 32,
-    "steps_per_print": 1,
+    "steps_per_print": 10,
     "gradient_clipping": 1.0,
     "lr-decay-style": "cosine",
     "warmup": 0.1,
@@ -39,7 +39,7 @@
         "type": "WarmupLR",
         "params": {
             "warmup_min_lr": 1e-6,
-            "warmup_max_lr": 5e-5,
+            "warmup_max_lr": 1e-5,
             "warmup_num_steps": 50
         }
     },
@@ -54,8 +54,8 @@
     },
     "wall_clock_breakdown": false,
     "flops_profiler": {
-        "enabled": false,
-        "profile_step": 1,
+        "enabled": true,
+        "profile_step": 10,
         "module_depth": -1,
         "top_modules": 1,
         "detailed": true,

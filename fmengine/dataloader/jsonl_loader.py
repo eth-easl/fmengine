@@ -2,11 +2,11 @@ import copy
 import torch
 import deepspeed
 import transformers
+from itertools import chain
+from typing import Dict, List
 from dataclasses import dataclass
 from datasets import load_dataset
-from itertools import chain
 from torch.utils.data.dataloader import DataLoader
-from typing import Dict, List
 
 from fmengine.utils import logger_rank0 as logger
 
@@ -63,11 +63,9 @@ class AutoregressiveLanguageModelDataCollator(object):
 
 def get_jsonl_dataloader(jsonl_path, tokenizer, args):
     data_collator = AutoregressiveLanguageModelDataCollator(tokenizer)
-    ctx_length = args.get("seq_length", 1024) + 1  # +1 for shifting
-    streaming = args.get("streaming", False)
-    seed = args.get("seed", 42)
     batch_size = args.get("batch_size", 1)
-
+    ctx_length = args.get("seq_length", 1024) + 1  # +1 for shifting
+    
     def tokenize(examples):
         examples = tokenizer(examples["text"], truncation=True, max_length=ctx_length)
         concatenated_examples = {k: list(chain(*examples[k])) for k in examples.keys()}
@@ -79,16 +77,25 @@ def get_jsonl_dataloader(jsonl_path, tokenizer, args):
             for k, t in concatenated_examples.items()
         }
         return result
+    
+    raw_datasets = get_jsonl_dataset(jsonl_path, tokenizer, args)
+    raw_datasets = raw_datasets.map(
+        tokenize, batched=True, remove_columns=raw_datasets.column_names
+    ).with_format("torch")
+    dataloader = DataLoader(
+        raw_datasets, shuffle=False, collate_fn=data_collator, batch_size=batch_size
+    )
+    return iter(deepspeed.utils.RepeatingLoader(dataloader))
+
+
+def get_jsonl_dataset(jsonl_path, tokenizer, args):
+    
+    streaming = args.get("streaming", False)
+    seed = args.get("seed", 42)
+    batch_size = args.get("batch_size", 1)
 
     raw_datasets = load_dataset(
         "json", split="train", data_files=jsonl_path, streaming=streaming
     ).shuffle(seed=seed)
 
-    raw_datasets = raw_datasets.map(
-        tokenize, batched=True, remove_columns=raw_datasets.column_names
-    ).with_format("torch")
-
-    dataloader = DataLoader(
-        raw_datasets, shuffle=False, collate_fn=data_collator, batch_size=batch_size
-    )
-    return iter(deepspeed.utils.RepeatingLoader(dataloader))
+    return raw_datasets

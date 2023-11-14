@@ -72,6 +72,7 @@ class TrainerArguments:
     res_dir: str = field(default="./output")  # save memory info result, not model checkpoint
 
 
+
 if __name__ == "__main__":
     torch.cuda.reset_max_memory_allocated()
     start = torch.cuda.memory_allocated()
@@ -158,7 +159,10 @@ if __name__ == "__main__":
                 p.requires_grad_(True)
             else:
                 p.requires_grad_(False)
-
+        # print total trainable params
+        print(
+            f"Total trainable params: {sum(p.numel() for p in model.parameters() if p.requires_grad)}/{sum(p.numel() for p in model.parameters())}"
+        )
     torch.nn.Linear.reset_parameters = _tmp
 
     ds_config["data_path"] = data_args.data_path

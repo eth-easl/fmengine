@@ -14,9 +14,9 @@ scripts/hostfiles
 *.sif
 .triton
 **/*/*_slurm.sh
-my_scripts/
-logs/
-my_configs/
 
-/output
-/local
+logs/
+.local/
+my_configs/
+/output/
+/local/
