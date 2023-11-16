@@ -1,5 +1,5 @@
 """ PyTorch Mistral model. 
-Adapted from https://github.com/huggingface/transformers/blob/main/src/transformers/models/mistral/modeling_mistral.py"""
+Adapted and developed from https://github.com/huggingface/transformers/blob/main/src/transformers/models/mistral/modeling_mistral.py"""
 import inspect
 import math
 import warnings
@@ -29,6 +29,7 @@ from .configuration_mistral import MistralConfig
 if is_flash_attn_2_available():
     from flash_attn import flash_attn_func, flash_attn_varlen_func
     from flash_attn.bert_padding import index_first_axis, pad_input, unpad_input  # noqa
+    from flash_attn.layers.rotary import apply_rotary_emb_func
 
     _flash_supports_window_size = "window_size" in list(inspect.signature(flash_attn_func).parameters)
 else:
@@ -70,79 +71,84 @@ class MistralRMSNorm(nn.Module):
         hidden_states = hidden_states * torch.rsqrt(variance + self.variance_epsilon)
         return self.weight * hidden_states.to(input_dtype)
 
-
-# Copied from transformers.models.llama.modeling_llama.LlamaRotaryEmbedding with Llama->Mistral
-class MistralRotaryEmbedding(nn.Module):
-    def __init__(self, dim, max_position_embeddings=2048, base=10000, device=None):
+class MistralFastRotaryEmbedding(nn.Module):
+    def __init__(self, dim: int, base=10000.0, interleaved=False, scale_base=None,
+                 scaling_factor=1.0, pos_idx_in_fp32=True, device=None):
         super().__init__()
-
         self.dim = dim
-        self.max_position_embeddings = max_position_embeddings
-        self.base = base
-        inv_freq = 1.0 / (self.base ** (torch.arange(0, self.dim, 2).float().to(device) / self.dim))
+        self.base = float(base)
+        self.pos_idx_in_fp32 = pos_idx_in_fp32
+        # Generate and save the inverse frequency buffer (non trainable)
+        inv_freq = self._compute_inv_freq(device)
         self.register_buffer("inv_freq", inv_freq, persistent=False)
+        self.interleaved = interleaved
+        self.scale_base = scale_base
+        self.scaling_factor = scaling_factor
+        scale = ((torch.arange(0, dim, 2, device=device, dtype=torch.float32) + 0.4 * dim)
+                 / (1.4 * dim) if scale_base is not None else None)
+        self.register_buffer("scale", scale)
 
-        # Build here to make `torch.jit.trace` work.
-        self._set_cos_sin_cache(
-            seq_len=max_position_embeddings, device=self.inv_freq.device, dtype=torch.get_default_dtype()
-        )
+        self._seq_len_cached = 0
+        self._cos_cached = None
+        self._sin_cached = None
+        self._cos_k_cached = None
+        self._sin_k_cached = None
 
-    def _set_cos_sin_cache(self, seq_len, device, dtype):
-        self.max_seq_len_cached = seq_len
-        t = torch.arange(self.max_seq_len_cached, device=device, dtype=self.inv_freq.dtype)
-
-        freqs = torch.einsum("i,j->ij", t, self.inv_freq)
-        # Different from paper, but it uses a different permutation in order to obtain the same calculation
-        emb = torch.cat((freqs, freqs), dim=-1)
-        self.register_buffer("cos_cached", emb.cos().to(dtype), persistent=False)
-        self.register_buffer("sin_cached", emb.sin().to(dtype), persistent=False)
-
-    def forward(self, x, seq_len=None):
-        # x: [bs, num_attention_heads, seq_len, head_size]
-        if seq_len > self.max_seq_len_cached:
-            self._set_cos_sin_cache(seq_len=seq_len, device=x.device, dtype=x.dtype)
-
-        return (
-            self.cos_cached[:seq_len].to(dtype=x.dtype),
-            self.sin_cached[:seq_len].to(dtype=x.dtype),
-        )
+    def _compute_inv_freq(self, device=None):
+        return 1 / (self.base ** (torch.arange(0, self.dim, 2, device=device,
+                                                 dtype=torch.float32) / self.dim))
 
 
-# Copied from transformers.models.llama.modeling_llama.rotate_half
-def rotate_half(x):
-    """Rotates half the hidden dims of the input."""
-    x1 = x[..., : x.shape[-1] // 2]
-    x2 = x[..., x.shape[-1] // 2 :]
-    return torch.cat((-x2, x1), dim=-1)
+    def _update_cos_sin_cache(self, seqlen, device=None, dtype=None):
+        if (seqlen > self._seq_len_cached or self._cos_cached.device != device
+            or self._cos_cached.dtype != dtype
+            or (self.training and self._cos_cached.is_inference())):
+            self._seq_len_cached = seqlen
+            if self.pos_idx_in_fp32:
+                t = torch.arange(seqlen, device=device, dtype=torch.float32)
+                t /= self.scaling_factor
+                if self.inv_freq.dtype != torch.float32:
+                    inv_freq = self.inv_freq.to(torch.float32)
+                else:
+                    inv_freq = self.inv_freq
+            else:
+                t = torch.arange(seqlen, device=device, dtype=self.inv_freq.dtype)
+                t /= self.scaling_factor
+                inv_freq = self.inv_freq
+            # Don't do einsum, it converts fp32 to fp16 under AMP
+            # freqs = torch.einsum("i,j->ij", t, self.inv_freq)
+            freqs = torch.outer(t, inv_freq)
+            if self.scale is None:
+                self._cos_cached = torch.cos(freqs).to(dtype)
+                self._sin_cached = torch.sin(freqs).to(dtype)
+            else:
+                power = ((torch.arange(seqlen, dtype=self.scale.dtype, device=self.scale.device)
+                          - seqlen // 2) / self.scale_base)
+                scale = self.scale.to(device=power.device) ** power.unsqueeze(-1)
+                # We want the multiplication by scale to happen in fp32
+                self._cos_cached = (torch.cos(freqs) * scale).to(dtype)
+                self._sin_cached = (torch.sin(freqs) * scale).to(dtype)
+                self._cos_k_cached = (torch.cos(freqs) / scale).to(dtype)
+                self._sin_k_cached = (torch.sin(freqs) / scale).to(dtype)
 
-
-# Copied from transformers.models.llama.modeling_llama.apply_rotary_pos_emb
-def apply_rotary_pos_emb(q, k, cos, sin, position_ids, unsqueeze_dim=1):
-    """Applies Rotary Position Embedding to the query and key tensors.
-
-    Args:
-        q (`torch.Tensor`): The query tensor.
-        k (`torch.Tensor`): The key tensor.
-        cos (`torch.Tensor`): The cosine part of the rotary embedding.
-        sin (`torch.Tensor`): The sine part of the rotary embedding.
-        position_ids (`torch.Tensor`):
-            The position indices of the tokens corresponding to the query and key tensors. For example, this can be
-            used to pass offsetted position ids when working with a KV-cache.
-        unsqueeze_dim (`int`, *optional*, defaults to 1):
-            The 'unsqueeze_dim' argument specifies the dimension along which to unsqueeze cos[position_ids] and
-            sin[position_ids] so that they can be properly broadcasted to the dimensions of q and k. For example, note
-            that cos[position_ids] and sin[position_ids] have the shape [batch_size, seq_len, head_dim]. Then, if q and
-            k have the shape [batch_size, heads, seq_len, head_dim], then setting unsqueeze_dim=1 makes
-            cos[position_ids] and sin[position_ids] broadcastable to the shapes of q and k. Similarly, if q and k have
-            the shape [batch_size, seq_len, heads, head_dim], then set unsqueeze_dim=2.
-    Returns:
-        `tuple(torch.Tensor)` comprising of the query and key tensors rotated using the Rotary Position Embedding.
-    """
-    cos = cos[position_ids].unsqueeze(unsqueeze_dim)
-    sin = sin[position_ids].unsqueeze(unsqueeze_dim)
-    q_embed = (q * cos) + (rotate_half(q) * sin)
-    k_embed = (k * cos) + (rotate_half(k) * sin)
-    return q_embed, k_embed
+    def forward(self, q: torch.Tensor, k: torch.Tensor, seqlen_offset: int = 0) -> Tuple[torch.Tensor, torch.Tensor]:
+        """
+        q: (batch, seqlen, nheads, headdim)
+        k: (batch, seqlen, nheads, headdim)
+        seqlen_offset: can be used in generation where the qkv being passed in is only the last
+        token in the batch.
+        """
+        self._update_cos_sin_cache(q.shape[1] + seqlen_offset, device=q.device, dtype=q.dtype)
+        if self.scale is None:
+            return apply_rotary_emb_func(
+                q, self._cos_cached[seqlen_offset:], self._sin_cached[seqlen_offset:],
+                self.interleaved, True # inplace=True
+            ), apply_rotary_emb_func(
+                k, self._cos_cached[seqlen_offset:], self._sin_cached[seqlen_offset:],
+                self.interleaved, True # inplace=True
+            )
+        else:
+            assert False
 
 
 class MistralMLP(nn.Module):
@@ -159,18 +165,13 @@ class MistralMLP(nn.Module):
     def forward(self, x):
         return self.down_proj(self.act_fn(self.gate_proj(x)) * self.up_proj(x))
 
-
-# Copied from transformers.models.llama.modeling_llama.repeat_kv
+@torch.jit.script
 def repeat_kv(hidden_states: torch.Tensor, n_rep: int) -> torch.Tensor:
-    """
-    This is the equivalent of torch.repeat_interleave(x, dim=1, repeats=n_rep). The hidden states go from (batch,
-    num_key_value_heads, seqlen, head_dim) to (batch, num_attention_heads, seqlen, head_dim)
-    """
-    batch, num_key_value_heads, slen, head_dim = hidden_states.shape
+    batch, slen, num_key_value_heads, head_dim = hidden_states.shape
     if n_rep == 1:
         return hidden_states
-    hidden_states = hidden_states[:, :, None, :, :].expand(batch, num_key_value_heads, n_rep, slen, head_dim)
-    return hidden_states.reshape(batch, num_key_value_heads * n_rep, slen, head_dim)
+    hidden_states = hidden_states[:, :, :, None, :].expand(batch, slen, num_key_value_heads, n_rep, head_dim)
+    return hidden_states.reshape(batch, slen, num_key_value_heads * n_rep, head_dim)
 
 
 class MistralAttention(nn.Module):
@@ -200,11 +201,11 @@ class MistralAttention(nn.Module):
         self.k_proj = nn.Linear(self.hidden_size, self.num_key_value_heads * self.head_dim, bias=False)
         self.v_proj = nn.Linear(self.hidden_size, self.num_key_value_heads * self.head_dim, bias=False)
         self.o_proj = nn.Linear(self.num_heads * self.head_dim, self.hidden_size, bias=False)
-
-        self.rotary_emb = MistralRotaryEmbedding(
+        
+        self.rotary_emb = MistralFastRotaryEmbedding(
             self.head_dim,
-            max_position_embeddings=self.max_position_embeddings,
             base=self.rope_theta,
+            interleaved=False,
         )
 
     def _shape(self, tensor: torch.Tensor, seq_len: int, bsz: int):
@@ -220,72 +221,7 @@ class MistralAttention(nn.Module):
         use_cache: bool = False,
         **kwargs,
     ) -> Tuple[torch.Tensor, Optional[torch.Tensor], Optional[Tuple[torch.Tensor]]]:
-        if "padding_mask" in kwargs:
-            warnings.warn(
-                "Passing `padding_mask` is deprecated and will be removed in v4.37. Please make sure use `attention_mask` instead.`"
-            )
-        bsz, q_len, _ = hidden_states.size()
-
-        query_states = self.q_proj(hidden_states)
-        key_states = self.k_proj(hidden_states)
-        value_states = self.v_proj(hidden_states)
-
-        query_states = query_states.view(bsz, q_len, self.num_heads, self.head_dim).transpose(1, 2)
-        key_states = key_states.view(bsz, q_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
-        value_states = value_states.view(bsz, q_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
-
-        kv_seq_len = key_states.shape[-2]
-        if past_key_value is not None:
-            kv_seq_len += past_key_value[0].shape[-2]
-        cos, sin = self.rotary_emb(value_states, seq_len=kv_seq_len)
-        query_states, key_states = apply_rotary_pos_emb(query_states, key_states, cos, sin, position_ids)
-
-        if past_key_value is not None:
-            # reuse k, v, self_attention
-            key_states = torch.cat([past_key_value[0], key_states], dim=2)
-            value_states = torch.cat([past_key_value[1], value_states], dim=2)
-
-        past_key_value = (key_states, value_states) if use_cache else None
-
-        # repeat k/v heads if n_kv_heads < n_heads
-        key_states = repeat_kv(key_states, self.num_key_value_groups)
-        value_states = repeat_kv(value_states, self.num_key_value_groups)
-
-        attn_weights = torch.matmul(query_states, key_states.transpose(2, 3)) / math.sqrt(self.head_dim)
-
-        if attn_weights.size() != (bsz, self.num_heads, q_len, kv_seq_len):
-            raise ValueError(
-                f"Attention weights should be of size {(bsz, self.num_heads, q_len, kv_seq_len)}, but is"
-                f" {attn_weights.size()}"
-            )
-
-        if attention_mask is not None:
-            if attention_mask.size() != (bsz, 1, q_len, kv_seq_len):
-                raise ValueError(
-                    f"Attention mask should be of size {(bsz, 1, q_len, kv_seq_len)}, but is {attention_mask.size()}"
-                )
-
-            attn_weights = attn_weights + attention_mask
-
-        # upcast attention to fp32
-        attn_weights = nn.functional.softmax(attn_weights, dim=-1, dtype=torch.float32).to(query_states.dtype)
-        attn_output = torch.matmul(attn_weights, value_states)
-
-        if attn_output.size() != (bsz, self.num_heads, q_len, self.head_dim):
-            raise ValueError(
-                f"`attn_output` should be of size {(bsz, self.num_heads, q_len, self.head_dim)}, but is"
-                f" {attn_output.size()}"
-            )
-
-        attn_output = attn_output.transpose(1, 2).contiguous()
-        attn_output = attn_output.reshape(bsz, q_len, self.hidden_size)
-
-        attn_output = self.o_proj(attn_output)
-
-        if not output_attentions:
-            attn_weights = None
-
-        return attn_output, attn_weights, past_key_value
+        raise NotImplementedError
 
 
 class MistralFlashAttention2(MistralAttention):
@@ -318,21 +254,24 @@ class MistralFlashAttention2(MistralAttention):
         key_states = self.k_proj(hidden_states)[0]
         value_states = self.v_proj(hidden_states)[0]
         
-        query_states = query_states.view(bsz, q_len, self.num_heads, self.head_dim).transpose(1, 2)
-        key_states = key_states.view(bsz, q_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
-        value_states = value_states.view(bsz, q_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
+        # query_states = query_states.view(bsz, q_len, self.num_heads, self.head_dim).transpose(1, 2)
+        # key_states = key_states.view(bsz, q_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
+        # value_states = value_states.view(bsz, q_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
+        
+        query_states = query_states.view(bsz, q_len, self.num_heads, self.head_dim)
+        key_states = key_states.view(bsz, q_len, self.num_key_value_heads, self.head_dim)
+        value_states = value_states.view(bsz, q_len, self.num_key_value_heads, self.head_dim)
 
-        kv_seq_len = key_states.shape[-2]
+        kv_seq_len = key_states.shape[1]
         if past_key_value is not None:
-            kv_seq_len += past_key_value[0].shape[-2]
+            kv_seq_len += past_key_value[0].shape[1]
+            past_len = 1
+        else:
+            past_len = 0
 
         # Because the input can be padded, the absolute sequence length depends on the max position id.
-        # print(type(position_ids))
-        # print(type(kv_seq_len))
-        rotary_seq_len = max(kv_seq_len, position_ids[:, -1].max().item()) + 1
-        cos, sin = self.rotary_emb(value_states, seq_len=rotary_seq_len)
 
-        query_states, key_states = apply_rotary_pos_emb(query_states, key_states, cos, sin, position_ids)
+        query_states, key_states = self.rotary_emb(query_states, key_states, past_len)
 
         use_sliding_windows = (
             _flash_supports_window_size
@@ -354,8 +293,8 @@ class MistralFlashAttention2(MistralAttention):
                 past_key = past_key_value[0]
                 past_value = past_key_value[1]
 
-                past_key = past_key[:, :, slicing_tokens:, :].contiguous()
-                past_value = past_value[:, :, slicing_tokens:, :].contiguous()
+                past_key = past_key[:, slicing_tokens:, :, :].contiguous()
+                past_value = past_value[:, slicing_tokens:, :, :].contiguous()
 
                 if past_key.shape[-2] != self.config.sliding_window - 1:
                     raise ValueError(
@@ -369,8 +308,8 @@ class MistralFlashAttention2(MistralAttention):
                     attention_mask = attention_mask[:, slicing_tokens:]
                     attention_mask = torch.cat([attention_mask, torch.ones_like(attention_mask[:, -1:])], dim=-1)
 
-            key_states = torch.cat([past_key_value[0], key_states], dim=2)
-            value_states = torch.cat([past_key_value[1], value_states], dim=2)
+            key_states = torch.cat([past_key_value[0], key_states], dim=1)
+            value_states = torch.cat([past_key_value[1], value_states], dim=1)
 
         past_key_value = (key_states, value_states) if use_cache else None
 
@@ -403,11 +342,6 @@ class MistralFlashAttention2(MistralAttention):
             query_states = query_states.to(target_dtype)
             key_states = key_states.to(target_dtype)
             value_states = value_states.to(target_dtype)
-
-        # Reashape to the expected shape for Flash Attention
-        query_states = query_states.transpose(1, 2)
-        key_states = key_states.transpose(1, 2)
-        value_states = value_states.transpose(1, 2)
 
         attn_output = self._flash_attention_forward(
             query_states,
