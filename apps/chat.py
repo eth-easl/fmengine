@@ -1,7 +1,9 @@
 import transformers
 
+
 def to_chatml(prompt):
-    return f"<|im_start|>user\n{prompt}\n<|im_end|>\n<|im_start|>assistant\n"
+    return f"<human>: {prompt}<|endoftext|><assistant>:"
+
 
 def chat(model_path: str, system_prompt: str):
     print("[fmengine] loading model...")
@@ -11,7 +13,7 @@ def chat(model_path: str, system_prompt: str):
     print("[fmengine] models loaded")
     dialogs = ""
     if system_prompt:
-        dialogs = "<|im_start|>system\n" + system_prompt + "\n<|im_end|>\n"
+        dialogs = "<system>: " + system_prompt
     while True:
         user_input = input("User: ")
         if user_input == "\exit":
@@ -22,16 +24,28 @@ def chat(model_path: str, system_prompt: str):
         model_input = dialogs + to_chatml(user_input)
         input_ids = tokenizer.encode(model_input, return_tensors="pt")
         input_ids = input_ids.to("cuda")
-        output_ids = model.generate(input_ids, max_length=512, pad_token_id=tokenizer.eos_token_id)
+        output_ids = model.generate(
+            input_ids, max_new_tokens=2048, pad_token_id=tokenizer.eos_token_id
+        )
         output = tokenizer.decode(output_ids[0], skip_special_tokens=True)
-        dialogs += output.replace(model_input, "").split("<|im_end|>")[0] + "<|im_end|>\n"
-        printed_output = output.replace(model_input, "").split("<|im_end|>")[0]
+        dialogs += (
+            output.replace(model_input, "").split("<|endoftext|>")[0]
+            + "<|endoftext|>\n"
+        )
+        printed_output = output.replace(model_input, "").split("<|endoftext|>")[0]
         print(f"System: {printed_output}")
 
-if __name__=="__main__":
+
+if __name__ == "__main__":
     import argparse
+
     parser = argparse.ArgumentParser()
     parser.add_argument("--model-path", type=str, help="Location of model")
-    parser.add_argument("--system-prompt", type=str, help="System prompt", default="Hello, how are you?")
+    parser.add_argument(
+        "--system-prompt",
+        type=str,
+        help="System prompt",
+        default="You are a friendly and helpful chatbot built by the fmengine, and you are here to help the human.",
+    )
     args = parser.parse_args()
     chat(args.model_path, args.system_prompt)

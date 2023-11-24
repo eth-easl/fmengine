@@ -1,84 +1,95 @@
 import torch
 import deepspeed
-from deepspeed.pipe import PipelineModule, LayerSpec
 from transformers.models.llama.modeling_llama import (
     LlamaDecoderLayer,
-    LlamaRMSNorm,
     LlamaConfig,
 )
-from fmengine.modeling._common._nn import EmbeddingPipe, LMLayerPipe
-from fmengine.modeling._common.lora import LoRAConfig, mark_only_lora_as_trainable
-from fmengine.modeling.llama.lora import LoRALlamaMLP, LoRALlamaAttention
+from deepspeed.pipe import PipelineModule, LayerSpec
+from fmengine.modeling._common._nn import (
+    ParallelEmbeddingPipe,
+    ParallelLMLayerPipe,
+)
+from fmengine.modeling.llama.lora import TensorParallelLoraAttention
+from fmengine.modeling.llama.tensor_parallel import (
+    TensorParallelLlamaAttention,
+    TensorParallelLlamaMLP,
+)
+from fmengine.modeling.llama.fused_ops import LastRMSNorm
+from fmengine import mpu
 
 
 class ParallelTransformerLayerPipe(LlamaDecoderLayer):
     def __init__(
         self,
+        args,
         config: LlamaConfig,
         activation_checkpointing=False,
-        lora_config: LoRAConfig = None,
+        layer_id=0,
     ):
         super().__init__(config)
         self.activation_checkpointing = activation_checkpointing
-        self.lora_config = lora_config
-        if self.lora_config:
-            self.self_attn = LoRALlamaAttention(config, lora_config)
-            self.mlp = LoRALlamaMLP(config, lora_config)
-            mark_only_lora_as_trainable(self, lora_config.bias)
+        self.layer_id = layer_id
+        if "lora" in args.deepspeed_config:
+            self.self_attn = TensorParallelLoraAttention(args, config)
+            print(f"🌴 Low Rank Adapters Enabled: r={args.deepspeed_config.lora.r}")
+        else:
+            self.self_attn = TensorParallelLlamaAttention(args, config)
+
+        self.mlp = TensorParallelLlamaMLP(
+            args, config.hidden_size, config.intermediate_size, config.hidden_act
+        )
+
+        def mlp_res(hidden_states: torch.Tensor) -> torch.Tensor:
+            # Fully Connected
+            residual = hidden_states
+            hidden_states = self.post_attention_layernorm(hidden_states)
+            hidden_states = self.mlp(hidden_states)
+            hidden_states = residual + hidden_states
+            return hidden_states
+
+        def attn_res(hidden_states: torch.Tensor) -> torch.Tensor:
+            residual = hidden_states
+            hidden_states = self.input_layernorm(hidden_states)
+            hidden_states, _, _ = self.self_attn(
+                hidden_states=hidden_states,
+                attention_mask=None,
+            )
+            hidden_states = residual + hidden_states
+            return hidden_states
+
+        self.attn_res = attn_res
+        self.mlp_res = mlp_res
 
     def forward(self, args):
+        x, position_ids, mask = args
+        attention_mask = None
+
         if self.activation_checkpointing:
-            return self._ckpt_forward(args)
+            x.requires_grad_(True)
+            x = deepspeed.checkpointing.checkpoint(self.attn_res, x)
+        else:
+            x = self.attn_res(x, attention_mask)
 
-        hidden_states, position_ids, mask = args
-        attention_mask = torch.where(mask == True, float("-inf"), 0).long()
+        if self.activation_checkpointing:
+            x.requires_grad_(True)
+            x = deepspeed.checkpointing.checkpoint(self.mlp_res, x)
+        else:
+            x = self.mlp_res(x)
 
-        outputs = LlamaDecoderLayer.forward(
-            self,
-            hidden_states,
-            attention_mask,
-            position_ids,
-        )
-        return (outputs[0], position_ids, mask)
-
-    def _ckpt_forward(self, args):
-        hidden_states, position_ids, mask = args
-        attention_mask = torch.where(mask == True, float("-inf"), 0).long()
-
-        def create_custom_forward(module):
-            def custom_forward(*inputs):
-                return LlamaDecoderLayer.forward(module, *inputs)
-
-            return custom_forward
-
-        # deepspeed checkpoint auto use outputs[0] if len(outputs) == 1
-        outputs = deepspeed.checkpointing.checkpoint(
-            create_custom_forward(self),
-            hidden_states,
-            attention_mask,
-            position_ids,
-        )
-        return (outputs, position_ids, mask)
-
-
-class LayerNormPipe(LlamaRMSNorm):
-    def forward(self, args):
-        hidden_states, *_ = args
-        last_hidden_states = super().forward(hidden_states)
-        return (last_hidden_states,)
+        return (x, position_ids, mask)
 
 
 class LlamaModelPipe(PipelineModule):
     def __init__(
         self,
+        args,
         model_config,
         activation_checkpointing_config,
-        lora_config: LoRAConfig,
         **kwargs,
     ):
         if activation_checkpointing_config:
             deepspeed.checkpointing.configure(
-                None,
+                mpu,
                 partition_activations=activation_checkpointing_config.get(
                     "partition_activations", False
                 ),
@@ -96,35 +107,37 @@ class LlamaModelPipe(PipelineModule):
                 ),
                 profile=activation_checkpointing_config.get("profile", False),
             )
+
         super().__init__(
             layers=[
                 LayerSpec(
-                    EmbeddingPipe,
-                    model_config.vocab_size + 1,
+                    ParallelEmbeddingPipe,
+                    args,
+                    model_config.vocab_size,
                     model_config.hidden_size,
                 ),
                 *[
                     LayerSpec(
                         ParallelTransformerLayerPipe,
+                        args,
                         model_config,
                         activation_checkpointing_config is not None,
-                        lora_config=lora_config,
+                        layer_id=layer_id,
                     )
-                    for _ in range(model_config.num_hidden_layers)
+                    for layer_id in range(model_config.num_hidden_layers)
                 ],
                 LayerSpec(
-                    LayerNormPipe,
+                    LastRMSNorm,
                     model_config.hidden_size,
                     model_config.rms_norm_eps,
                 ),
                 LayerSpec(
-                    LMLayerPipe,
+                    ParallelLMLayerPipe,
+                    args,
                     model_config.hidden_size,
-                    model_config.vocab_size + 1,
+                    model_config.vocab_size,
                     bias=False,
                 ),
             ],
             **kwargs,
         )
-        if lora_config:
-            print(f"🌴 Low Rank Adapters Enabled: r={lora_config.r}")

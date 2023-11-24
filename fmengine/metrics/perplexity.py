@@ -10,7 +10,8 @@ try:
 except ImportError:
     CrossEntropyLoss = torch.nn.CrossEntropyLoss
 
-__all__ = ['Perplexity']
+__all__ = ["Perplexity"]
+
 
 class Perplexity(Metric):
     r"""
@@ -36,9 +37,14 @@ class Perplexity(Metric):
 
     def __init__(self, **kwargs: Dict[str, Any]):
         super().__init__(**kwargs)
-        self.add_state("total_log_probs", default=torch.tensor(0.0, dtype=torch.float64),
-                       dist_reduce_fx="sum")
-        self.add_state("count", default=torch.tensor(0, dtype=torch.int64), dist_reduce_fx="sum")
+        self.add_state(
+            "total_log_probs",
+            default=torch.tensor(0.0, dtype=torch.float64),
+            dist_reduce_fx="sum",
+        )
+        self.add_state(
+            "count", default=torch.tensor(0, dtype=torch.int64), dist_reduce_fx="sum"
+        )
 
         self.loss_fn = CrossEntropyLoss()
 

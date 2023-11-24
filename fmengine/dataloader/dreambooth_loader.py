@@ -5,6 +5,7 @@ from torchvision import transforms
 from torch.utils.data import Dataset
 from PIL.ImageOps import exif_transpose
 
+
 class DreamBoothDataset(Dataset):
     """
     A dataset to prepare the instance and class images with the prompts for fine-tuning the model.
@@ -44,8 +45,12 @@ class DreamBoothDataset(Dataset):
 
         self.image_transforms = transforms.Compose(
             [
-                transforms.Resize(size, interpolation=transforms.InterpolationMode.BILINEAR),
-                transforms.CenterCrop(size) if center_crop else transforms.RandomCrop(size),
+                transforms.Resize(
+                    size, interpolation=transforms.InterpolationMode.BILINEAR
+                ),
+                transforms.CenterCrop(size)
+                if center_crop
+                else transforms.RandomCrop(size),
                 transforms.ToTensor(),
                 transforms.Normalize([0.5], [0.5]),
             ]
@@ -56,7 +61,9 @@ class DreamBoothDataset(Dataset):
 
     def __getitem__(self, index):
         example = {}
-        instance_image = Image.open(self.instance_images_path[index % self.num_instance_images])
+        instance_image = Image.open(
+            self.instance_images_path[index % self.num_instance_images]
+        )
         instance_image = exif_transpose(instance_image)
 
         if not instance_image.mode == "RGB":
@@ -64,7 +71,9 @@ class DreamBoothDataset(Dataset):
         example["instance_images"] = self.image_transforms(instance_image)
 
         if self.class_data_root:
-            class_image = Image.open(self.class_images_path[index % self.num_class_images])
+            class_image = Image.open(
+                self.class_images_path[index % self.num_class_images]
+            )
             class_image = exif_transpose(class_image)
 
             if not class_image.mode == "RGB":

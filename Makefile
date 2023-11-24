@@ -1,0 +1,2 @@
+format:
+	python -m black .

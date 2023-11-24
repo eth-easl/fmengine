@@ -20,3 +20,5 @@ torchmetrics
 sphinx-autobuild
 myst-parser
 furo
+munch
+typer
