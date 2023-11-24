@@ -16,7 +16,7 @@ def train(args):
         # lora_dropout=args.lora_dropout,
     )
     model = transformers.AutoModelForCausalLM.from_pretrained(args.model_name_or_path)
-    
+    model.gradient_checkpointing_enable()
     model = get_peft_model(model, peft_config)
 
     tokenizer = transformers.AutoTokenizer.from_pretrained(
