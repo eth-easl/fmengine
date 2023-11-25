@@ -1,6 +1,5 @@
 import argparse
 import transformers
-from accelerate import Accelerator
 from peft import get_peft_model, LoraConfig, TaskType
 from fmengine.dataloader.jsonl_loader import get_jsonl_dataset
 
@@ -73,7 +72,6 @@ if __name__ == "__main__":
     parser.add_argument("--max-seq-len", type=int, required=True)
     parser.add_argument("--micro-batch-size", type=int, default=1)
     parser.add_argument("--gradient-accumulation-steps", type=int, default=1)
-    parser.add_argument("--save-steps", type=int, default=1000)
     parser.add_argument("--num-epochs", type=int, default=1)
     parser.add_argument("--learning-rate", type=float, default=5e-5)
     parser.add_argument("--output-dir", type=str, default=".cache/peft")
