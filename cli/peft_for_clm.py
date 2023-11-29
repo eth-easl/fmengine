@@ -10,7 +10,7 @@ def train(args):
         task_type=TaskType.CAUSAL_LM,
         inference_mode=False,
         # just use default parameters
-        # r=args.lora_rank,
+        r=args.lora_rank,
         # lora_alpha=args.lora_alpha,
         # lora_dropout=args.lora_dropout,
     )
