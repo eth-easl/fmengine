@@ -12,6 +12,9 @@ class MemModel:
     a = 32
     b = 8
     s = 1024
+    # TODO encode these two completely into the memory model
+    bytes_per_ele = 2  # use bf16 = 2bytes
+    bytes_per_opt = 4  # use fp32 = 4bytes
 
     def __init__(self, **kwargs):
         for k, v in kwargs.items():
@@ -37,12 +40,12 @@ class MemModel:
     @property
     def weights(self):
         # 2 * param_num (only weights, no gradient)
-        return self.param_num * 2
+        return self.bytes_per_ele * self.param_num
 
     @property
     def gradient(self):
         # 2 * param_num
-        return self.param_num * 2
+        return self.bytes_per_ele * self.param_num
 
     @property
     def trainable_param_num(self):
@@ -64,7 +67,7 @@ class MemModel:
 
     @property
     def total(self):
-        return self.weights +self.gradient + self.optimizer_state + self.intermediate_activation
+        return self.weights + self.gradient + self.optimizer_state + self.intermediate_activation
 
     def report(self):
         self.print_config()
@@ -83,5 +86,5 @@ class MemModel:
 
 
 if __name__ == '__main__':
-    m = MemModel(r=0, L=8)
+    m = MemModel(r=0, L=32)
     m.report()

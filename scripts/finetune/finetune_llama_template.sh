@@ -21,14 +21,14 @@ deepspeed --num_gpus 4 --num_nodes 1 cli/train.py \
     --data_path .cache/data/$1.jsonl \
     --dry_run \
     --max_seq_len $2 \
-    --train_steps 10 \
-    --eval_steps 20 \
+    --train_steps 50 \
+    --eval_steps 100 \
     --save_steps 100 \
-    --log_steps 5 \
+    --log_steps 25 \
     --pipe_parallel_size 4 \
     --model_parallel_size 1 \
     --use_flash_attn true \
     --use_fused_ops true \
     --deepspeed_config ./configs/$3.json \
-    --exp_name $4 \
+    --experiment_name $4 \
     --window_size $6

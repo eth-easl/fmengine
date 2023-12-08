@@ -72,7 +72,6 @@ class TrainerArguments:
     res_dir: str = field(default="./output")  # save memory info result, not model checkpoint
 
 
-
 if __name__ == "__main__":
     torch.cuda.reset_max_memory_allocated()
     start = torch.cuda.memory_allocated()
