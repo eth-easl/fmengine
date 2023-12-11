@@ -4,9 +4,9 @@ torchrun --nnodes 1 --nproc-per-node 4 --node_rank 0 \
     --init_ckpt /pretrained/open_llama_3b_mp1 \
     --data_path /datasets/data.jsonl \
     --max_seq_len 2048 \
-    --train_steps 10000 \
+    --train_steps 5 \
     --eval_steps 10 \
-    --save_steps 500 \
+    --save_steps 5 \
     --log_steps 1 \
     --pipe_parallel_size 4 \
     --model_parallel_size 1 \

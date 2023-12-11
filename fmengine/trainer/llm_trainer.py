@@ -84,7 +84,10 @@ class LLMTrainer:
                     del prof
             if step % save_per_steps == 0:
                 logger_rank0.info(f"Saving at step {step}")
-                engine.save_checkpoint(self.save_dir)
+                engine.save_checkpoint(
+                    self.save_dir,
+                    exclude_frozen_parameters=True
+                )
         logger_rank0.info(
             "Finished training... saving checkpoints & closing monitoring"
         )

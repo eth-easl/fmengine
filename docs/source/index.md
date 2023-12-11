@@ -14,9 +14,11 @@ With generous support from
 <a href=""><img src="https://www.fz-juelich.de/static/media/Logo.2ceb35fc.svg" width="200"/></a>
 
 ```{toctree}
+:caption: Getting Started
 :hidden:
 
 quickstart
+peft
 distributed
 references
 benchmark
