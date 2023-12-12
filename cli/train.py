@@ -13,6 +13,7 @@ from fmengine.trainer.llm_trainer import LLMTrainer
 from fmengine.modeling._common.model import get_model
 from fmengine.dataloader.jsonl_loader import get_jsonl_dataloader
 from fmengine.dataloader.stream_hf_loader import get_stream_dataset
+from fmengine.dataloader.loader import get_dataloader_from_datasets
 from fmengine.utils.megatron import initialize_megatron
 from fmengine.modeling.llama.patching import patch_llama
 from fmengine.modeling.neox.flash_attention import replace_neox_attn_with_flash_attn
@@ -136,7 +137,10 @@ if __name__ == "__main__":
         )
     else:
         # load from HF dataset
-        stream_dataset = get_stream_dataset(data_args.data_path, tokenizer=tokenizer)
+        stream_dataset = get_stream_dataset(data_args.data_path)
+        train_dataloader = get_dataloader_from_datasets(
+            stream_dataset, tokenizer=tokenizer
+        )
 
     _tmp = torch.nn.Linear.reset_parameters
     torch.nn.Linear.reset_parameters = lambda x: None
