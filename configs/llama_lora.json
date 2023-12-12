@@ -1,7 +1,7 @@
 {
     "train_micro_batch_size_per_gpu": 1,
     "train_batch_size": 8,
-    "steps_per_print": 10,
+    "steps_per_print": 1,
     "gradient_clipping": 1.0,
     "lr-decay-style": "cosine",
     "warmup": 0.1,
