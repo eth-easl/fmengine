@@ -5,7 +5,6 @@ import wandb
 import deepspeed
 from deepspeed.pipe import PipelineModule
 from deepspeed.profiling.flops_profiler import FlopsProfiler
-from torch.profiler import profile as torch_profiler, record_function, ProfilerActivity
 
 from fmengine.utils import logger_rank0, get_rank
 from fmengine.utils.monitor import rank0_init_wandb
@@ -98,9 +97,6 @@ class LLMTrainer:
         if not self.dry_run:
             # TODO fix lora merge problem
             engine.save_checkpoint(self.save_dir)
-            # if get_rank() == 0:
-            #     for k, v in engine.module.named_parameters():
-            #         print(k)
         else:
             print("Dry run, not saving checkpoint")
         wandb.finish()
