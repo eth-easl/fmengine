@@ -10,7 +10,7 @@ from fmengine.modeling.mistral.lora import TensorParallelLoraAttention
 from fmengine.modeling.mistral.tensor_parallel import (
     TensorParallelMistralMLP,
     TensorParallelMistralFlashAttention2,
-    LastMistralRMSNorm
+    LastMistralRMSNorm,
 )
 from fmengine import mpu
 
@@ -20,7 +20,7 @@ from .tensor_parallel import LastMistralRMSNorm
 class ParallelTransformerLayerPipe(MistralDecoderLayer):
     def __init__(
         self,
-        args, 
+        args,
         config: MistralConfig,
         activation_checkpointing=False,
         layer_id=0,
@@ -34,7 +34,7 @@ class ParallelTransformerLayerPipe(MistralDecoderLayer):
         else:
             self.self_attn = TensorParallelMistralFlashAttention2(args, config)
         self.mlp = TensorParallelMistralMLP(args, config)
-        
+
         def mlp_res(hidden_states: torch.Tensor) -> torch.Tensor:
             # Fully Connected
             residual = hidden_states
@@ -43,7 +43,9 @@ class ParallelTransformerLayerPipe(MistralDecoderLayer):
             hidden_states = residual + hidden_states
             return hidden_states
 
-        def attn_res(hidden_states: torch.Tensor, position_ids: torch.Tensor) -> torch.Tensor:
+        def attn_res(
+            hidden_states: torch.Tensor, position_ids: torch.Tensor
+        ) -> torch.Tensor:
             residual = hidden_states
             hidden_states = self.input_layernorm(hidden_states)
             hidden_states, _, _ = self.self_attn(
@@ -53,14 +55,14 @@ class ParallelTransformerLayerPipe(MistralDecoderLayer):
             )
             hidden_states = residual + hidden_states
             return hidden_states
-    
+
         self.attn_res = attn_res
         self.mlp_res = mlp_res
-    
+
     def forward(self, args):
         x, position_ids, mask = args
         attention_mask = None
-        
+
         if position_ids is None:
             position_ids = torch.arange(
                 0, x.size(-2), dtype=torch.long, device=x.device
@@ -80,6 +82,7 @@ class ParallelTransformerLayerPipe(MistralDecoderLayer):
             x = self.mlp_res(x)
 
         return (x, position_ids, mask)
+
 
 class MistralModelPipe(PipelineModule):
     def __init__(

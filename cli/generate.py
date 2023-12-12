@@ -10,6 +10,7 @@ from transformers import (
 from peft import PeftModel
 from loguru import logger
 
+
 def postprocess(text):
     text = text.strip()
     # logic:
@@ -20,12 +21,12 @@ def postprocess(text):
     text = text.split("\n")[0]
     return text
 
+
 def generate(args):
     print(args)
     tokenizer = AutoTokenizer.from_pretrained(args.model_name_or_path)
     model = AutoModelForCausalLM.from_pretrained(
-        args.model_name_or_path, 
-        torch_dtype=torch.float16
+        args.model_name_or_path, torch_dtype=torch.float16
     )
     model = PeftModel.from_pretrained(
         model,
@@ -36,9 +37,7 @@ def generate(args):
     with torch.inference_mode():
         with open(args.input_file, "r") as f:
             data = [json.loads(line) for line in f]
-        pipe = TextGenerationPipeline(
-            model=model, tokenizer=tokenizer, device="cuda"
-        )
+        pipe = TextGenerationPipeline(model=model, tokenizer=tokenizer, device="cuda")
         logger.info("Pipeline Ready")
         prompts = [datum[args.input_field] for datum in data]
         outputs = pipe(
@@ -61,8 +60,7 @@ def generate(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model-name-or-path", "--model",
-                        type=str, required=True)
+    parser.add_argument("--model-name-or-path", "--model", type=str, required=True)
     parser.add_argument("--adapter", type=str, required=True)
     parser.add_argument("--input-file", type=str, required=True)
     parser.add_argument("--output-file", type=str, required=True)

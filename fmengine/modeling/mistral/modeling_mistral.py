@@ -14,7 +14,11 @@ from torch.nn import BCEWithLogitsLoss, CrossEntropyLoss, MSELoss
 
 from transformers.activations import ACT2FN
 from transformers.modeling_attn_mask_utils import _prepare_4d_causal_attention_mask
-from transformers.modeling_outputs import BaseModelOutputWithPast, CausalLMOutputWithPast, SequenceClassifierOutputWithPast
+from transformers.modeling_outputs import (
+    BaseModelOutputWithPast,
+    CausalLMOutputWithPast,
+    SequenceClassifierOutputWithPast,
+)
 from transformers.modeling_utils import PreTrainedModel
 from transformers.utils import (
     add_start_docstrings,
@@ -31,9 +35,13 @@ if is_flash_attn_2_available():
     from flash_attn.bert_padding import index_first_axis, pad_input, unpad_input  # noqa
     from flash_attn.layers.rotary import apply_rotary_emb_func
 
-    _flash_supports_window_size = "window_size" in list(inspect.signature(flash_attn_func).parameters)
+    _flash_supports_window_size = "window_size" in list(
+        inspect.signature(flash_attn_func).parameters
+    )
 else:
-    raise ImportError('Please install Flash Attention: `pip install flash-attn --no-build-isolation`')
+    raise ImportError(
+        "Please install Flash Attention: `pip install flash-attn --no-build-isolation`"
+    )
 
 
 logger = logging.get_logger(__name__)
@@ -46,7 +54,9 @@ def _get_unpad_data(attention_mask):
     seqlens_in_batch = attention_mask.sum(dim=-1, dtype=torch.int32)
     indices = torch.nonzero(attention_mask.flatten(), as_tuple=False).flatten()
     max_seqlen_in_batch = seqlens_in_batch.max().item()
-    cu_seqlens = F.pad(torch.cumsum(seqlens_in_batch, dim=0, dtype=torch.torch.int32), (1, 0))
+    cu_seqlens = F.pad(
+        torch.cumsum(seqlens_in_batch, dim=0, dtype=torch.torch.int32), (1, 0)
+    )
     return (
         indices,
         cu_seqlens,
@@ -71,9 +81,18 @@ class MistralRMSNorm(nn.Module):
         hidden_states = hidden_states * torch.rsqrt(variance + self.variance_epsilon)
         return self.weight * hidden_states.to(input_dtype)
 
+
 class MistralFastRotaryEmbedding(nn.Module):
-    def __init__(self, dim: int, base=10000.0, interleaved=False, scale_base=None,
-                 scaling_factor=1.0, pos_idx_in_fp32=True, device=None):
+    def __init__(
+        self,
+        dim: int,
+        base=10000.0,
+        interleaved=False,
+        scale_base=None,
+        scaling_factor=1.0,
+        pos_idx_in_fp32=True,
+        device=None,
+    ):
         super().__init__()
         self.dim = dim
         self.base = float(base)
@@ -84,8 +103,12 @@ class MistralFastRotaryEmbedding(nn.Module):
         self.interleaved = interleaved
         self.scale_base = scale_base
         self.scaling_factor = scaling_factor
-        scale = ((torch.arange(0, dim, 2, device=device, dtype=torch.float32) + 0.4 * dim)
-                 / (1.4 * dim) if scale_base is not None else None)
+        scale = (
+            (torch.arange(0, dim, 2, device=device, dtype=torch.float32) + 0.4 * dim)
+            / (1.4 * dim)
+            if scale_base is not None
+            else None
+        )
         self.register_buffer("scale", scale)
 
         self._seq_len_cached = 0
@@ -95,14 +118,21 @@ class MistralFastRotaryEmbedding(nn.Module):
         self._sin_k_cached = None
 
     def _compute_inv_freq(self, device=None):
-        return 1 / (self.base ** (torch.arange(0, self.dim, 2, device=device,
-                                                 dtype=torch.float32) / self.dim))
-
+        return 1 / (
+            self.base
+            ** (
+                torch.arange(0, self.dim, 2, device=device, dtype=torch.float32)
+                / self.dim
+            )
+        )
 
     def _update_cos_sin_cache(self, seqlen, device=None, dtype=None):
-        if (seqlen > self._seq_len_cached or self._cos_cached.device != device
+        if (
+            seqlen > self._seq_len_cached
+            or self._cos_cached.device != device
             or self._cos_cached.dtype != dtype
-            or (self.training and self._cos_cached.is_inference())):
+            or (self.training and self._cos_cached.is_inference())
+        ):
             self._seq_len_cached = seqlen
             if self.pos_idx_in_fp32:
                 t = torch.arange(seqlen, device=device, dtype=torch.float32)
@@ -122,8 +152,12 @@ class MistralFastRotaryEmbedding(nn.Module):
                 self._cos_cached = torch.cos(freqs).to(dtype)
                 self._sin_cached = torch.sin(freqs).to(dtype)
             else:
-                power = ((torch.arange(seqlen, dtype=self.scale.dtype, device=self.scale.device)
-                          - seqlen // 2) / self.scale_base)
+                power = (
+                    torch.arange(
+                        seqlen, dtype=self.scale.dtype, device=self.scale.device
+                    )
+                    - seqlen // 2
+                ) / self.scale_base
                 scale = self.scale.to(device=power.device) ** power.unsqueeze(-1)
                 # We want the multiplication by scale to happen in fp32
                 self._cos_cached = (torch.cos(freqs) * scale).to(dtype)
@@ -131,21 +165,31 @@ class MistralFastRotaryEmbedding(nn.Module):
                 self._cos_k_cached = (torch.cos(freqs) / scale).to(dtype)
                 self._sin_k_cached = (torch.sin(freqs) / scale).to(dtype)
 
-    def forward(self, q: torch.Tensor, k: torch.Tensor, seqlen_offset: int = 0) -> Tuple[torch.Tensor, torch.Tensor]:
+    def forward(
+        self, q: torch.Tensor, k: torch.Tensor, seqlen_offset: int = 0
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         q: (batch, seqlen, nheads, headdim)
         k: (batch, seqlen, nheads, headdim)
         seqlen_offset: can be used in generation where the qkv being passed in is only the last
         token in the batch.
         """
-        self._update_cos_sin_cache(q.shape[1] + seqlen_offset, device=q.device, dtype=q.dtype)
+        self._update_cos_sin_cache(
+            q.shape[1] + seqlen_offset, device=q.device, dtype=q.dtype
+        )
         if self.scale is None:
             return apply_rotary_emb_func(
-                q, self._cos_cached[seqlen_offset:], self._sin_cached[seqlen_offset:],
-                self.interleaved, True # inplace=True
+                q,
+                self._cos_cached[seqlen_offset:],
+                self._sin_cached[seqlen_offset:],
+                self.interleaved,
+                True,  # inplace=True
             ), apply_rotary_emb_func(
-                k, self._cos_cached[seqlen_offset:], self._sin_cached[seqlen_offset:],
-                self.interleaved, True # inplace=True
+                k,
+                self._cos_cached[seqlen_offset:],
+                self._sin_cached[seqlen_offset:],
+                self.interleaved,
+                True,  # inplace=True
             )
         else:
             assert False
@@ -165,12 +209,15 @@ class MistralMLP(nn.Module):
     def forward(self, x):
         return self.down_proj(self.act_fn(self.gate_proj(x)) * self.up_proj(x))
 
+
 @torch.jit.script
 def repeat_kv(hidden_states: torch.Tensor, n_rep: int) -> torch.Tensor:
     batch, slen, num_key_value_heads, head_dim = hidden_states.shape
     if n_rep == 1:
         return hidden_states
-    hidden_states = hidden_states[:, :, :, None, :].expand(batch, slen, num_key_value_heads, n_rep, head_dim)
+    hidden_states = hidden_states[:, :, :, None, :].expand(
+        batch, slen, num_key_value_heads, n_rep, head_dim
+    )
     return hidden_states.reshape(batch, slen, num_key_value_heads * n_rep, head_dim)
 
 
@@ -197,11 +244,19 @@ class MistralAttention(nn.Module):
                 f"hidden_size must be divisible by num_heads (got `hidden_size`: {self.hidden_size}"
                 f" and `num_heads`: {self.num_heads})."
             )
-        self.q_proj = nn.Linear(self.hidden_size, self.num_heads * self.head_dim, bias=False)
-        self.k_proj = nn.Linear(self.hidden_size, self.num_key_value_heads * self.head_dim, bias=False)
-        self.v_proj = nn.Linear(self.hidden_size, self.num_key_value_heads * self.head_dim, bias=False)
-        self.o_proj = nn.Linear(self.num_heads * self.head_dim, self.hidden_size, bias=False)
-        
+        self.q_proj = nn.Linear(
+            self.hidden_size, self.num_heads * self.head_dim, bias=False
+        )
+        self.k_proj = nn.Linear(
+            self.hidden_size, self.num_key_value_heads * self.head_dim, bias=False
+        )
+        self.v_proj = nn.Linear(
+            self.hidden_size, self.num_key_value_heads * self.head_dim, bias=False
+        )
+        self.o_proj = nn.Linear(
+            self.num_heads * self.head_dim, self.hidden_size, bias=False
+        )
+
         self.rotary_emb = MistralFastRotaryEmbedding(
             self.head_dim,
             base=self.rope_theta,
@@ -209,7 +264,11 @@ class MistralAttention(nn.Module):
         )
 
     def _shape(self, tensor: torch.Tensor, seq_len: int, bsz: int):
-        return tensor.view(bsz, seq_len, self.num_heads, self.head_dim).transpose(1, 2).contiguous()
+        return (
+            tensor.view(bsz, seq_len, self.num_heads, self.head_dim)
+            .transpose(1, 2)
+            .contiguous()
+        )
 
     def forward(
         self,
@@ -253,14 +312,18 @@ class MistralFlashAttention2(MistralAttention):
         query_states = self.q_proj(hidden_states)[0]
         key_states = self.k_proj(hidden_states)[0]
         value_states = self.v_proj(hidden_states)[0]
-        
+
         # query_states = query_states.view(bsz, q_len, self.num_heads, self.head_dim).transpose(1, 2)
         # key_states = key_states.view(bsz, q_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
         # value_states = value_states.view(bsz, q_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
-        
+
         query_states = query_states.view(bsz, q_len, self.num_heads, self.head_dim)
-        key_states = key_states.view(bsz, q_len, self.num_key_value_heads, self.head_dim)
-        value_states = value_states.view(bsz, q_len, self.num_key_value_heads, self.head_dim)
+        key_states = key_states.view(
+            bsz, q_len, self.num_key_value_heads, self.head_dim
+        )
+        value_states = value_states.view(
+            bsz, q_len, self.num_key_value_heads, self.head_dim
+        )
 
         kv_seq_len = key_states.shape[1]
         if past_key_value is not None:
@@ -287,7 +350,10 @@ class MistralFlashAttention2(MistralAttention):
 
         if past_key_value is not None:
             # Activate slicing cache only if the config has a value `sliding_windows` attribute
-            if hasattr(self.config, "sliding_window") and kv_seq_len > self.config.sliding_window:
+            if (
+                hasattr(self.config, "sliding_window")
+                and kv_seq_len > self.config.sliding_window
+            ):
                 slicing_tokens = kv_seq_len - self.config.sliding_window
 
                 past_key = past_key_value[0]
@@ -306,7 +372,10 @@ class MistralFlashAttention2(MistralAttention):
 
                 if attention_mask is not None:
                     attention_mask = attention_mask[:, slicing_tokens:]
-                    attention_mask = torch.cat([attention_mask, torch.ones_like(attention_mask[:, -1:])], dim=-1)
+                    attention_mask = torch.cat(
+                        [attention_mask, torch.ones_like(attention_mask[:, -1:])],
+                        dim=-1,
+                    )
 
             key_states = torch.cat([past_key_value[0], key_states], dim=1)
             value_states = torch.cat([past_key_value[1], value_states], dim=1)
@@ -396,7 +465,14 @@ class MistralFlashAttention2(MistralAttention):
         # Contains at least one padding token in the sequence
         if attention_mask is not None:
             batch_size = query_states.shape[0]
-            query_states, key_states, value_states, indices_q, cu_seq_lens, max_seq_lens = self._upad_input(
+            (
+                query_states,
+                key_states,
+                value_states,
+                indices_q,
+                cu_seq_lens,
+                max_seq_lens,
+            ) = self._upad_input(
                 query_states, key_states, value_states, attention_mask, query_length
             )
 
@@ -428,10 +504,15 @@ class MistralFlashAttention2(MistralAttention):
                     dropout_p=dropout,
                     softmax_scale=softmax_scale,
                     causal=self.is_causal,
-                    window_size=(self.config.sliding_window, self.config.sliding_window),
+                    window_size=(
+                        self.config.sliding_window,
+                        self.config.sliding_window,
+                    ),
                 )
 
-            attn_output = pad_input(attn_output_unpad, indices_q, batch_size, query_length)
+            attn_output = pad_input(
+                attn_output_unpad, indices_q, batch_size, query_length
+            )
         else:
             if not use_sliding_windows:
                 attn_output = flash_attn_func(
@@ -450,12 +531,17 @@ class MistralFlashAttention2(MistralAttention):
                     dropout,
                     softmax_scale=softmax_scale,
                     causal=self.is_causal,
-                    window_size=(self.config.sliding_window, self.config.sliding_window),
+                    window_size=(
+                        self.config.sliding_window,
+                        self.config.sliding_window,
+                    ),
                 )
 
         return attn_output
 
-    def _upad_input(self, query_layer, key_layer, value_layer, attention_mask, query_length):
+    def _upad_input(
+        self, query_layer, key_layer, value_layer, attention_mask, query_length
+    ):
         batch_size, kv_seq_len, num_heads, head_dim = key_layer.shape
 
         # On the first iteration we need to properly re-create the padding mask
@@ -466,12 +552,17 @@ class MistralFlashAttention2(MistralAttention):
 
         indices_k, cu_seqlens_k, max_seqlen_in_batch_k = _get_unpad_data(attention_mask)
 
-        key_layer = index_first_axis(key_layer.reshape(batch_size * kv_seq_len, num_heads, head_dim), indices_k)
-        value_layer = index_first_axis(value_layer.reshape(batch_size * kv_seq_len, num_heads, head_dim), indices_k)
+        key_layer = index_first_axis(
+            key_layer.reshape(batch_size * kv_seq_len, num_heads, head_dim), indices_k
+        )
+        value_layer = index_first_axis(
+            value_layer.reshape(batch_size * kv_seq_len, num_heads, head_dim), indices_k
+        )
 
         if query_length == kv_seq_len:
             query_layer = index_first_axis(
-                query_layer.reshape(batch_size * kv_seq_len, num_heads, head_dim), indices_k
+                query_layer.reshape(batch_size * kv_seq_len, num_heads, head_dim),
+                indices_k,
             )
             cu_seqlens_q = cu_seqlens_k
             max_seqlen_in_batch_q = max_seqlen_in_batch_k
@@ -486,7 +577,9 @@ class MistralFlashAttention2(MistralAttention):
         else:
             # The -q_len: slice assumes left padding.
             attention_mask = attention_mask[:, -query_length:]
-            query_layer, indices_q, cu_seqlens_q, max_seqlen_in_batch_q = unpad_input(query_layer, attention_mask)
+            query_layer, indices_q, cu_seqlens_q, max_seqlen_in_batch_q = unpad_input(
+                query_layer, attention_mask
+            )
 
         return (
             query_layer,
@@ -508,8 +601,12 @@ class MistralDecoderLayer(nn.Module):
             else MistralFlashAttention2(config)
         )
         self.mlp = MistralMLP(config)
-        self.input_layernorm = MistralRMSNorm(config.hidden_size, eps=config.rms_norm_eps)
-        self.post_attention_layernorm = MistralRMSNorm(config.hidden_size, eps=config.rms_norm_eps)
+        self.input_layernorm = MistralRMSNorm(
+            config.hidden_size, eps=config.rms_norm_eps
+        )
+        self.post_attention_layernorm = MistralRMSNorm(
+            config.hidden_size, eps=config.rms_norm_eps
+        )
 
     def forward(
         self,
@@ -520,7 +617,9 @@ class MistralDecoderLayer(nn.Module):
         output_attentions: Optional[bool] = False,
         use_cache: Optional[bool] = False,
         **kwargs,
-    ) -> Tuple[torch.FloatTensor, Optional[Tuple[torch.FloatTensor, torch.FloatTensor]]]:
+    ) -> Tuple[
+        torch.FloatTensor, Optional[Tuple[torch.FloatTensor, torch.FloatTensor]]
+    ]:
         if "padding_mask" in kwargs:
             warnings.warn(
                 "Passing `padding_mask` is deprecated and will be removed in v4.37. Please make sure use `attention_mask` instead.`"
@@ -693,8 +792,12 @@ class MistralModel(MistralPreTrainedModel):
         self.padding_idx = config.pad_token_id
         self.vocab_size = config.vocab_size
 
-        self.embed_tokens = nn.Embedding(config.vocab_size, config.hidden_size, self.padding_idx)
-        self.layers = nn.ModuleList([MistralDecoderLayer(config) for _ in range(config.num_hidden_layers)])
+        self.embed_tokens = nn.Embedding(
+            config.vocab_size, config.hidden_size, self.padding_idx
+        )
+        self.layers = nn.ModuleList(
+            [MistralDecoderLayer(config) for _ in range(config.num_hidden_layers)]
+        )
         self.norm = MistralRMSNorm(config.hidden_size, eps=config.rms_norm_eps)
 
         self.gradient_checkpointing = False
@@ -720,23 +823,35 @@ class MistralModel(MistralPreTrainedModel):
         output_hidden_states: Optional[bool] = None,
         return_dict: Optional[bool] = None,
     ) -> Union[Tuple, BaseModelOutputWithPast]:
-        output_attentions = output_attentions if output_attentions is not None else self.config.output_attentions
+        output_attentions = (
+            output_attentions
+            if output_attentions is not None
+            else self.config.output_attentions
+        )
         output_hidden_states = (
-            output_hidden_states if output_hidden_states is not None else self.config.output_hidden_states
+            output_hidden_states
+            if output_hidden_states is not None
+            else self.config.output_hidden_states
         )
         use_cache = use_cache if use_cache is not None else self.config.use_cache
 
-        return_dict = return_dict if return_dict is not None else self.config.use_return_dict
+        return_dict = (
+            return_dict if return_dict is not None else self.config.use_return_dict
+        )
 
         # retrieve input_ids and inputs_embeds
         if input_ids is not None and inputs_embeds is not None:
-            raise ValueError("You cannot specify both decoder_input_ids and decoder_inputs_embeds at the same time")
+            raise ValueError(
+                "You cannot specify both decoder_input_ids and decoder_inputs_embeds at the same time"
+            )
         elif input_ids is not None:
             batch_size, seq_length = input_ids.shape
         elif inputs_embeds is not None:
             batch_size, seq_length, _ = inputs_embeds.shape
         else:
-            raise ValueError("You have to specify either decoder_input_ids or decoder_inputs_embeds")
+            raise ValueError(
+                "You have to specify either decoder_input_ids or decoder_inputs_embeds"
+            )
 
         seq_length_with_past = seq_length
         past_key_values_length = 0
@@ -748,7 +863,10 @@ class MistralModel(MistralPreTrainedModel):
         if position_ids is None:
             device = input_ids.device if input_ids is not None else inputs_embeds.device
             position_ids = torch.arange(
-                past_key_values_length, seq_length + past_key_values_length, dtype=torch.long, device=device
+                past_key_values_length,
+                seq_length + past_key_values_length,
+                dtype=torch.long,
+                device=device,
             )
             position_ids = position_ids.unsqueeze(0).view(-1, seq_length)
         else:
@@ -773,7 +891,11 @@ class MistralModel(MistralPreTrainedModel):
 
         if getattr(self.config, "_flash_attn_2_enabled", False):
             # 2d mask is passed through the layers
-            attention_mask = attention_mask if (attention_mask is not None and 0 in attention_mask) else None
+            attention_mask = (
+                attention_mask
+                if (attention_mask is not None and 0 in attention_mask)
+                else None
+            )
         else:
             # 4d mask is passed through the layers
             attention_mask = _prepare_4d_causal_attention_mask(
@@ -802,7 +924,9 @@ class MistralModel(MistralPreTrainedModel):
             if output_hidden_states:
                 all_hidden_states += (hidden_states,)
 
-            past_key_value = past_key_values[idx] if past_key_values is not None else None
+            past_key_value = (
+                past_key_values[idx] if past_key_values is not None else None
+            )
 
             if self.gradient_checkpointing and self.training:
                 layer_outputs = self._gradient_checkpointing_func(
@@ -840,7 +964,11 @@ class MistralModel(MistralPreTrainedModel):
 
         next_cache = next_decoder_cache if use_cache else None
         if not return_dict:
-            return tuple(v for v in [hidden_states, next_cache, all_hidden_states, all_self_attns] if v is not None)
+            return tuple(
+                v
+                for v in [hidden_states, next_cache, all_hidden_states, all_self_attns]
+                if v is not None
+            )
         return BaseModelOutputWithPast(
             last_hidden_state=hidden_states,
             past_key_values=next_cache,
@@ -880,7 +1008,9 @@ class MistralForCausalLM(MistralPreTrainedModel):
         return self.model
 
     @add_start_docstrings_to_model_forward(MISTRAL_INPUTS_DOCSTRING)
-    @replace_return_docstrings(output_type=CausalLMOutputWithPast, config_class=_CONFIG_FOR_DOC)
+    @replace_return_docstrings(
+        output_type=CausalLMOutputWithPast, config_class=_CONFIG_FOR_DOC
+    )
     def forward(
         self,
         input_ids: torch.LongTensor = None,
@@ -920,11 +1050,19 @@ class MistralForCausalLM(MistralPreTrainedModel):
         "Hey, are you conscious? Can you talk to me?\nI'm not conscious, but I can talk to you."
         ```"""
 
-        output_attentions = output_attentions if output_attentions is not None else self.config.output_attentions
-        output_hidden_states = (
-            output_hidden_states if output_hidden_states is not None else self.config.output_hidden_states
+        output_attentions = (
+            output_attentions
+            if output_attentions is not None
+            else self.config.output_attentions
         )
-        return_dict = return_dict if return_dict is not None else self.config.use_return_dict
+        output_hidden_states = (
+            output_hidden_states
+            if output_hidden_states is not None
+            else self.config.output_hidden_states
+        )
+        return_dict = (
+            return_dict if return_dict is not None else self.config.use_return_dict
+        )
 
         # decoder outputs consists of (dec_features, layer_state, dec_hidden, dec_attn)
         outputs = self.model(
@@ -969,7 +1107,12 @@ class MistralForCausalLM(MistralPreTrainedModel):
         )
 
     def prepare_inputs_for_generation(
-        self, input_ids, past_key_values=None, attention_mask=None, inputs_embeds=None, **kwargs
+        self,
+        input_ids,
+        past_key_values=None,
+        attention_mask=None,
+        inputs_embeds=None,
+        **kwargs,
     ):
         # Omit tokens covered by past_key_values
         if past_key_values:
@@ -1013,7 +1156,10 @@ class MistralForCausalLM(MistralPreTrainedModel):
         reordered_past = ()
         for layer_past in past_key_values:
             reordered_past += (
-                tuple(past_state.index_select(0, beam_idx.to(past_state.device)) for past_state in layer_past),
+                tuple(
+                    past_state.index_select(0, beam_idx.to(past_state.device))
+                    for past_state in layer_past
+                ),
             )
         return reordered_past
 
@@ -1070,7 +1216,9 @@ class MistralForSequenceClassification(MistralPreTrainedModel):
             config.num_labels - 1]`. If `config.num_labels == 1` a regression loss is computed (Mean-Square loss), If
             `config.num_labels > 1` a classification loss is computed (Cross-Entropy).
         """
-        return_dict = return_dict if return_dict is not None else self.config.use_return_dict
+        return_dict = (
+            return_dict if return_dict is not None else self.config.use_return_dict
+        )
 
         transformer_outputs = self.model(
             input_ids,
@@ -1092,18 +1240,22 @@ class MistralForSequenceClassification(MistralPreTrainedModel):
             batch_size = inputs_embeds.shape[0]
 
         if self.config.pad_token_id is None and batch_size != 1:
-            raise ValueError("Cannot handle batch sizes > 1 if no padding token is defined.")
+            raise ValueError(
+                "Cannot handle batch sizes > 1 if no padding token is defined."
+            )
         if self.config.pad_token_id is None:
             sequence_lengths = -1
         else:
             if input_ids is not None:
-                sequence_lengths = (torch.eq(input_ids, self.config.pad_token_id).long().argmax(-1) - 1).to(
-                    logits.device
-                )
+                sequence_lengths = (
+                    torch.eq(input_ids, self.config.pad_token_id).long().argmax(-1) - 1
+                ).to(logits.device)
             else:
                 sequence_lengths = -1
 
-        pooled_logits = logits[torch.arange(batch_size, device=logits.device), sequence_lengths]
+        pooled_logits = logits[
+            torch.arange(batch_size, device=logits.device), sequence_lengths
+        ]
 
         loss = None
         if labels is not None:
@@ -1111,7 +1263,9 @@ class MistralForSequenceClassification(MistralPreTrainedModel):
             if self.config.problem_type is None:
                 if self.num_labels == 1:
                     self.config.problem_type = "regression"
-                elif self.num_labels > 1 and (labels.dtype == torch.long or labels.dtype == torch.int):
+                elif self.num_labels > 1 and (
+                    labels.dtype == torch.long or labels.dtype == torch.int
+                ):
                     self.config.problem_type = "single_label_classification"
                 else:
                     self.config.problem_type = "multi_label_classification"
@@ -1124,7 +1278,9 @@ class MistralForSequenceClassification(MistralPreTrainedModel):
                     loss = loss_fct(pooled_logits, labels)
             elif self.config.problem_type == "single_label_classification":
                 loss_fct = CrossEntropyLoss()
-                loss = loss_fct(pooled_logits.view(-1, self.num_labels), labels.view(-1))
+                loss = loss_fct(
+                    pooled_logits.view(-1, self.num_labels), labels.view(-1)
+                )
             elif self.config.problem_type == "multi_label_classification":
                 loss_fct = BCEWithLogitsLoss()
                 loss = loss_fct(pooled_logits, labels)

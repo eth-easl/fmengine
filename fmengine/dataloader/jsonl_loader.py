@@ -20,6 +20,7 @@ class AutoregressiveLanguageModelDataCollator(object):
     tokenizer: transformers.PreTrainedTokenizer
     return_dict: bool
     ignore_index: int = -100
+
     def get_attn_mask(self, input_ids):
         """
         Get triangular attention mask for a given sequence length / device.
@@ -69,16 +70,13 @@ class AutoregressiveLanguageModelDataCollator(object):
         )
 
 
-def get_jsonl_dataloader(
-        jsonl_path,
-        tokenizer,
-        return_repeating_loader=True,
-        args={}
-    ):
-    data_collator = AutoregressiveLanguageModelDataCollator(tokenizer, return_dict=args.get('return_dict', False))
+def get_jsonl_dataloader(jsonl_path, tokenizer, return_repeating_loader=True, args={}):
+    data_collator = AutoregressiveLanguageModelDataCollator(
+        tokenizer, return_dict=args.get("return_dict", False)
+    )
     batch_size = args.get("batch_size", 1)
     ctx_length = args.get("seq_length", 1024) + 1  # +1 for shifting
-    
+
     def tokenize(examples):
         examples = tokenizer(examples["text"], truncation=True, max_length=ctx_length)
         concatenated_examples = {k: list(chain(*examples[k])) for k in examples.keys()}
@@ -90,7 +88,7 @@ def get_jsonl_dataloader(
             for k, t in concatenated_examples.items()
         }
         return result
-    
+
     raw_datasets = get_jsonl_dataset(jsonl_path, tokenizer, args)
     raw_datasets = raw_datasets.map(
         tokenize, batched=True, remove_columns=raw_datasets.column_names
@@ -103,8 +101,8 @@ def get_jsonl_dataloader(
     else:
         return dataloader
 
+
 def get_jsonl_dataset(jsonl_path, tokenizer, args):
-    
     streaming = args.get("streaming", False)
     seed = args.get("seed", 42)
     batch_size = args.get("batch_size", 1)

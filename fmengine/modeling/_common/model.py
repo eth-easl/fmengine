@@ -24,7 +24,7 @@ def get_model(
         args.seed = args.seed + (stage_id * mp)
     if isinstance(model_config, LlamaConfig):
         from fmengine.modeling.llama.llama_model import LlamaModelPipe
-        
+
         return LlamaModelPipe(
             args,
             model_config,
@@ -35,7 +35,7 @@ def get_model(
         )
     elif isinstance(model_config, GPTNeoXConfig):
         from fmengine.modeling.neox.neox_model import NeoxModelPipe
-        
+
         return NeoxModelPipe(
             args,
             model_config,
@@ -46,7 +46,7 @@ def get_model(
         )
     elif isinstance(model_config, MistralConfig):
         from fmengine.modeling.mistral.mistral_model import MistralModelPipe
-        
+
         return MistralModelPipe(
             args,
             model_config,

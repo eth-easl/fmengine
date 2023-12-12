@@ -9,6 +9,7 @@ app = typer.Typer(help="FMEngine.")
 def profile():
     raise NotImplementedError("Not implemented yet")
 
+
 @app.command()
 def train(
     ds_config_path: Annotated[str, typer.Option(help="Path to Deepspeed config file")],

@@ -5,6 +5,7 @@ import fmengine.mpu as mpu
 import torch.nn.functional as F
 from .modeling_mistral import MistralFlashAttention2
 
+
 class LoRARowParallelLinear(mpu.ColumnParallelLinear):
     # LoRA implemented in a dense layer
     def __init__(
