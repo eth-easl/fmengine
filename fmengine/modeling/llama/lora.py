@@ -118,7 +118,7 @@ class LoraColumnParallelLinear(mpu.ColumnParallelLinear):
         # convert back to original dtype
         main_out = main_out.to(original_dtype)
 
-        return (main_out + lora_out,)
+        return main_out + lora_out
 
 
 class LoRARowParallelLinear(mpu.RowParallelLinear):
@@ -248,7 +248,7 @@ class LoRARowParallelLinear(mpu.RowParallelLinear):
         # convert back to original dtype
         main_out = main_out.to(original_dtype)
 
-        return (main_out + lora_out,)
+        return main_out + lora_out
 
 
 class TensorParallelLoraAttention(LlamaAttention):
