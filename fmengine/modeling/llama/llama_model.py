@@ -35,9 +35,11 @@ class ParallelTransformerLayerPipe(LlamaDecoderLayer):
         else:
             self.self_attn = TensorParallelLlamaAttention(args, config)
 
-        if args.window_size == -1:
+        if args.window_size == 0:
+            # -1 is not friendly to exp_name/filename, so use 0 instead
             window_size = (-1, -1)  # default: means no window limit
         else:
+            # causal model, right windows always 0
             window_size = (args.window_size, 0)
 
         self.mlp = TensorParallelLlamaMLP(

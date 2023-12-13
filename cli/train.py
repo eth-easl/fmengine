@@ -45,7 +45,7 @@ class DeepspeedArguments:
     deepspeed_config: Optional[str] = field(default=None)
     # TODO(xiaoyuan): should be 2 number, but now we make the second one be default 0
     # TODO(xiaoyuan): should be in model args, which is not passed into Module init
-    window_size: Optional[int] = field(default=256)
+    window_size: Optional[int] = field(default=0)
 
 
 @dataclass
@@ -150,6 +150,7 @@ if __name__ == "__main__":
 
     if ds_config.get("precision", "bfloat16"):
         print("Using bfloat16")
+        # TODO(xiaoyuan): lora is better used with fp32
         model = model.bfloat16()
 
     if "lora" in ds_config:
