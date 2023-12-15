@@ -108,9 +108,11 @@ class GatedLinearAttention(nn.Module):
         else:
             v_gate = None
         g = self.g_proj(x)
+        print("before gla")
         output = self.gated_linear_attention(
             q, k, v, k_gate, v_gate, num_head=self.num_heads, chunk_size=128
         )
+        print("after gla")
         output = self.group_norm(output)
         output = rearrange(output, "b h n c d -> b (n c) (h d)")
 
@@ -150,7 +152,6 @@ class GatedLinearAttention(nn.Module):
             gv = rearrange(
                 gv, "b (n c) (h d) -> b h n c d", h=num_head, c=chunk_size
             ).contiguous()
-
         gk, gv, o1 = inter_chunk_onc(q, k, v, gk, gv, normalizer_gk, normalizer_gv)
         o2 = intra_chunk_onc(q, k, v, gk, gv)
         o = o1 + o2

@@ -17,6 +17,12 @@ def wandb_monitor(elapsed_time, current_step, current_loss, configs, engine):
         * configs["trainer"]["max_seq_len"]
         / elapsed_time
     )
+    consumed_tokens = (
+        current_step
+        * configs["deepspeed"]["train_batch_size"]
+        * configs["trainer"]["max_seq_len"]
+        // 1_000
+    )
     rank0_log(
         {
             "loss": current_loss.item(),
@@ -24,5 +30,6 @@ def wandb_monitor(elapsed_time, current_step, current_loss, configs, engine):
             "step": current_step,
             "tokens_per_second": tps,
             "step_time": elapsed_time,
+            "consumed_tokens": consumed_tokens,
         }
     )
