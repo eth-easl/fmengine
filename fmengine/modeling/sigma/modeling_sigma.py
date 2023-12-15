@@ -236,9 +236,7 @@ class SigmaAttention(nn.Module):
         **kwargs,
     ) -> Tuple[torch.Tensor, Optional[torch.Tensor], Optional[Tuple[torch.Tensor]]]:
         # size: (batch, seq_len, hidden_size)
-        print("SIGMA ATTENTION")
         attn_out = self.gla(hidden_states)
-        print("SIGMA ATTENTION OUT", attn_out.shape)
         return self.gla(hidden_states), None, None
 
 

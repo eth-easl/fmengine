@@ -108,14 +108,11 @@ class GatedLinearAttention(nn.Module):
         else:
             v_gate = None
         g = self.g_proj(x)
-        print("before gla")
         output = self.gated_linear_attention(
             q, k, v, k_gate, v_gate, num_head=self.num_heads, chunk_size=128
         )
-        print("after gla")
         output = self.group_norm(output)
         output = rearrange(output, "b h n c d -> b (n c) (h d)")
-
         output = self.gate_fn(g) * output
         output = self.out_proj(output)
         return output
