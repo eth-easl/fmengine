@@ -2,13 +2,14 @@ import os
 import torch
 import random
 import deepspeed
+import pathlib
 import numpy as np
 import transformers
 from munch import munchify
 from typing import Optional
 from dataclasses import dataclass, field, asdict
 
-from fmengine.utils import jload
+from fmengine.utils import jload, get_rank
 from fmengine.trainer.llm_trainer import LLMTrainer
 from fmengine.modeling._common.model import get_model
 from fmengine.dataloader.jsonl_loader import get_jsonl_dataloader
@@ -43,6 +44,9 @@ class DeepspeedArguments:
     world_size: int = field(default=None)
     seed: int = field(default=3407)
     deepspeed_config: Optional[str] = field(default=None)
+    # TODO(xiaoyuan): should be 2 number, but now we make the second one be default 0
+    # TODO(xiaoyuan): should be in model args, which is not passed into Module init
+    window_size: Optional[int] = field(default=0)
 
 
 @dataclass
@@ -65,10 +69,16 @@ class TrainerArguments:
     pretrain: bool = field(default=False)
     project_name: str = field(default="fmengine")
     experiment_name: str = field(default="experiment")
+    dry_run: bool = field(default=False)  # only for memory information
+    res_dir: str = field(default="./output")  # save memory info result, not model checkpoint
+
 
 
 if __name__ == "__main__":
-    
+    torch.cuda.reset_max_memory_allocated()
+    start = torch.cuda.memory_allocated()
+    print(f"[rank: {get_rank()}] cuda memory start {start / 2**30} GB")
+
     parser = transformers.HfArgumentParser(
         (ModelArguments, DataArguments, TrainerArguments, DeepspeedArguments)
     )
@@ -144,10 +154,12 @@ if __name__ == "__main__":
 
     _tmp = torch.nn.Linear.reset_parameters
     torch.nn.Linear.reset_parameters = lambda x: None
+    print("sliding window size:", ds_args.window_size)
     model = get_model(model_config, ds_args, activation_checkpointing_config)
 
     if ds_config.get("precision", "bfloat16"):
         print("Using bfloat16")
+        # TODO(xiaoyuan): lora is better used with fp32
         model = model.bfloat16()
 
     if "lora" in ds_config:
@@ -177,9 +189,11 @@ if __name__ == "__main__":
         init_ckpt=model_args.init_ckpt,
         save_dir=trainer_args.output_dir,
         pretrain=trainer_args.pretrain,
+        dry_run=trainer_args.dry_run,
         load_module_strict=load_module_strict,
         callbacks=[speed_monitor, wandb_monitor],
     )
+
     trainer.fit(
         steps=trainer_args.train_steps,
         profile=ds_args.deepspeed_config.flops_profiler.enabled,
@@ -188,3 +202,11 @@ if __name__ == "__main__":
         project=trainer_args.project_name,
         experiment=trainer_args.experiment_name,
     )
+
+    exp_res_dir = pathlib.Path(trainer_args.res_dir) / trainer_args.experiment_name
+    exp_res_dir.mkdir(parents=True, exist_ok=True)
+    end = torch.cuda.memory_allocated()
+    peak = torch.cuda.max_memory_allocated()
+    print(f"[XIAOYUAN:{get_rank()}] cuda memory peak {(peak - start) / 2**30} GB")
+    with open(exp_res_dir / f"mem-{get_rank()}.txt", "w") as f:
+        f.write(f"{(peak - start)}\n")

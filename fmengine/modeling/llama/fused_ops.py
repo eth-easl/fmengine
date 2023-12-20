@@ -33,6 +33,7 @@ def fused_rotary_emb_llama_flash_attn_forward(
     past_key_value: Optional[Tuple[torch.Tensor]] = None,
     output_attentions: bool = False,
     use_cache: bool = False,
+    window_size: Optional[Tuple[int]] = (-1, -1),
 ) -> Tuple[torch.Tensor, Optional[torch.Tensor], Optional[Tuple[torch.Tensor]]]:
     """Input shape: Batch x Time x Channel
 
@@ -53,6 +54,7 @@ def fused_rotary_emb_llama_flash_attn_forward(
         kv,
         0.0,
         causal=True,
+        window_size=window_size,
     )
     attn_output = attn_output.contiguous().view(bsz, q_len, -1)
     attn_output = self.o_proj(attn_output)[0]

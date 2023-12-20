@@ -32,10 +32,8 @@ def get_jsonl_dataloader(jsonl_path, tokenizer, return_repeating_loader=True, ar
     dataloader = DataLoader(
         raw_datasets, shuffle=False, collate_fn=data_collator, batch_size=batch_size
     )
-    if return_repeating_loader:
-        return iter(deepspeed.utils.RepeatingLoader(dataloader))
-    else:
-        return dataloader
+    return iter(deepspeed.utils.RepeatingLoader(dataloader))
+
 
 
 def get_jsonl_dataset(jsonl_path, tokenizer, args):
