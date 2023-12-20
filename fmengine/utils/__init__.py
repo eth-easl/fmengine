@@ -5,7 +5,7 @@ from loguru import logger
 from functools import wraps
 import torch.distributed as dist
 
-__all__ = ["rank_zero"]
+__all__ = ["rank_zero", "get_rank", "jload", "logger_rank0"]
 
 
 def rank_zero(func):
@@ -21,6 +21,10 @@ def rank_zero(func):
 
 def is_rank_0() -> bool:
     return not dist.is_initialized() or dist.get_rank() == 0
+
+
+def get_rank() -> int:
+    return dist.get_rank() if dist.is_initialized() else 0
 
 
 def _make_w_io_base(f, mode: str):

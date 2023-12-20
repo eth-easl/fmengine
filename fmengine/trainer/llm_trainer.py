@@ -1,13 +1,14 @@
+from typing import Dict
+from timeit import default_timer as timer
+
 import wandb
 import deepspeed
-from typing import Dict
 from deepspeed.pipe import PipelineModule
 from deepspeed.profiling.flops_profiler import FlopsProfiler
-from fmengine.utils import logger_rank0
+
+from fmengine.utils import logger_rank0, get_rank
 from fmengine.utils.monitor import rank0_init_wandb
 from fmengine.profiler.malloc import TorchTracemalloc
-from timeit import default_timer as timer
-from torch.profiler import profile as torch_profiler, record_function, ProfilerActivity
 
 
 class LLMTrainer:
@@ -24,6 +25,7 @@ class LLMTrainer:
         init_ckpt: str = None,
         save_dir: str = None,
         pretrain: bool = False,
+        dry_run: bool = False,
         load_module_strict: bool = True,
         callbacks: list = [],
     ) -> None:
@@ -34,6 +36,7 @@ class LLMTrainer:
         self.save_dir = save_dir
         self.ds_config = ds_config
         self.pretrain = pretrain
+        self.dry_run = dry_run
         self.callbacks = callbacks
         self.load_module_strict = load_module_strict
 
@@ -91,5 +94,9 @@ class LLMTrainer:
         logger_rank0.info(
             "Finished training... saving checkpoints & closing monitoring"
         )
-        engine.save_checkpoint(self.save_dir)
+        if not self.dry_run:
+            # TODO fix lora merge problem
+            engine.save_checkpoint(self.save_dir)
+        else:
+            print("Dry run, not saving checkpoint")
         wandb.finish()

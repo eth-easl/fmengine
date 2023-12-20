@@ -69,13 +69,8 @@ class AutoregressiveLanguageModelDataCollator(object):
         )
 
 
-def get_jsonl_dataloader(
-        jsonl_path,
-        tokenizer,
-        return_repeating_loader=True,
-        args={}
-    ):
-    data_collator = AutoregressiveLanguageModelDataCollator(tokenizer, return_dict=args.get('return_dict', False))
+def get_jsonl_dataloader(jsonl_path, tokenizer, args):
+    data_collator = AutoregressiveLanguageModelDataCollator(tokenizer)
     batch_size = args.get("batch_size", 1)
     ctx_length = args.get("seq_length", 1024) + 1  # +1 for shifting
     
@@ -98,10 +93,8 @@ def get_jsonl_dataloader(
     dataloader = DataLoader(
         raw_datasets, shuffle=False, collate_fn=data_collator, batch_size=batch_size
     )
-    if return_repeating_loader:
-        return iter(deepspeed.utils.RepeatingLoader(dataloader))
-    else:
-        return dataloader
+    return iter(deepspeed.utils.RepeatingLoader(dataloader))
+
 
 def get_jsonl_dataset(jsonl_path, tokenizer, args):
     
