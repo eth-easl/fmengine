@@ -207,6 +207,6 @@ if __name__ == "__main__":
     exp_res_dir.mkdir(parents=True, exist_ok=True)
     end = torch.cuda.memory_allocated()
     peak = torch.cuda.max_memory_allocated()
-    print(f"[XIAOYUAN:{get_rank()}] cuda memory peak {(peak - start) / 2**30} GB")
+    print(f"[rank :{get_rank()}] cuda memory peak {(peak - start) / 2**30} GB")
     with open(exp_res_dir / f"mem-{get_rank()}.txt", "w") as f:
         f.write(f"{(peak - start)}\n")
