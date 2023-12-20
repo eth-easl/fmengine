@@ -7,17 +7,8 @@ import torch.nn as nn
 import fmengine.mpu as mpu
 from transformers.models.llama.modeling_llama import LlamaAttention
 
-
-class LoraColumnParallelLinear(mpu.ColumnParallelLinear):
-    """
-    lora_A: linear
-    lora_B: ColumnParallelLinear
-
-    if rank == 0 then LoRA is disabled
-
-    TODO: lora should be float32, but the original code is probably bf16
-    """
-
+class LoRARowParallelLinear(mpu.ColumnParallelLinear):
+    # LoRA implemented in a dense layer
     def __init__(
         self,
         args,
@@ -260,7 +251,7 @@ class TensorParallelLoraAttention(LlamaAttention):
         super().__init__(config)
         # we now apply lora to all linear layers in a single attention
         # https://arxiv.org/abs/2305.14314 suggests that applying lora to all layers is better than just q,v
-        self.q_proj = LoraColumnParallelLinear(
+        self.q_proj = LoRARowParallelLinear(
             args=args,
             input_size=self.hidden_size,
             output_size=self.num_heads * self.head_dim,
@@ -273,32 +264,32 @@ class TensorParallelLoraAttention(LlamaAttention):
             skip_bias_add=True,
         )
 
-        self.k_proj = LoraColumnParallelLinear(
+        self.k_proj = LoRARowParallelLinear(
             args=args,
             input_size=self.hidden_size,
             output_size=self.num_key_value_heads * self.head_dim,
             bias=False,
             gather_output=False,
             init_method=nn.init.xavier_normal_,
+            skip_bias_add=True,
+            bias=False,
             r=args.deepspeed_config.lora.r,
             lora_alpha=args.deepspeed_config.lora.lora_alpha,
             lora_dropout=args.deepspeed_config.lora.lora_dropout,
-            skip_bias_add=True,
         )
-
-        self.v_proj = LoraColumnParallelLinear(
+        self.v_proj = LoRARowParallelLinear(
             args=args,
             input_size=self.hidden_size,
             output_size=self.num_key_value_heads * self.head_dim,
-            bias=False,
             gather_output=False,
             init_method=nn.init.xavier_normal_,
+            skip_bias_add=True,
+            bias=False,
             r=args.deepspeed_config.lora.r,
             lora_alpha=args.deepspeed_config.lora.lora_alpha,
             lora_dropout=args.deepspeed_config.lora.lora_dropout,
             skip_bias_add=True,
         )
-
         self.o_proj = LoRARowParallelLinear(
             args=args,
             input_size=self.num_heads * self.head_dim,
@@ -311,4 +302,8 @@ class TensorParallelLoraAttention(LlamaAttention):
             lora_dropout=args.deepspeed_config.lora.lora_dropout,
             skip_bias_add=True,
             parallel_output=False,  # True if gpt-j-parallel
+            bias=False,
+            r=args.deepspeed_config.lora.r,
+            lora_alpha=args.deepspeed_config.lora.lora_alpha,
+            lora_dropout=args.deepspeed_config.lora.lora_dropout,
         )
