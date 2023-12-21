@@ -4,7 +4,7 @@ from typing import Optional, Tuple
 from flash_attn.flash_attn_interface import flash_attn_kvpacked_func
 from fmengine.modeling.llama.rotary_embedding import RotaryEmbedding
 from flash_attn.ops.rms_norm import rms_norm as rmsnorm_func
-
+import transformer_engine.pytorch as te
 
 def init_rope(self):
     if self.config.rope_scaling is None:

@@ -27,7 +27,7 @@ from transformers.utils import (
     logging,
     replace_return_docstrings,
 )
-
+import transformer_engine.pytorch as te
 from .configuration_mistral import MistralConfig
 
 if is_flash_attn_2_available():
@@ -65,22 +65,14 @@ def _get_unpad_data(attention_mask):
 
 
 # Copied from transformers.models.llama.modeling_llama.LlamaRMSNorm with Llama->Mistral
-class MistralRMSNorm(nn.Module):
+class MistralRMSNorm(te.RMSNorm):
     def __init__(self, hidden_size, eps=1e-6):
         """
         MistralRMSNorm is equivalent to T5LayerNorm
         """
-        super().__init__()
+        super().__init__(hidden_size=hidden_size, eps=eps)
         self.weight = nn.Parameter(torch.ones(hidden_size))
         self.variance_epsilon = eps
-
-    def forward(self, hidden_states):
-        input_dtype = hidden_states.dtype
-        hidden_states = hidden_states.to(torch.float32)
-        variance = hidden_states.pow(2).mean(-1, keepdim=True)
-        hidden_states = hidden_states * torch.rsqrt(variance + self.variance_epsilon)
-        return self.weight * hidden_states.to(input_dtype)
-
 
 class MistralFastRotaryEmbedding(nn.Module):
     def __init__(
@@ -201,9 +193,9 @@ class MistralMLP(nn.Module):
         self.config = config
         self.hidden_size = config.hidden_size
         self.intermediate_size = config.intermediate_size
-        self.gate_proj = nn.Linear(self.hidden_size, self.intermediate_size, bias=False)
-        self.up_proj = nn.Linear(self.hidden_size, self.intermediate_size, bias=False)
-        self.down_proj = nn.Linear(self.intermediate_size, self.hidden_size, bias=False)
+        self.gate_proj = te.Linear(self.hidden_size, self.intermediate_size, bias=False)
+        self.up_proj = te.Linear(self.hidden_size, self.intermediate_size, bias=False)
+        self.down_proj = te.Linear(self.intermediate_size, self.hidden_size, bias=False)
         self.act_fn = ACT2FN[config.hidden_act]
 
     def forward(self, x):
@@ -244,16 +236,16 @@ class MistralAttention(nn.Module):
                 f"hidden_size must be divisible by num_heads (got `hidden_size`: {self.hidden_size}"
                 f" and `num_heads`: {self.num_heads})."
             )
-        self.q_proj = nn.Linear(
+        self.q_proj = te.Linear(
             self.hidden_size, self.num_heads * self.head_dim, bias=False
         )
-        self.k_proj = nn.Linear(
+        self.k_proj = te.Linear(
             self.hidden_size, self.num_key_value_heads * self.head_dim, bias=False
         )
-        self.v_proj = nn.Linear(
+        self.v_proj = te.Linear(
             self.hidden_size, self.num_key_value_heads * self.head_dim, bias=False
         )
-        self.o_proj = nn.Linear(
+        self.o_proj = te.Linear(
             self.num_heads * self.head_dim, self.hidden_size, bias=False
         )
 
