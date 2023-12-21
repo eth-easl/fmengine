@@ -11,8 +11,10 @@ from peft import get_peft_config, get_peft_model, LoraConfig, TaskType
 from fmengine.dataloader.jsonl_loader import get_jsonl_dataset
 from fmengine.dataloader.jsonl_loader import AutoregressiveLanguageModelDataCollator
 
+
 def train(args):
     import os
+
     os.environ["WANDB_PROJECT"] = args.project_name
     accelerator = Accelerator()
     peft_config = LoraConfig(
@@ -46,7 +48,9 @@ def train(args):
             "batch_size": args.micro_batch_size,
         },
     )
-    train_dataset = train_dataset.map(lambda samples: tokenizer(samples["text"]), batched=True)
+    train_dataset = train_dataset.map(
+        lambda samples: tokenizer(samples["text"]), batched=True
+    )
     print(model)
     trainer = transformers.Trainer(
         model=model,
@@ -58,15 +62,18 @@ def train(args):
             num_train_epochs=args.num_epochs,
             learning_rate=args.learning_rate,
             fp16=True,
-            save_strategy='epoch',
+            save_strategy="epoch",
             logging_steps=1,
             output_dir=args.output_dir,
         ),
-        data_collator=transformers.DataCollatorForLanguageModeling(tokenizer, mlm=False),
+        data_collator=transformers.DataCollatorForLanguageModeling(
+            tokenizer, mlm=False
+        ),
     )
     model.config.use_cache = False  # silence the warnings. Please re-enable for inference!
     trainer.train()
     trainer.save_model(args.output_dir)
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

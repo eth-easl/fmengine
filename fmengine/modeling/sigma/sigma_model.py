@@ -1,44 +1,29 @@
 import torch
 import deepspeed
 
-from .modeling_mistral import MistralDecoderLayer
-from .configuration_mistral import MistralConfig
+from .modeling_sigma import SigmaDecoderLayer
+from .configuration_sigma import SigmaConfig
 
 from deepspeed.pipe import PipelineModule, LayerSpec
 from fmengine.modeling._common._nn import ParallelEmbeddingPipe, ParallelLMLayerPipe
-from fmengine.modeling.mistral.lora import TensorParallelLoraAttention
-from fmengine.modeling.mistral.tensor_parallel import (
-    TensorParallelMistralMLP,
-    TensorParallelMistralFlashAttention2,
-    LastMistralRMSNorm,
-)
+from fmengine.modeling.sigma.modeling_sigma import SigmaMLP, SigmaAttention
 from fmengine import mpu
+from fmengine.modeling.mistral.tensor_parallel import LastMistralRMSNorm
 
-from .tensor_parallel import LastMistralRMSNorm
 
-
-class ParallelTransformerLayerPipe(MistralDecoderLayer):
+class ParallelTransformerLayerPipe(SigmaDecoderLayer):
     def __init__(
         self,
         args,
-        config: MistralConfig,
+        config: SigmaConfig,
         activation_checkpointing=False,
         layer_id=0,
     ):
-        super().__init__(config)
+        super().__init__(args, config)
         self.activation_checkpointing = activation_checkpointing
         self.layer_id = layer_id
-
-        config.sliding_window = args.window_size
-        print(f"setting sliding window to {config.sliding_window}")
-
-        if "lora" in args.deepspeed_config:
-            self.self_attn = TensorParallelLoraAttention(args, config)
-            print(f"🌴 Low Rank Adapters Enabled: r={args.deepspeed_config.lora.r}")
-        else:
-            self.self_attn = TensorParallelMistralFlashAttention2(args, config)
-
-        self.mlp = TensorParallelMistralMLP(args, config)
+        self.self_attn = SigmaAttention(args, config)
+        self.mlp = SigmaMLP(args, config)
 
         def mlp_res(hidden_states: torch.Tensor) -> torch.Tensor:
             # Fully Connected
@@ -89,11 +74,11 @@ class ParallelTransformerLayerPipe(MistralDecoderLayer):
         return (x, position_ids, mask)
 
 
-class MistralModelPipe(PipelineModule):
+class SigmaModelPipe(PipelineModule):
     def __init__(
         self,
         args,
-        model_config: MistralConfig,
+        model_config: SigmaConfig,
         activation_checkpointing_config,
         **kwargs,
     ):

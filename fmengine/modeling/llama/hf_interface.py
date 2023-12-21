@@ -195,7 +195,9 @@ def to_hf_model(
                 continue
             if pt.name == "layer_00-model_00-model_states.pt":
                 logger.info("Loading embedding layer")
-                tensors["model.embed_tokens.weight"] = loaded["weight"][:tokenizer_size, :]
+                tensors["model.embed_tokens.weight"] = loaded["weight"][
+                    :tokenizer_size, :
+                ]
                 continue
             if pt.name == f"layer_{n_layers + 1}-model_00-model_states.pt":
                 logger.info("Loading final layer norm")
@@ -216,7 +218,9 @@ def to_hf_model(
             layer_i = int(pt.name.split("-")[0].replace("layer_", "")) - 1
             logger.info(f"Loading {layer_i}th layer, LoRA params only")
             layer_loaded = {
-                f"model.layers.{layer_i}.{nm}": weight for nm, weight in loaded.items() if "lora" in nm.lower()
+                f"model.layers.{layer_i}.{nm}": weight
+                for nm, weight in loaded.items()
+                if "lora" in nm.lower()
             }
         tensors.update(layer_loaded)
     # with accelerate.init_empty_weights():
@@ -238,7 +242,7 @@ def to_hf_model(
         save_file(
             tensors,
             os.path.join(out_model_path, "adapter.safetensors"),
-            metadata={"step": step, "format": "pt"}
+            metadata={"step": step, "format": "pt"},
         )
         config.save_pretrained(out_model_path)
         tokenizer.save_pretrained(out_model_path)

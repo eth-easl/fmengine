@@ -42,6 +42,7 @@ def smart_tokenizer_and_embedding_resize(
         input_embeddings[-num_new_tokens:] = input_embeddings_avg
         output_embeddings[-num_new_tokens:] = output_embeddings_avg
 
+
 def write_ckpt(
     outpath: Path,
     model: torch.nn.Module,

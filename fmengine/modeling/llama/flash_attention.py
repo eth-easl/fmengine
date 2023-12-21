@@ -151,6 +151,7 @@ def llama_flash_attn_forward(
     attn_output = self.o_proj(rearrange(output, "b s h d -> b s (h d)"))[0]
     return attn_output, None, None
 
+
 # Disable the transformation of the attention mask in LlamaModel as the flash attention
 # requires the attention mask to be the same as the key_padding_mask
 def prepare_decoder_attention_mask(

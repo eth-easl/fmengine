@@ -6,9 +6,10 @@ import fmengine.mpu as mpu
 from .modeling_mistral import MistralFlashAttention2, MistralMLP, MistralRMSNorm
 from .configuration_mistral import MistralConfig
 
-    
+
 class TensorParallelMistralMLP(MistralMLP):
     """Tensor Parallelism for MistralMLP layer."""
+
     def __init__(self, args, config: MistralConfig, no_reduce=False):
         super().__init__(config)
         self.gate_proj = mpu.ColumnParallelLinear(
@@ -39,9 +40,10 @@ class TensorParallelMistralMLP(MistralMLP):
             parallel_output=no_reduce,
             bias=False,
         )
-    
+
     def forward(self, x):
         return self.down_proj(self.act_fn(self.gate_proj(x)[0]) * self.up_proj(x)[0])[0]
+
 
 class TensorParallelMistralFlashAttention2(MistralFlashAttention2):
     def __init__(self, args, config: MistralConfig, no_reduce=False):
@@ -84,6 +86,7 @@ class TensorParallelMistralFlashAttention2(MistralFlashAttention2):
             bias=False,
         )
 
+
 class LastMistralRMSNorm(MistralRMSNorm):
     def forward(self, fw_args):
         hidden_states, *_ = fw_args
@@ -91,6 +94,4 @@ class LastMistralRMSNorm(MistralRMSNorm):
         hidden_states = hidden_states.to(torch.float32)
         variance = hidden_states.pow(2).mean(-1, keepdim=True)
         hidden_states = hidden_states * torch.rsqrt(variance + self.variance_epsilon)
-        return (self.weight * hidden_states.to(input_dtype), )
-    
-
+        return (self.weight * hidden_states.to(input_dtype),)
