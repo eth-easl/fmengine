@@ -273,7 +273,6 @@ class TensorParallelLoraAttention(LlamaAttention):
             gather_output=False,
             init_method=nn.init.xavier_normal_,
             skip_bias_add=True,
-            bias=False,
             r=args.deepspeed_config.lora.r,
             lora_alpha=args.deepspeed_config.lora.lora_alpha,
             lora_dropout=args.deepspeed_config.lora.lora_dropout,
@@ -289,7 +288,6 @@ class TensorParallelLoraAttention(LlamaAttention):
             r=args.deepspeed_config.lora.r,
             lora_alpha=args.deepspeed_config.lora.lora_alpha,
             lora_dropout=args.deepspeed_config.lora.lora_dropout,
-            skip_bias_add=True,
         )
         self.o_proj = LoRARowParallelLinear(
             args=args,
@@ -303,8 +301,4 @@ class TensorParallelLoraAttention(LlamaAttention):
             lora_dropout=args.deepspeed_config.lora.lora_dropout,
             skip_bias_add=True,
             parallel_output=False,  # True if gpt-j-parallel
-            bias=False,
-            r=args.deepspeed_config.lora.r,
-            lora_alpha=args.deepspeed_config.lora.lora_alpha,
-            lora_dropout=args.deepspeed_config.lora.lora_dropout,
         )
