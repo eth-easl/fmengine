@@ -74,6 +74,7 @@ class MistralRMSNorm(te.RMSNorm):
         self.weight = nn.Parameter(torch.ones(hidden_size))
         self.variance_epsilon = eps
 
+
 class MistralFastRotaryEmbedding(nn.Module):
     def __init__(
         self,

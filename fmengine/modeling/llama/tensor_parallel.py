@@ -4,6 +4,7 @@ from transformers.models.llama.configuration_llama import LlamaConfig
 import fmengine.mpu as mpu
 import transformer_engine.pytorch as te
 
+
 class TensorParallelLlamaMLP(nn.Module):
     def __init__(
         self,

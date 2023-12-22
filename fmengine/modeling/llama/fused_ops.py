@@ -6,6 +6,7 @@ from fmengine.modeling.llama.rotary_embedding import RotaryEmbedding
 from flash_attn.ops.rms_norm import rms_norm as rmsnorm_func
 import transformer_engine.pytorch as te
 
+
 def init_rope(self):
     if self.config.rope_scaling is None:
         scaling_factor = max(self.max_position_embeddings / 4096, 1.0)

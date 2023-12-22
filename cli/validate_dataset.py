@@ -9,11 +9,11 @@ tokenizer = transformers.AutoTokenizer.from_pretrained(
 tokenizer.pad_token_id = tokenizer.eos_token_id
 
 data_loader = get_jsonl_dataloader(
-    ".cache/data/dialogs.jsonl",
+    "/mnt/scratch/xiayao/cache/datasets/exported_function_calling.jsonl",
     tokenizer=tokenizer,
     args={
         "seq_length": 128,
-        "batch_size": 2,
+        "batch_size": 32,
     },
 )
 

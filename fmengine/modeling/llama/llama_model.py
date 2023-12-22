@@ -14,6 +14,7 @@ from fmengine.modeling.llama.tensor_parallel import (
 from fmengine.modeling.llama.fused_ops import LastRMSNorm
 from fmengine import mpu
 
+
 class ParallelTransformerLayerPipe(LlamaDecoderLayer):
     def __init__(
         self,

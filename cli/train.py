@@ -20,6 +20,8 @@ from fmengine.modeling.llama.patching import patch_llama
 from fmengine.modeling.neox.flash_attention import replace_neox_attn_with_flash_attn
 from fmengine.callbacks.monitor import speed_monitor, wandb_monitor
 from fmengine.modeling.sigma.configuration_sigma import SigmaConfig
+
+
 def read_ds_config(config_path):
     config = jload(config_path)
     return config
@@ -70,8 +72,9 @@ class TrainerArguments:
     project_name: str = field(default="fmengine")
     experiment_name: str = field(default="experiment")
     dry_run: bool = field(default=False)  # only for memory information
-    res_dir: str = field(default="./output")  # save memory info result, not model checkpoint
-
+    res_dir: str = field(
+        default="./output"
+    )  # save memory info result, not model checkpoint
 
 
 if __name__ == "__main__":
@@ -132,8 +135,8 @@ if __name__ == "__main__":
         model_max_length=trainer_args.max_seq_len,
         use_fast=True,
     )
-    tokenizer.pad_token = tokenizer.eos_token
-    tokenizer.pad_token_id = tokenizer.eos_token_id
+    # tokenizer.pad_token = tokenizer.eos_token
+    # tokenizer.pad_token_id = tokenizer.eos_token_id
     model_config = transformers.AutoConfig.from_pretrained(model_args.init_ckpt)
     # model_config = SigmaConfig.from_pretrained(model_args.init_ckpt)
     if "jsonl" in data_args.data_path:

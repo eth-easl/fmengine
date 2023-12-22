@@ -189,7 +189,9 @@ class LoRARowParallelLinear(mpu.RowParallelLinear):
                 skip_bias_add=True,  # maybe it is not necessary
             )
             # lora_B (r, output_size) same copies on all ranks
-            self.lora_B = nn.Linear(r, self.output_size, bias=False, dtype=torch.float32)
+            self.lora_B = nn.Linear(
+                r, self.output_size, bias=False, dtype=torch.float32
+            )
             self.scaling = self.lora_alpha / self.r
 
             # reset by default

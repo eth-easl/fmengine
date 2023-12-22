@@ -26,6 +26,7 @@ def get_model(
     print(f"Model Configuration class: {model_config.__class__}")
     if isinstance(model_config, LlamaConfig):
         from fmengine.modeling.llama.llama_model import LlamaModelPipe
+
         return LlamaModelPipe(
             args,
             model_config,
@@ -58,6 +59,7 @@ def get_model(
         )
     elif isinstance(model_config, SigmaConfig):
         from fmengine.modeling.sigma.sigma_model import SigmaModelPipe
+
         return SigmaModelPipe(
             args,
             model_config,
