@@ -127,16 +127,16 @@ if __name__ == "__main__":
     torch.manual_seed(ds_args.seed)
     deepspeed.runtime.utils.set_random_seed(ds_args.seed)
 
-    patch_llama(model_args.use_flash_attn, model_args.use_fused_ops, ds_args)
-    replace_neox_attn_with_flash_attn()
+    # patch_llama(model_args.use_flash_attn, model_args.use_fused_ops, ds_args)
+    # replace_neox_attn_with_flash_attn()
 
     tokenizer = transformers.AutoTokenizer.from_pretrained(
         model_args.init_ckpt,
         model_max_length=trainer_args.max_seq_len,
         use_fast=True,
     )
-    # tokenizer.pad_token = tokenizer.eos_token
-    # tokenizer.pad_token_id = tokenizer.eos_token_id
+    tokenizer.pad_token = tokenizer.eos_token
+    tokenizer.pad_token_id = tokenizer.eos_token_id
     model_config = transformers.AutoConfig.from_pretrained(model_args.init_ckpt)
     # model_config = SigmaConfig.from_pretrained(model_args.init_ckpt)
     if "jsonl" in data_args.data_path:
@@ -152,7 +152,10 @@ if __name__ == "__main__":
         # load from HF dataset
         stream_dataset = get_stream_dataset(data_args.data_path)
         train_dataloader = get_dataloader_from_datasets(
-            stream_dataset, tokenizer=tokenizer
+            stream_dataset, tokenizer=tokenizer, args={
+                "seq_length": trainer_args.max_seq_len,
+                "batch_size": data_args.batch_size,
+            },
         )
 
     _tmp = torch.nn.Linear.reset_parameters
