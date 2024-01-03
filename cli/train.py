@@ -20,6 +20,8 @@ from fmengine.modeling.llama.patching import patch_llama
 from fmengine.modeling.neox.flash_attention import replace_neox_attn_with_flash_attn
 from fmengine.callbacks.monitor import speed_monitor, wandb_monitor
 from fmengine.modeling.sigma.configuration_sigma import SigmaConfig
+
+
 def read_ds_config(config_path):
     config = jload(config_path)
     return config
@@ -70,8 +72,9 @@ class TrainerArguments:
     project_name: str = field(default="fmengine")
     experiment_name: str = field(default="experiment")
     dry_run: bool = field(default=False)  # only for memory information
-    res_dir: str = field(default="./output")  # save memory info result, not model checkpoint
-
+    res_dir: str = field(
+        default="./output"
+    )  # save memory info result, not model checkpoint
 
 
 if __name__ == "__main__":
@@ -124,8 +127,8 @@ if __name__ == "__main__":
     torch.manual_seed(ds_args.seed)
     deepspeed.runtime.utils.set_random_seed(ds_args.seed)
 
-    patch_llama(model_args.use_flash_attn, model_args.use_fused_ops, ds_args)
-    replace_neox_attn_with_flash_attn()
+    # patch_llama(model_args.use_flash_attn, model_args.use_fused_ops, ds_args)
+    # replace_neox_attn_with_flash_attn()
 
     tokenizer = transformers.AutoTokenizer.from_pretrained(
         model_args.init_ckpt,
@@ -149,7 +152,10 @@ if __name__ == "__main__":
         # load from HF dataset
         stream_dataset = get_stream_dataset(data_args.data_path)
         train_dataloader = get_dataloader_from_datasets(
-            stream_dataset, tokenizer=tokenizer
+            stream_dataset, tokenizer=tokenizer, args={
+                "seq_length": trainer_args.max_seq_len,
+                "batch_size": data_args.batch_size,
+            },
         )
 
     _tmp = torch.nn.Linear.reset_parameters

@@ -87,7 +87,9 @@ def write_ckpt(
         for i_mp in range(mp):
             vocab_size = loaded["model.embed_tokens.weight"].size(0) // mp
             sd = {
-                "weight": loaded["model.embed_tokens.weight"][i_mp * vocab_size: (i_mp + 1) * vocab_size]
+                "weight": loaded["model.embed_tokens.weight"][
+                    i_mp * vocab_size : (i_mp + 1) * vocab_size
+                ]
             }
             torch.save(
                 sd, os.path.join(outpath, f"layer_00-model_{i_mp:02d}-model_states.pt")
@@ -96,17 +98,23 @@ def write_ckpt(
             sd = {"weight": loaded["model.norm.weight"]}
             torch.save(
                 sd,
-                os.path.join(outpath, f"layer_{n_layers + 1:02d}-model_{i_mp:02d}-model_states.pt"),
+                os.path.join(
+                    outpath,
+                    f"layer_{n_layers + 1:02d}-model_{i_mp:02d}-model_states.pt",
+                ),
             )
 
             assert loaded["lm_head.weight"].size(0) // mp == vocab_size
             sd = {
-                "weight": loaded["lm_head.weight"][i_mp * vocab_size: (i_mp + 1) * vocab_size]
+                "weight": loaded["lm_head.weight"][
+                    i_mp * vocab_size : (i_mp + 1) * vocab_size
+                ]
             }
             torch.save(
                 sd,
                 os.path.join(
-                    outpath, f"layer_{n_layers + 2:02d}-model_{i_mp:02d}-model_states.pt"
+                    outpath,
+                    f"layer_{n_layers + 2:02d}-model_{i_mp:02d}-model_states.pt",
                 ),
             )
 
@@ -125,11 +133,11 @@ def write_ckpt(
                         or "v_proj" in n
                     ):
                         dim = p.size(0) // mp
-                        sd[n] = p[i_mp * dim: (i_mp + 1) * dim]
+                        sd[n] = p[i_mp * dim : (i_mp + 1) * dim]
 
                     elif "down_proj" in n or "o_proj" in n:
                         dim = p.size(1) // mp
-                        sd[n] = p[:, i_mp * dim: (i_mp + 1) * dim]
+                        sd[n] = p[:, i_mp * dim : (i_mp + 1) * dim]
 
                 torch.save(
                     sd,
@@ -156,9 +164,13 @@ def write_ckpt(
 
 
 def from_hf(model_name_or_path: str, outdir: str, mp_size: int):
-    tokenizer = transformers.AutoTokenizer.from_pretrained(model_name_or_path, token=os.environ.get("HF_TOKEN", None))
+    tokenizer = transformers.AutoTokenizer.from_pretrained(
+        model_name_or_path, token=os.environ.get("HF_TOKEN", None)
+    )
     torch.nn.Linear.reset_parameters = lambda x: None
-    model = transformers.AutoModelForCausalLM.from_pretrained(model_name_or_path, token=os.environ.get("HF_TOKEN", None))
+    model = transformers.AutoModelForCausalLM.from_pretrained(
+        model_name_or_path, token=os.environ.get("HF_TOKEN", None)
+    )
     outpath = Path(outdir)
     if outpath.exists():
         print(f"Output directory {outpath} already exists. Exiting.")
@@ -217,7 +229,9 @@ def to_hf_model(
                 continue
             if pt.name == "layer_00-model_00-model_states.pt":
                 logger.info("Loading embedding layer")
-                tensors["model.embed_tokens.weight"] = loaded["weight"][:tokenizer_size, :]
+                tensors["model.embed_tokens.weight"] = loaded["weight"][
+                    :tokenizer_size, :
+                ]
                 continue
             if pt.name == f"layer_{n_layers + 1}-model_00-model_states.pt":
                 logger.info("Loading final layer norm")
@@ -238,7 +252,9 @@ def to_hf_model(
             layer_i = int(pt.name.split("-")[0].replace("layer_", "")) - 1
             logger.info(f"Loading {layer_i}th layer, LoRA params only")
             layer_loaded = {
-                f"model.layers.{layer_i}.{nm}": weight for nm, weight in loaded.items() if "lora" in nm.lower()
+                f"model.layers.{layer_i}.{nm}": weight
+                for nm, weight in loaded.items()
+                if "lora" in nm.lower()
             }
         tensors.update(layer_loaded)
     # with accelerate.init_empty_weights():
@@ -260,7 +276,7 @@ def to_hf_model(
         save_file(
             tensors,
             os.path.join(out_model_path, "adapter.safetensors"),
-            metadata={"step": step, "format": "pt"}
+            metadata={"step": step, "format": "pt"},
         )
         config.save_pretrained(out_model_path)
         tokenizer.save_pretrained(out_model_path)

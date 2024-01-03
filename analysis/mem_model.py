@@ -21,7 +21,9 @@ class MemModel:
             setattr(self, k, v)
 
     def print_config(self):
-        print(f"V={self.V}, h={self.h}, f={self.f}, r={self.r}, L={self.L}, a={self.a}, b={self.b}, s={self.s}")
+        print(
+            f"V={self.V}, h={self.h}, f={self.f}, r={self.r}, L={self.L}, a={self.a}, b={self.b}, s={self.s}"
+        )
 
     @staticmethod
     def print_mem(name, num_bytes):
@@ -35,7 +37,9 @@ class MemModel:
     @property
     def param_num(self):
         # 4 * h * h + 3 * h * f + 2 * h + 4 * r * h
-        return self.L * (4 * self.h * self.h + 3 * self.h * self.f + 2 * self.h + 4 * self.r * self.h)
+        return self.L * (
+            4 * self.h * self.h + 3 * self.h * self.f + 2 * self.h + 4 * self.r * self.h
+        )
 
     @property
     def weights(self):
@@ -63,28 +67,44 @@ class MemModel:
     @property
     def intermediate_activation(self):
         # L*(51*b*s*h + 5*b*a*s*s + 4*b*s*r)
-        return self.L * (51 * self.b * self.s * self.h + 5 * self.b * self.a * self.s * self.s + 4 * self.b * self.s * self.r)
+        return self.L * (
+            51 * self.b * self.s * self.h
+            + 5 * self.b * self.a * self.s * self.s
+            + 4 * self.b * self.s * self.r
+        )
 
     @property
     def total(self):
-        return self.weights + self.gradient + self.optimizer_state + self.intermediate_activation
+        return (
+            self.weights
+            + self.gradient
+            + self.optimizer_state
+            + self.intermediate_activation
+        )
 
     def report(self):
         self.print_config()
         print("param_num", self.param_num)
         print("trainable_param", self.trainable_param_num)
 
-        tab = tabulate([
-            ["weights", self.bytes_to_gb(self.weights)],
-            ["gradient", self.bytes_to_gb(self.gradient)],
-            ["optimizer state", self.bytes_to_gb(self.optimizer_state)],
-            ["intermediate activation", self.bytes_to_gb(self.intermediate_activation)],
-            ["total", self.bytes_to_gb(self.total)]
-        ], headers=["item", "memory(GB)"], tablefmt="github")
+        tab = tabulate(
+            [
+                ["weights", self.bytes_to_gb(self.weights)],
+                ["gradient", self.bytes_to_gb(self.gradient)],
+                ["optimizer state", self.bytes_to_gb(self.optimizer_state)],
+                [
+                    "intermediate activation",
+                    self.bytes_to_gb(self.intermediate_activation),
+                ],
+                ["total", self.bytes_to_gb(self.total)],
+            ],
+            headers=["item", "memory(GB)"],
+            tablefmt="github",
+        )
 
         print(tab)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     m = MemModel(r=0, L=32)
     m.report()

@@ -176,7 +176,7 @@ class SigmaFastRotaryEmbedding(nn.Module):
 
 
 class SigmaMLP(nn.Module):
-    def __init__(self,args, config):
+    def __init__(self, args, config):
         super().__init__()
         self.config = config
         self.hidden_size = config.hidden_size
@@ -206,7 +206,7 @@ class SigmaAttention(nn.Module):
     Multi-headed attention from 'Attention Is All You Need' paper. Modified to use sliding window attention: Longformer and "Generating Long Sequences with Sparse Transformers".
     """
 
-    def __init__(self, args,  config: SigmaConfig):
+    def __init__(self, args, config: SigmaConfig):
         super().__init__()
         self.config = config
         self.d_model = config.hidden_size
@@ -214,8 +214,7 @@ class SigmaAttention(nn.Module):
         self.use_gk = True
         self.use_gv = False
         self.gla = GatedLinearAttention(
-            self.d_model,
-            self.num_head, self.use_gk, self.use_gv
+            self.d_model, self.num_head, self.use_gk, self.use_gv
         )
 
     def _shape(self, tensor: torch.Tensor, seq_len: int, bsz: int):

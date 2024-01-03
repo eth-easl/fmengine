@@ -1,9 +1,6 @@
 import torch
 import deepspeed
-from transformers.models.llama.modeling_llama import (
-    LlamaDecoderLayer,
-    LlamaConfig,
-)
+from fmengine.modeling.llama.modeling_llama import LlamaDecoderLayer, LlamaConfig
 from deepspeed.pipe import PipelineModule, LayerSpec
 from fmengine.modeling._common._nn import (
     ParallelEmbeddingPipe,
@@ -26,7 +23,7 @@ class ParallelTransformerLayerPipe(LlamaDecoderLayer):
         activation_checkpointing=False,
         layer_id=0,
     ):
-        super().__init__(config)
+        super().__init__(config, layer_idx=layer_id)
         self.activation_checkpointing = activation_checkpointing
         self.layer_id = layer_id
         if "lora" in args.deepspeed_config:

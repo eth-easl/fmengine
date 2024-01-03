@@ -32,15 +32,15 @@ def get_jsonl_dataloader(jsonl_path, tokenizer, return_repeating_loader=True, ar
     dataloader = DataLoader(
         raw_datasets, shuffle=False, collate_fn=data_collator, batch_size=batch_size
     )
-    return iter(deepspeed.utils.RepeatingLoader(dataloader))
-
+    if return_repeating_loader:
+        return iter(deepspeed.utils.RepeatingLoader(dataloader))
+    return dataloader
 
 
 def get_jsonl_dataset(jsonl_path, tokenizer, args):
     streaming = args.get("streaming", False)
     seed = args.get("seed", 42)
     batch_size = args.get("batch_size", 1)
-
     raw_datasets = load_dataset(
         "json", split="train", data_files=jsonl_path, streaming=streaming
     ).shuffle(seed=seed)

@@ -25,7 +25,7 @@ def train(args):
         lora_dropout=args.lora_dropout,
     )
     model = transformers.AutoModelForCausalLM.from_pretrained(args.model_name_or_path)
-    
+
     model = get_peft_model(model, peft_config)
 
     tokenizer = transformers.AutoTokenizer.from_pretrained(
@@ -70,7 +70,9 @@ def train(args):
             tokenizer, mlm=False
         ),
     )
-    model.config.use_cache = False  # silence the warnings. Please re-enable for inference!
+    model.config.use_cache = (
+        False  # silence the warnings. Please re-enable for inference!
+    )
     trainer.train()
     trainer.save_model(args.output_dir)
 

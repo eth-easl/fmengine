@@ -2,6 +2,7 @@ import torch.nn as nn
 from transformers.models.llama.modeling_llama import LlamaAttention, ACT2FN
 from transformers.models.llama.configuration_llama import LlamaConfig
 import fmengine.mpu as mpu
+import transformer_engine.pytorch as te
 
 
 class TensorParallelLlamaMLP(nn.Module):

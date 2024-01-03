@@ -74,6 +74,7 @@ class MistralRMSNorm(te.RMSNorm):
         self.weight = nn.Parameter(torch.ones(hidden_size))
         self.variance_epsilon = eps
 
+
 class MistralFastRotaryEmbedding(nn.Module):
     def __init__(
         self,
@@ -693,7 +694,7 @@ class MistralPreTrainedModel(PreTrainedModel):
 
     def _init_weights(self, module):
         std = self.config.initializer_range
-        if isinstance(module, nn.Linear):
+        if isinstance(module, nn.Linear) or isinstance(module, te.Linear):
             module.weight.data.normal_(mean=0.0, std=std)
             if module.bias is not None:
                 module.bias.data.zero_()
