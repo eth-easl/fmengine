@@ -1,4 +1,4 @@
-FROM nvcr.io/nvidia/pytorch:23.09-py3
+FROM nvcr.io/nvidia/pytorch:23.10-py3
 
 ENV CUDA_HOME=/usr/local/cuda
 ENV CPATH=$CUDA_HOME/include:$CPATH
