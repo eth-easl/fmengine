@@ -22,3 +22,5 @@ myst-parser
 furo
 munch
 typer
+triton
+xformers
