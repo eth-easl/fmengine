@@ -6,9 +6,9 @@ import torch.nn as nn
 import torch.nn.functional as F
 from einops import rearrange
 
-from fla.modules.rmsnorm import RMSNorm
-from fla.modules.rotary import RotaryEmbedding
-from fla.ops.triton.retention import (
+from fmengine.thirdparty.fla.modules.rmsnorm import RMSNorm
+from fmengine.thirdparty.fla.modules.rotary import RotaryEmbedding
+from fmengine.thirdparty.fla.ops.triton.retention import (
     fused_chunk_retention,
     fused_recurrent_retention,
     parallel_retention,

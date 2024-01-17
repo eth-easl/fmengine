@@ -1,4 +1,4 @@
-from fla.ops.triton.utils import contiguous
+from fmengine.thirdparty.fla.ops.triton.utils import contiguous
 import triton
 import triton.language as tl
 import torch

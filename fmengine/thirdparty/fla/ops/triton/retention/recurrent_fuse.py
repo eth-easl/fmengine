@@ -5,7 +5,7 @@ import torch
 import triton
 import triton.language as tl
 
-from fla.ops.triton.utils import contiguous
+from fmengine.thirdparty.fla.ops.triton.utils import contiguous
 
 # on-the-fly computation without materializing hidden statets into HBMs
 

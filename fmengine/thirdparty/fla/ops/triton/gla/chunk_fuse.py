@@ -9,8 +9,8 @@ import torch.nn.functional as F
 import triton
 import triton.language as tl
 from einops import rearrange
-from fla.ops.cuda.gla.semiring.cal_A.fn import semiring_cal_A
-from fla.ops.triton.utils import contiguous
+from fmengine.thirdparty.fla.ops.cuda.gla.semiring.cal_A.fn import semiring_cal_A
+from fmengine.thirdparty.fla.ops.triton.utils import contiguous
 from torch.cuda.amp import custom_bwd, custom_fwd
 
 inv_ln2 = 1.44269504

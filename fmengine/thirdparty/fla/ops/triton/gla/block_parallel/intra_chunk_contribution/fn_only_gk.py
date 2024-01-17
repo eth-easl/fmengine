@@ -1,4 +1,4 @@
-from fla.ops.triton.utils import contiguous
+from fmengine.thirdparty.fla.ops.triton.utils import contiguous
 import torch
 import time
 import math

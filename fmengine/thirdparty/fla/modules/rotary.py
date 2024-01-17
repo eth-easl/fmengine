@@ -7,7 +7,7 @@ from typing import Optional, Tuple, Union
 
 import torch
 from einops import rearrange, repeat
-from fla.ops.triton.rotary import apply_rotary
+from fmengine.thirdparty.fla.ops.triton.rotary import apply_rotary
 
 
 def rotate_half(x, interleaved=False):

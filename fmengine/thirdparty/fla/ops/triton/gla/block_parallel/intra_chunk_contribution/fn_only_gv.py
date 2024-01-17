@@ -8,7 +8,7 @@ import torch.nn.functional as F
 import triton
 import triton.language as tl
 from einops import rearrange
-from fla.ops.triton.utils import contiguous
+from fmengine.thirdparty.fla.ops.triton.utils import contiguous
 from torch.cuda.amp import custom_bwd, custom_fwd
 
 
