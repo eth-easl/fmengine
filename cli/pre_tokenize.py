@@ -9,6 +9,7 @@ from loguru import logger
 from tqdm import tqdm
 import webdataset as wds
 
+
 def pre_tokenize(args):
     tokenizer = AutoTokenizer.from_pretrained(
         args.init_ckpt, use_fast=args.fast_tokenizer
@@ -27,11 +28,15 @@ def pre_tokenize(args):
     logger.info("Pre-tokenizing dataset...")
     for idx, it in enumerate(tqdm(data_loader)):
         data = {
-            k+".pyd": v for k, v in it.items() if k in ["input_ids", "attention_mask", "labels"]
+            k + ".pyd": v
+            for k, v in it.items()
+            if k in ["input_ids", "attention_mask", "labels"]
         }
-        data['__key__'] = "sample%06d" % idx
+        data["__key__"] = "sample%06d" % idx
         sink.write(data)
     sink.close()
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--init-ckpt", type=str, required=True)

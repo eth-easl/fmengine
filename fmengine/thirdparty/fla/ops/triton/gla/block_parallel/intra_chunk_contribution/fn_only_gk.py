@@ -1,7 +1,9 @@
+from fla.ops.triton.utils import contiguous
 import torch
 import time
 import math
 from typing import Tuple, Union, Optional
+from torch.cuda.amp import custom_bwd, custom_fwd
 
 
 import torch
@@ -108,7 +110,7 @@ def _fwd_kernel_compute_A(
             qk = tl.dot(q, k, allow_tf32=False)
             tl.store(A_ptr + q_high * stride_a4 + k_high, qk.to(A_ptr.dtype.element_ty))
 
-    ## intra chunk fp32
+    # intra chunk fp32
     for q_high in range(lo, hi, 16):
         q = tl.load(Q_ptr + q_high * stride_q4)
         q_gk = tl.load(GK_Q_ptr + q_high * stride_q4).to(tl.float32)
@@ -341,7 +343,7 @@ def _bwd_kernel_dqk(
         + tl.arange(0, 16)[:, None] * stride_q4
     )
 
-    ## intra chunk, fp32.
+    # intra chunk, fp32.
     for q_high in range(lo, hi, 16):
         q = tl.load(Q_ptr + q_high * stride_q4)
         q_gk = tl.load(GK_Q_ptr + q_high * stride_q4).to(tl.float32)
@@ -386,61 +388,11 @@ def _bwd_kernel_dqk(
         )
 
 
-def compute_inner(query, key, value, decay_key):
-    # query = rearrange(query, 'b h (n c) d -> b h n c d', c=chunk_size)
-    # key = rearrange(key, 'b h (n c) d -> b h n c d', c=chunk_size)
-    # value = rearrange(value, 'b h (n c) d -> b h n c d', c=chunk_size)
-
-    mask = (
-        torch.triu(torch.ones(query.shape[-2], key.shape[-2]), diagonal=1)
-        .bool()
-        .to(query.device)
-    )
-    original_dtype = query.dtype
-    decay_key = decay_key.float().exp()
-    # decay_value = decay_value.float().exp()
-
-    query = query.float()
-    key = key.float()
-    value = value.float()
-
-    query = query * decay_key
-    key = key / decay_key
-    qk = (query @ key.transpose(-1, -2)).masked_fill_(mask, 0)
-    return qk @ value
-
-
-def compute_inner_A(query, key, decay_key):
-    # query = rearrange(query, 'b h (n c) d -> b h n c d', c=chunk_size)
-    # key = rearrange(key, 'b h (n c) d -> b h n c d', c=chunk_size)
-    # value = rearrange(value, 'b h (n c) d -> b h n c d', c=chunk_size)
-
-    mask = (
-        torch.triu(torch.ones(query.shape[-2], key.shape[-2]), diagonal=1)
-        .bool()
-        .to(query.device)
-    )
-    original_dtype = query.dtype
-    decay_key = decay_key.float().exp()
-    # decay_value = decay_value.float().exp()
-
-    query = query.float()
-    key = key.float()
-    # value = value.float()
-
-    query = query * decay_key
-    key = key / decay_key
-    qk = (query @ key.transpose(-1, -2)).masked_fill_(mask, 0)
-    return qk
-
-
-class FlashGRet(torch.autograd.Function):
+class IntraCalA(torch.autograd.Function):
     @staticmethod
+    @custom_fwd
+    @contiguous
     def forward(ctx, q, k, gk):
-        q = q.contiguous()
-        k = k.contiguous()
-        gk = gk.contiguous()
-
         # assert gk.dtype==torch.float32
         # only support for Ampere now
 
@@ -486,7 +438,7 @@ class FlashGRet(torch.autograd.Function):
             q.stride(1),
             q.stride(2),
             q.stride(3),
-            ### be careful here!
+            # be careful here!
             A.stride(1),
             A.stride(2),
             A.stride(3),
@@ -510,8 +462,9 @@ class FlashGRet(torch.autograd.Function):
         return A.sum(0).to(q.dtype)
 
     @staticmethod
+    @custom_bwd
+    @contiguous
     def backward(ctx, dA):
-        dA = dA.contiguous()
         q, k, gk = ctx.saved_tensors
 
         # appearantly, there is no sync issue when splitting K dim.
@@ -552,4 +505,4 @@ class FlashGRet(torch.autograd.Function):
             num_stages=5,
         )
 
-        return dq, dk, dgk, None
+        return dq.to(q.dtype), dk.to(k.dtype), dgk.to(gk.dtype)

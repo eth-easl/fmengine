@@ -1,16 +1,17 @@
 import torch
-from einops import rearrange
-import triton
-import triton.language as tl
 import torch.nn as nn
 import torch.nn.functional as F
+import triton
+import triton.language as tl
+from einops import rearrange
+from fla.ops.triton.utils import contiguous
+from torch.cuda.amp import custom_bwd, custom_fwd
 
 
 @triton.jit
 def _fwd_recurrence(
     S,
     p1,
-    p2,
     O,
     NUM_BLOCK,
     D_MODEL_K: tl.constexpr,
@@ -48,14 +49,6 @@ def _fwd_recurrence(
         + D_MODEL_K
     )
 
-    p2 = (
-        p2
-        + offset_bh * NUM_BLOCK * D_MODEL_V
-        + tl.arange(0, BLOCK_MODEL)
-        + offset_s * BLOCK_MODEL
-        + D_MODEL_V
-    )
-
     acc = tl.zeros([BLOCK_MODEL, BLOCK_MODEL], dtype=tl.float32)
     acc += tl.load(S)
 
@@ -66,25 +59,21 @@ def _fwd_recurrence(
 
     for i in range(NUM_BLOCK - 2):
         p_k = tl.load(p1)
-        p_v = tl.load(p2)
         S_i = tl.load(S)
-        acc = acc * p_k[:, None] * p_v[None, :] + S_i
+        acc = acc * p_k[:, None] + S_i
         tl.store(O, acc.to(O.dtype.element_ty))
         p1 += D_MODEL_K
-        p2 += D_MODEL_V
         S += D_MODEL_K * D_MODEL_V
         O += D_MODEL_K * D_MODEL_V
 
 
-## NUM_SPLIT_K/V. K/V dimension split into NUM_SPLIT_K/V parts with equal size BLOCK_MODEL
+# NUM_SPLIT_K/V. K/V dimension split into NUM_SPLIT_K/V parts with equal size BLOCK_MODEL
 @triton.jit
 def _bwd_recurrence(
     S,
     p1,
-    p2,
     DS,
     Dp1,
-    Dp2,
     NUM_BLOCK,
     NUM_SPLIT_K,
     NUM_SPLIT_V,
@@ -128,13 +117,7 @@ def _bwd_recurrence(
     )
 
     # skip the last chunk because it is never used
-    p2 = (
-        p2
-        + offset_bh * NUM_BLOCK * D_MODEL_V
-        + tl.arange(0, BLOCK_MODEL)
-        + offset_s * BLOCK_MODEL
-        + (NUM_BLOCK - 2) * D_MODEL_V
-    )
+    # p2 = p2 + offset_bh * NUM_BLOCK * D_MODEL_V + tl.arange(0, BLOCK_MODEL) + offset_s * BLOCK_MODEL + (NUM_BLOCK - 2) * D_MODEL_V
 
     # skip the last chunk because it is never used
     # NUM_BLOCK * D_MODEL_K * NUM_SPLIT_V: stride_bh
@@ -149,50 +132,35 @@ def _bwd_recurrence(
     )
 
     # skip the last chunk because it is never used
-    Dp2 = (
-        Dp2
-        + offset_bh * NUM_BLOCK * D_MODEL_V * NUM_SPLIT_K
-        + offset_d * D_MODEL_V
-        + tl.arange(0, BLOCK_MODEL)
-        + offset_s * BLOCK_MODEL
-        + (NUM_BLOCK - 2) * D_MODEL_V * NUM_SPLIT_K
-    )
+    # Dp2 = Dp2 + offset_bh * NUM_BLOCK * D_MODEL_V * NUM_SPLIT_K + offset_d * D_MODEL_V + tl.arange(0, BLOCK_MODEL) + offset_s * BLOCK_MODEL + (NUM_BLOCK - 2) * D_MODEL_V  * NUM_SPLIT_K
 
     Dacc = tl.zeros([BLOCK_MODEL, BLOCK_MODEL], dtype=tl.float32)
 
     # ignore the first chunk
     for i in range(NUM_BLOCK - 1):
         p_key = tl.load(p1)
-        p_value = tl.load(p2)
         S_i = tl.load(S)
         DS_i = tl.load(DS)
         Dacc += DS_i
         dp_i = Dacc * S_i
-        dp_key = tl.sum(dp_i * p_value[None, :], axis=1)
+        dp_key = tl.sum(dp_i, axis=1)
         tl.store(Dp1, dp_key.to(Dp1.dtype.element_ty))
-        dp_value = tl.sum(dp_i * p_key[:, None], axis=0)
-        tl.store(Dp2, dp_value.to(Dp2.dtype.element_ty))
 
         tl.store(S, Dacc.to(S.dtype.element_ty))
 
         Dacc *= p_key[:, None]
-        Dacc *= p_value[None, :]
 
         S -= D_MODEL_K * D_MODEL_V
         DS -= D_MODEL_K * D_MODEL_V
         p1 -= D_MODEL_K
-        p2 -= D_MODEL_V
         Dp1 -= D_MODEL_K * NUM_SPLIT_V
-        Dp2 -= D_MODEL_V * NUM_SPLIT_K
 
 
-class Chunk_memory_update_full(torch.autograd.Function):
+class Chunk_memory_update_only_gk(torch.autograd.Function):
     @staticmethod
-    def forward(ctx, decay_key_last, decay_value_last, to_add):
-        decay_key_last = decay_key_last.contiguous()
-        decay_value_last = decay_value_last.contiguous()
-        to_add = to_add.contiguous()
-
+    @custom_fwd
+    @contiguous
+    def forward(ctx, decay_key_last, to_add):
         B, H, N, D_k, D_v = to_add.shape
         output = torch.empty_like(to_add)
         BLOCK_MODEL = 32
@@ -200,7 +168,7 @@ class Chunk_memory_update_full(torch.autograd.Function):
         assert D_k % 32 == 0
         assert D_v % 32 == 0
         assert D_k == decay_key_last.shape[-1]
-        assert D_v == decay_value_last.shape[-1]
+        # assert D_v == to_add.shape[-1]
 
         grid = (B * H, D_k // BLOCK_MODEL, D_v // BLOCK_MODEL)
         ctx.grid = grid
@@ -209,7 +177,6 @@ class Chunk_memory_update_full(torch.autograd.Function):
         _fwd_recurrence[grid](
             to_add,
             decay_key_last,
-            decay_value_last,
             output,
             D_MODEL_K=D_k,
             D_MODEL_V=D_v,
@@ -218,15 +185,15 @@ class Chunk_memory_update_full(torch.autograd.Function):
         )
 
         output[:, :, 0] = 0
-        ctx.save_for_backward(output, decay_key_last, decay_value_last)
+        ctx.save_for_backward(output, decay_key_last)
 
         return output
 
     @staticmethod
+    @custom_bwd
+    @contiguous
     def backward(ctx, DO):
-        DO = DO.contiguous()
-
-        output, decay_key_last, decay_value_last = ctx.saved_tensors
+        output, decay_key_last = ctx.saved_tensors
 
         B, H, N, D_k, D_v = output.shape
 
@@ -242,17 +209,13 @@ class Chunk_memory_update_full(torch.autograd.Function):
         D_p1 = torch.empty(
             B, H, N, D_v // BLOCK_MODEL, D_k, device=DO.device, dtype=torch.float32
         )
-        D_p2 = torch.empty(
-            B, H, N, D_k // BLOCK_MODEL, D_v, device=DO.device, dtype=torch.float32
-        )
+        # D_p2 = torch.empty(B, H, N, D_k // BLOCK_MODEL, D_v, device=DO.device, dtype=torch.float32)
 
         _bwd_recurrence[grid](
             output,
             decay_key_last,
-            decay_value_last,
             DO,
             D_p1,
-            D_p2,
             NUM_BLOCK=num_block,
             NUM_SPLIT_K=D_k // BLOCK_MODEL,
             NUM_SPLIT_V=D_v // BLOCK_MODEL,
@@ -264,7 +227,5 @@ class Chunk_memory_update_full(torch.autograd.Function):
         output[:, :, -1] = 0
         D_p1[:, :, 0] = 0
         D_p1[:, :, -1] = 0
-        D_p2[:, :, 0] = 0
-        D_p2[:, :, -1] = 0
 
-        return D_p1.sum(-2), D_p2.sum(-2), output
+        return D_p1.sum(-2).to(decay_key_last.dtype), output

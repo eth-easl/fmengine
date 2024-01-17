@@ -21,27 +21,12 @@ from transformers.utils import (
     replace_return_docstrings,
 )
 from .configuration_sigma import SigmaConfig
-from .gla import GatedLinearAttention
+import fmengine.thirdparty.fla.layers as fla
 from flash_attn.layers.rotary import apply_rotary_emb_func
 
 logger = logging.get_logger(__name__)
 
 _CONFIG_FOR_DOC = "SigmaConfig"
-
-
-# Copied from transformers.models.llama.modeling_llama._get_unpad_data
-def _get_unpad_data(attention_mask):
-    seqlens_in_batch = attention_mask.sum(dim=-1, dtype=torch.int32)
-    indices = torch.nonzero(attention_mask.flatten(), as_tuple=False).flatten()
-    max_seqlen_in_batch = seqlens_in_batch.max().item()
-    cu_seqlens = F.pad(
-        torch.cumsum(seqlens_in_batch, dim=0, dtype=torch.torch.int32), (1, 0)
-    )
-    return (
-        indices,
-        cu_seqlens,
-        max_seqlen_in_batch,
-    )
 
 
 # Copied from transformers.models.llama.modeling_llama.LlamaRMSNorm with Llama->Sigma
@@ -213,8 +198,8 @@ class SigmaAttention(nn.Module):
         self.num_head = config.num_attention_heads
         self.use_gk = True
         self.use_gv = False
-        self.gla = GatedLinearAttention(
-            self.d_model, self.num_head, self.use_gk, self.use_gv
+        self.gla = fla.MultiScaleRetention(
+            d_model=self.d_model, num_heads=self.num_head
         )
 
     def _shape(self, tensor: torch.Tensor, seq_len: int, bsz: int):

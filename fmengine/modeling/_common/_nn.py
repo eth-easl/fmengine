@@ -3,6 +3,7 @@ from torch.nn import LayerNorm
 import fmengine.mpu as mpu
 import transformer_engine.pytorch as te
 
+
 class EmbeddingPipe(torch.nn.Embedding):
     def forward(self, args):
         input_ids, position_ids, attention_mask = args
@@ -36,4 +37,3 @@ class ParallelLMLayerPipe(mpu.ColumnParallelLinear):
         (hidden_states,) = args
         logits = super().forward(hidden_states)[0]
         return (logits,)
-
