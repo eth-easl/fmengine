@@ -1,6 +1,6 @@
 # FMEngine
 
-<img src="https://github.com/eth-easl/fmengine/blob/init/assets/logo.png" width="240"/>
+<img src="https://raw.githubusercontent.com/eth-easl/fmengine/init/assets/logo.png" width="240"/>
 
 FMEngine is a utility library for training very large foundation models. The goal of fmengine is to provide the following:
 

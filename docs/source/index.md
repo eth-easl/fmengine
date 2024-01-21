@@ -15,6 +15,7 @@ peft
 distributed
 references
 benchmark
+faq
 ```
 
 ```{toctree}
