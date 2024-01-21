@@ -22,3 +22,6 @@ myst-parser
 furo
 munch
 typer
+triton
+xformers
+opt_einsum

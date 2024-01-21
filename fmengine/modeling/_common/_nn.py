@@ -1,6 +1,7 @@
 import torch
 from torch.nn import LayerNorm
 import fmengine.mpu as mpu
+import transformer_engine.pytorch as te
 
 
 class EmbeddingPipe(torch.nn.Embedding):
@@ -10,7 +11,7 @@ class EmbeddingPipe(torch.nn.Embedding):
         return (inputs_embeds, position_ids, attention_mask)
 
 
-class LMLayerPipe(torch.nn.Linear):
+class LMLayerPipe(te.Linear):
     def forward(self, args):
         (hidden_states,) = args
         logits = super().forward(hidden_states)

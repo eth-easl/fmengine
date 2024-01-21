@@ -137,8 +137,12 @@ if __name__ == "__main__":
     )
     tokenizer.pad_token = tokenizer.eos_token
     tokenizer.pad_token_id = tokenizer.eos_token_id
-    model_config = transformers.AutoConfig.from_pretrained(model_args.init_ckpt)
-    # model_config = SigmaConfig.from_pretrained(model_args.init_ckpt)
+
+    try:
+        model_config = transformers.AutoConfig.from_pretrained(model_args.init_ckpt)
+    except:
+        model_config = SigmaConfig.from_pretrained(model_args.init_ckpt)
+
     if "jsonl" in data_args.data_path:
         train_dataloader = get_jsonl_dataloader(
             data_args.data_path,
@@ -152,7 +156,9 @@ if __name__ == "__main__":
         # load from HF dataset
         stream_dataset = get_stream_dataset(data_args.data_path)
         train_dataloader = get_dataloader_from_datasets(
-            stream_dataset, tokenizer=tokenizer, args={
+            stream_dataset,
+            tokenizer=tokenizer,
+            args={
                 "seq_length": trainer_args.max_seq_len,
                 "batch_size": data_args.batch_size,
             },

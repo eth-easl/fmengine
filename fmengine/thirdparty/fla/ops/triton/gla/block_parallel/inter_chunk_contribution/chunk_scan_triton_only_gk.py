@@ -1,9 +1,11 @@
 import torch
-from einops import rearrange
-import triton
-import triton.language as tl
 import torch.nn as nn
 import torch.nn.functional as F
+import triton
+import triton.language as tl
+from einops import rearrange
+from fmengine.thirdparty.fla.ops.triton.utils import contiguous
+from torch.cuda.amp import custom_bwd, custom_fwd
 
 
 @triton.jit
@@ -65,7 +67,7 @@ def _fwd_recurrence(
         O += D_MODEL_K * D_MODEL_V
 
 
-## NUM_SPLIT_K/V. K/V dimension split into NUM_SPLIT_K/V parts with equal size BLOCK_MODEL
+# NUM_SPLIT_K/V. K/V dimension split into NUM_SPLIT_K/V parts with equal size BLOCK_MODEL
 @triton.jit
 def _bwd_recurrence(
     S,
@@ -156,10 +158,9 @@ def _bwd_recurrence(
 
 class Chunk_memory_update_only_gk(torch.autograd.Function):
     @staticmethod
+    @custom_fwd
+    @contiguous
     def forward(ctx, decay_key_last, to_add):
-        decay_key_last = decay_key_last.contiguous()
-        to_add = to_add.contiguous()
-
         B, H, N, D_k, D_v = to_add.shape
         output = torch.empty_like(to_add)
         BLOCK_MODEL = 32
@@ -189,9 +190,9 @@ class Chunk_memory_update_only_gk(torch.autograd.Function):
         return output
 
     @staticmethod
+    @custom_bwd
+    @contiguous
     def backward(ctx, DO):
-        DO = DO.contiguous()
-
         output, decay_key_last = ctx.saved_tensors
 
         B, H, N, D_k, D_v = output.shape
@@ -227,4 +228,4 @@ class Chunk_memory_update_only_gk(torch.autograd.Function):
         D_p1[:, :, 0] = 0
         D_p1[:, :, -1] = 0
 
-        return D_p1.sum(-2), output
+        return D_p1.sum(-2).to(decay_key_last.dtype), output

@@ -1,17 +1,15 @@
-import torch
-import time
 import math
-from typing import Tuple, Union, Optional
+import time
+from typing import Optional, Tuple, Union
 
+import numpy as np
 import torch
 import torch.nn.functional as F
-from einops import rearrange
-
-import torch
 import triton
 import triton.language as tl
-import numpy as np
-import math
+from einops import rearrange
+from fmengine.thirdparty.fla.ops.triton.utils import contiguous
+from torch.cuda.amp import custom_bwd, custom_fwd
 
 
 @triton.jit
@@ -376,9 +374,11 @@ def _bwd_kernel_dav(
         tl.store(DGV_ptr + q_high * stride_v4, prev_gdv.to(DGV.dtype.element_ty))
 
 
-class FlashGRet_O(torch.autograd.Function):
+class IntraCalO(torch.autograd.Function):
     @staticmethod
-    def forward(ctx, A, v, gv, chunk_size=16):
+    @custom_fwd
+    @contiguous
+    def forward(ctx, A, v, gv):
         assert gv.dtype == torch.float32
         # assert A.dtype == torch.float32
 
@@ -425,12 +425,12 @@ class FlashGRet_O(torch.autograd.Function):
 
         ctx.save_for_backward(A, v, gv, o)
         ctx.grid = grid
-        ctx.chunk_size = chunk_size
         return o
 
     @staticmethod
+    @custom_bwd
+    @contiguous
     def backward(ctx, do):
-        do = do.contiguous()
         A, v, gv, o = ctx.saved_tensors
         BLOCK_V = ctx.BLOCK_V
         assert v.shape[-1] % BLOCK_V == 0
@@ -484,160 +484,4 @@ class FlashGRet_O(torch.autograd.Function):
             num_stages=4,
         )
 
-        return dA.sum(0).to(A), dv.to(v), dgv.to(gv), None
-
-
-def compute_inner_o(qk, value, decay_value):
-    # query = rearrange(query, 'b h (n c) d -> b h n c d', c=chunk_size)
-    # key = rearrange(key, 'b h (n c) d -> b h n c d', c=chunk_size)
-    # value = rearrange(value, 'b h (n c) d -> b h n c d', c=chunk_size)
-
-    original_dtype = qk.dtype
-    value = value.float()
-    qk = qk.float()
-
-    decay_value = decay_value.float().exp()
-
-    value = value / decay_value
-    return ((qk @ value) * decay_value).to(original_dtype)
-
-
-if __name__ == "__main__":
-    B = 32
-    H = 4
-    L = 2048
-    D_QK = 256
-    D_V = 128
-    print("Hello.")
-
-    requires_grad = True
-    chunk_size = 64
-    num_chunk = L // chunk_size
-
-    dtype = torch.float32
-    A2 = (
-        torch.randn(B, H, num_chunk, chunk_size, chunk_size, device="cuda")
-        .to(dtype)
-        .exp()
-    )
-
-    mask = (
-        torch.triu(torch.ones(chunk_size, chunk_size), diagonal=1).bool().to(A2.device)
-    )
-    A2.requires_grad_(requires_grad)
-    A = A2.masked_fill(mask, 0)
-
-    v = (
-        torch.rand(B, H, num_chunk, chunk_size, D_V, device="cuda")
-        .to(dtype)
-        .requires_grad_(requires_grad)
-    )
-    gk = (
-        torch.randn(B, H, num_chunk, chunk_size, D_V, device="cuda")
-        .to(dtype)
-        .requires_grad_(requires_grad)
-    )
-
-    # gv = torch.randn(B, H, L, D_V, device='cuda').requires_grad_(requires_grad)
-    gk3 = F.logsigmoid(gk) / 8
-    gk3 = gk3.cumsum(-2)
-
-    # gv3 = F.logsigmoid(gv) / 16
-    # gk3 = gk3.clamp(min=-5)
-    # gv3 = gv3.clamp(min=-5)
-    # gk = (gk3).cumsum(-2)
-    # gv1 = (gv3).cumsum(-2)
-    # gk2 = (rearrange(gk3, 'b h (n c) d -> b h n c d', c=64)).cumsum(-2)
-    # gv2 = (rearrange(gv3, 'b h (n c) d -> b h n c d', c=32)).cumsum(-2)
-    # breakpoint()
-
-    o = FlashGRet_O.apply(A, v, gk3)
-
-    # gradient check
-
-    o.sum().backward(retain_graph=True)
-
-    target = [A2, v, gk]
-
-    grad1 = []
-    grad2 = []
-    for s in target:
-        grad1.append(s.grad.clone())
-        s.grad.zero_()
-
-    o2 = compute_inner_o(A, v, gk3)
-    o2.sum().backward(retain_graph=True)
-
-    for s in target:
-        grad2.append(s.grad.clone())
-        s.grad.zero_()
-
-    print((o - o2).abs().max())
-
-    for a, b in zip(grad1, grad2):
-        print((a - b).abs().max())
-
-    breakpoint()
-
-    for _ in range(200):
-        o = FlashGRet_O.apply(A, v, gk3)
-        if requires_grad:
-            o.sum().backward(retain_graph=True)
-        o2 = compute_inner_o(A, v, gk3)
-        if requires_grad:
-            o2.sum().backward(retain_graph=True)
-
-    print("warm up done.")
-    print(o - o2)
-
-    torch.cuda.synchronize()
-    start = time.time()
-
-    for _ in range(1000):
-        o = FlashGRet_O.apply(A, v, gk3)
-        if requires_grad:
-            o.sum().backward(retain_graph=True)
-
-    torch.cuda.synchronize()
-    end = time.time()
-    print(f"scan gret onc, time:{end - start}")
-
-    torch.cuda.synchronize()
-    start = time.time()
-
-    # for _ in range(1000):
-    #     o2 = compute_inner(q, k, v, gk)
-    #     if requires_grad:
-    #         o2.sum().backward(retain_graph=True)
-
-    torch.cuda.synchronize()
-    end = time.time()
-    print(f"scan gret onc, time:{end - start}")
-
-    torch.cuda.synchronize()
-    start = time.time()
-
-    for _ in range(1000):
-        o2 = compute_inner_o(A, v, gk3)
-        if requires_grad:
-            o2.sum().backward(retain_graph=True)
-
-    torch.cuda.synchronize()
-    end = time.time()
-    print(f"scan gret onc, time:{end - start}")
-
-    torch.cuda.synchronize()
-    start = time.time()
-
-    # for _ in range(1000):
-    #     # q = rearrange(q, 'b h (n c) d -> b h n c d', c=64)
-    #     # k = rearrange(k, 'b h (n c) d -> b h n c d', c=64)
-    #     # v = rearrange(v, 'b h (n c) d -> b h n c d', c=64)
-    #     # # gk = rearrange(gk, 'b h (n c) d -> b h n c d', c=64)
-    #     o = cuda_compute_intra(q, k, gk) @ v
-    #     if requires_grad:
-    # #         o.sum().backward(retain_graph=True)
-
-    # torch.cuda.synchronize()
-    # end = time.time()
-    # print(f"scan gret onc, time:{end - start}, fn:{compute_inner}")
+        return dA.sum(0).to(A), dv.to(v), dgv.to(gv)
