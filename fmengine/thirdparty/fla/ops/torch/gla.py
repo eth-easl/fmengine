@@ -2,7 +2,11 @@ import chunk
 
 import torch
 import torch.nn.functional as F
-from fmengine.thirdparty.fla.ops.triton.gla import chunk_gla, fused_chunk_gla, fused_recurrent_gla
+from fmengine.thirdparty.fla.ops.triton.gla import (
+    chunk_gla,
+    fused_chunk_gla,
+    fused_recurrent_gla,
+)
 
 
 def ceildiv(a, b):

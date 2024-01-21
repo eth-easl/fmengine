@@ -2,7 +2,10 @@
 
 import torch
 from einops import rearrange
-from fmengine.thirdparty.fla.ops.triton.based import fused_chunk_based_dim16, parallel_based
+from fmengine.thirdparty.fla.ops.triton.based import (
+    fused_chunk_based_dim16,
+    parallel_based,
+)
 
 
 def torch_parallel_based(q, k, v, use_scale=True, use_norm=True):
