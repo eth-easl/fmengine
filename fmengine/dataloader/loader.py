@@ -79,7 +79,9 @@ def get_dataloader_from_datasets(
 
     def tokenize(examples):
         examples = tokenizer(examples["text"], truncation=True, max_length=ctx_length)
-        concatenated_examples = {k: list(chain(*examples[k])) for k in examples.keys()}
+        concatenated_examples = {
+            k: list(chain(*examples[k])) for k in examples.keys()
+        }
         total_length = len(concatenated_examples[list(examples.keys())[0]])
         if total_length >= ctx_length:
             total_length = (total_length // ctx_length) * ctx_length

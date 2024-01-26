@@ -2,7 +2,7 @@ FROM nvcr.io/nvidia/pytorch:23.10-py3
 
 ENV CUDA_HOME=/usr/local/cuda
 ENV CPATH=$CUDA_HOME/include:$CPATH
-ENV MAX_JOBS=8
+ENV MAX_JOBS=1
 ARG TORCH_CUDA_ARCH_LIST="7.5;8.0;8.6+PTX;8.9;9.0"
 
 COPY requirements.txt /env/requirements.txt

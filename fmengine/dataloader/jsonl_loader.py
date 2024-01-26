@@ -11,16 +11,17 @@ def get_jsonl_dataloader(jsonl_path, tokenizer, return_repeating_loader=True, ar
         tokenizer, return_dict=args.get("return_dict", False)
     )
     batch_size = args.get("batch_size", 1)
-    ctx_length = args.get("seq_length", 1024) + 1  # +1 for shifting
+    ctx_length = args.get("seq_length", 1024)
 
     def tokenize(examples):
         examples = tokenizer(examples["text"], truncation=True, max_length=ctx_length)
         concatenated_examples = {k: list(chain(*examples[k])) for k in examples.keys()}
+        input_id_length = ctx_length - 1 # -1 for shifting 
         total_length = len(concatenated_examples[list(examples.keys())[0]])
-        if total_length >= ctx_length:
-            total_length = (total_length // ctx_length) * ctx_length
+        if total_length >= input_id_length:
+            total_length = (total_length // input_id_length) * input_id_length
         result = {
-            k: [t[i : i + ctx_length] for i in range(0, total_length, ctx_length)]
+            k: [t[i : i + input_id_length] for i in range(0, input_id_length, input_id_length)]
             for k, t in concatenated_examples.items()
         }
         return result
