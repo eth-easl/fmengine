@@ -30,7 +30,6 @@ class ParallelTransformerLayerPipe(MistralDecoderLayer):
         self.layer_id = layer_id
 
         config.sliding_window = args.window_size
-        print(f"setting sliding window to {config.sliding_window}")
 
         if "lora" in args.deepspeed_config:
             self.self_attn = TensorParallelLoraAttention(args, config)
