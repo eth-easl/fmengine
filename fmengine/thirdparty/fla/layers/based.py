@@ -2,6 +2,7 @@
 Linear attention in Based.
 https://github.com/HazyResearch/zoology/blob/main/zoology/mixers/based.py
 """
+
 import math
 
 import opt_einsum as oe
@@ -9,7 +10,10 @@ import torch
 import torch.nn as nn
 from einops import rearrange
 
-from fmengine.thirdparty.fla.ops.triton.based import fused_chunk_based_dim16, parallel_based
+from fmengine.thirdparty.fla.ops.triton.based import (
+    fused_chunk_based_dim16,
+    parallel_based,
+)
 
 
 def init_feature_map(feature_map: str = "none", **kwargs: any):

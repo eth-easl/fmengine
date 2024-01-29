@@ -8,8 +8,10 @@ from torch.utils.data import DataLoader
 from peft.utils.other import fsdp_auto_wrap_policy
 from peft import get_peft_config, get_peft_model, LoraConfig, TaskType
 
-from fmengine.dataloader.jsonl_loader import get_jsonl_dataset
-from fmengine.dataloader.jsonl_loader import AutoregressiveLanguageModelDataCollator
+from fmengine.dataloader.datasets.jsonl_loader import get_jsonl_dataset
+from fmengine.dataloader.datasets.jsonl_loader import (
+    AutoregressiveLanguageModelDataCollator,
+)
 
 
 def train(args):

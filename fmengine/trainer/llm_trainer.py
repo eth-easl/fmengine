@@ -9,6 +9,7 @@ from deepspeed.profiling.flops_profiler import FlopsProfiler
 from fmengine.utils import logger_rank0, get_rank
 from fmengine.utils.monitor import rank0_init_wandb
 from fmengine.profiler.malloc import TorchTracemalloc
+from fmengine.dataloader.utils import write_loader_status
 
 
 class LLMTrainer:
@@ -71,6 +72,7 @@ class LLMTrainer:
         engine.optimizer.refresh_fp32_params()
         if profile:
             prof = FlopsProfiler(self.model)
+        # needs to restore steps, etc.
         for step in range(1, steps + 1):
             if profile and step == profile_step:
                 prof.start_profile()
@@ -88,6 +90,11 @@ class LLMTrainer:
             if step % save_per_steps == 0:
                 logger_rank0.info(f"Saving at step {step}")
                 engine.save_checkpoint(self.save_dir, exclude_frozen_parameters=True)
+                write_loader_status(
+                    self.save_dir, step * self.engine.train_batch_size()
+                )
+                # write dataloader status here
+
         logger_rank0.info(
             "Finished training... saving checkpoints & closing monitoring"
         )

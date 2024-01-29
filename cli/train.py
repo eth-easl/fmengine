@@ -11,15 +11,10 @@ from dataclasses import dataclass, field, asdict
 
 from fmengine.utils import jload, get_rank
 from fmengine.trainer.llm_trainer import LLMTrainer
+from fmengine.dataloader import get_dataloader
 from fmengine.modeling._common.model import get_model
-from fmengine.dataloader.jsonl_loader import get_jsonl_dataloader
-from fmengine.dataloader.stream_hf_loader import get_stream_dataset
-from fmengine.dataloader.loader import get_dataloader_from_datasets
 from fmengine.utils.megatron import initialize_megatron
-from fmengine.modeling.llama.patching import patch_llama
-from fmengine.modeling.neox.flash_attention import replace_neox_attn_with_flash_attn
 from fmengine.callbacks.monitor import speed_monitor, wandb_monitor
-from fmengine.modeling.sigma.configuration_sigma import SigmaConfig
 
 
 def read_ds_config(config_path):
@@ -78,10 +73,6 @@ class TrainerArguments:
 
 
 if __name__ == "__main__":
-    torch.cuda.reset_max_memory_allocated()
-    start = torch.cuda.memory_allocated()
-    print(f"[rank: {get_rank()}] cuda memory start {start / 2**30} GB")
-
     parser = transformers.HfArgumentParser(
         (ModelArguments, DataArguments, TrainerArguments, DeepspeedArguments)
     )
@@ -138,42 +129,25 @@ if __name__ == "__main__":
     tokenizer.pad_token = tokenizer.eos_token
     tokenizer.pad_token_id = tokenizer.eos_token_id
 
-    try:
-        model_config = transformers.AutoConfig.from_pretrained(model_args.init_ckpt)
-    except:
-        model_config = SigmaConfig.from_pretrained(model_args.init_ckpt)
+    model_config = transformers.AutoConfig.from_pretrained(model_args.init_ckpt)
 
-    if "jsonl" in data_args.data_path:
-        train_dataloader = get_jsonl_dataloader(
-            data_args.data_path,
-            tokenizer=tokenizer,
-            args={
-                "seq_length": trainer_args.max_seq_len,
-                "batch_size": data_args.batch_size,
-            },
-        )
-    else:
-        # load from HF dataset
-        stream_dataset = get_stream_dataset(data_args.data_path)
-        train_dataloader = get_dataloader_from_datasets(
-            stream_dataset,
-            tokenizer=tokenizer,
-            args={
-                "seq_length": trainer_args.max_seq_len,
-                "batch_size": data_args.batch_size,
-            },
-        )
-
+    train_dataloader = get_dataloader(
+        data_args.data_path,
+        tokenizer=tokenizer,
+        args={
+            "seq_length": trainer_args.max_seq_len,
+            "batch_size": data_args.batch_size,
+            "remove_columns": ["text", "meta"],
+        },
+    )
     _tmp = torch.nn.Linear.reset_parameters
     torch.nn.Linear.reset_parameters = lambda x: None
-    print("sliding window size:", ds_args.window_size)
     model = get_model(model_config, ds_args, activation_checkpointing_config)
 
     if ds_config.get("precision", "bfloat16"):
         print("Using bfloat16")
         # TODO(xiaoyuan): lora is better used with fp32
         model = model.bfloat16()
-
     if "lora" in ds_config:
         for n, p in model.named_parameters():
             if "lora" in n.lower():
@@ -205,7 +179,6 @@ if __name__ == "__main__":
         load_module_strict=load_module_strict,
         callbacks=[speed_monitor, wandb_monitor],
     )
-
     trainer.fit(
         steps=trainer_args.train_steps,
         profile=ds_args.deepspeed_config.flops_profiler.enabled,
@@ -214,11 +187,3 @@ if __name__ == "__main__":
         project=trainer_args.project_name,
         experiment=trainer_args.experiment_name,
     )
-
-    exp_res_dir = pathlib.Path(trainer_args.res_dir) / trainer_args.experiment_name
-    exp_res_dir.mkdir(parents=True, exist_ok=True)
-    end = torch.cuda.memory_allocated()
-    peak = torch.cuda.max_memory_allocated()
-    print(f"[rank :{get_rank()}] cuda memory peak {(peak - start) / 2**30} GB")
-    with open(exp_res_dir / f"mem-{get_rank()}.txt", "w") as f:
-        f.write(f"{(peak - start)}\n")

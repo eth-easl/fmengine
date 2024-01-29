@@ -7,7 +7,11 @@ import torch.nn as nn
 import torch.nn.functional as F
 from einops import rearrange
 from fmengine.thirdparty.fla.modules.rmsnorm import RMSNorm
-from fmengine.thirdparty.fla.ops.triton.gla import chunk_gla, fused_chunk_gla, fused_recurrent_gla
+from fmengine.thirdparty.fla.ops.triton.gla import (
+    chunk_gla,
+    fused_chunk_gla,
+    fused_recurrent_gla,
+)
 
 
 def get_activation_fn(activation):

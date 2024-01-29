@@ -1,5 +1,12 @@
+import os
+import json
 from typing import Sequence, Dict
 from transformers import PreTrainedTokenizer
+
+
+def write_loader_status(ckpt_path: str, skip: int):
+    with open(os.path.join(ckpt_path, "dataloader_status.json"), "w") as f:
+        json.dump({"skip": skip}, f)
 
 
 def tokenize(texts: Sequence[str], tokenizer: PreTrainedTokenizer) -> Dict:
