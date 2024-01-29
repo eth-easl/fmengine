@@ -10,6 +10,8 @@ from fmengine.utils import logger_rank0, get_rank
 from fmengine.utils.monitor import rank0_init_wandb
 from fmengine.profiler.malloc import TorchTracemalloc
 from fmengine.dataloader.checkpointing import write_loader_status
+
+
 class LLMTrainer:
     """
     LLM Trainer
@@ -71,14 +73,14 @@ class LLMTrainer:
         if profile:
             prof = FlopsProfiler(self.model)
         for step in range(1, steps + 1):
-            
+
             if profile and step == profile_step:
                 prof.start_profile()
             start = timer()
             with TorchTracemalloc() as tracemalloc:
                 loss = engine.train_batch(data_iter=self.dataloader)
             end = timer()
-            
+
             if self.ds_args.local_rank == 0:
                 [cb(end - start, step, loss, configs, engine) for cb in self.callbacks]
                 if profile and step == profile_step:
@@ -89,9 +91,11 @@ class LLMTrainer:
             if step % save_per_steps == 0:
                 logger_rank0.info(f"Saving at step {step}")
                 engine.save_checkpoint(self.save_dir, exclude_frozen_parameters=True)
-                write_loader_status(self.save_dir, step * self.engine.train_batch_size())
+                write_loader_status(
+                    self.save_dir, step * self.engine.train_batch_size()
+                )
                 # write dataloader status here
-        
+
         logger_rank0.info(
             "Finished training... saving checkpoints & closing monitoring"
         )

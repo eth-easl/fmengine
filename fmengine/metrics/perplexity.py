@@ -29,6 +29,7 @@ class Perplexity(Metric):
         >>> metric(preds, target)
         tensor(5.2545)
     """
+
     is_differentiable = True
     higher_is_better = False
     full_state_update = False

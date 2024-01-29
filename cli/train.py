@@ -12,8 +12,8 @@ from dataclasses import dataclass, field, asdict
 from fmengine.utils import jload, get_rank
 from fmengine.trainer.llm_trainer import LLMTrainer
 from fmengine.modeling._common.model import get_model
-from fmengine.dataloader.jsonl_loader import get_jsonl_dataloader
-from fmengine.dataloader.stream_hf_loader import get_stream_dataset
+from fmengine.dataloader.datasets.jsonl_loader import get_jsonl_dataloader
+from fmengine.dataloader.datasets.stream_hf_loader import get_stream_dataset
 from fmengine.dataloader.loader import get_dataloader_from_datasets
 from fmengine.utils.megatron import initialize_megatron
 from fmengine.modeling.llama.patching import patch_llama

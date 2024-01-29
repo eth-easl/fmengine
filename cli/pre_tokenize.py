@@ -1,7 +1,7 @@
 import torch
 import argparse
 from transformers import AutoTokenizer
-from fmengine.dataloader.jsonl_loader import get_jsonl_dataloader
+from fmengine.dataloader.datasets.jsonl_loader import get_jsonl_dataloader
 import pandas as pd
 import pyarrow as pa
 import pyarrow.parquet as pq

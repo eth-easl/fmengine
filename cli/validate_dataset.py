@@ -1,6 +1,7 @@
 import transformers
-from fmengine.dataloader.jsonl_loader import get_jsonl_dataloader
-from fmengine.dataloader.stream_hf_loader import get_stream_dataset
+from fmengine.dataloader.datasets.jsonl_loader import get_jsonl_dataloader
+from fmengine.dataloader.datasets.stream_hf_loader import get_stream_dataset
+
 tokenizer = transformers.AutoTokenizer.from_pretrained(
     "openlm-research/open_llama_3b_v2",
     model_max_length=2048,
