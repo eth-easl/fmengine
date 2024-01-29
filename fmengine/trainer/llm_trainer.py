@@ -72,15 +72,14 @@ class LLMTrainer:
         engine.optimizer.refresh_fp32_params()
         if profile:
             prof = FlopsProfiler(self.model)
+        # needs to restore steps, etc.
         for step in range(1, steps + 1):
-
             if profile and step == profile_step:
                 prof.start_profile()
             start = timer()
             with TorchTracemalloc() as tracemalloc:
                 loss = engine.train_batch(data_iter=self.dataloader)
             end = timer()
-
             if self.ds_args.local_rank == 0:
                 [cb(end - start, step, loss, configs, engine) for cb in self.callbacks]
                 if profile and step == profile_step:

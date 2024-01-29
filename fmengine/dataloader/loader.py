@@ -7,8 +7,10 @@ from typing import List, Dict
 from dataclasses import dataclass
 from torch.utils.data.dataloader import DataLoader
 from fmengine.utils import logger_rank0 as logger
+from transformers import DataCollatorForLanguageModeling
+from fmengine.dataloader.constants import DEFAULT_IGNORE_INDEX
 
-
+# deprecated
 @dataclass
 class AutoregressiveLanguageModelDataCollator(object):
     """
@@ -68,39 +70,102 @@ class AutoregressiveLanguageModelDataCollator(object):
 
 
 def get_dataloader_from_datasets(
-    raw_datasets, tokenizer, return_repeating_loader=True, args={}
+    raw_datasets, 
+    tokenizer,
+    return_repeating_loader=True, 
+    shifting_labels = True,
+    return_dict = True,
+    args={}
 ):
-    data_collator = AutoregressiveLanguageModelDataCollator(
-        tokenizer, return_dict=args.get("return_dict", False)
-    )
     batch_size = args.get("batch_size", 1)
     ctx_length = args.get("seq_length", 1024)
     field = args.get("field", "text")
+    block_size = args.get("block_size", ctx_length)
 
     def tokenize(examples):
-        examples = tokenizer(examples[field], truncation=True, max_length=ctx_length)
-        concatenated_examples = {k: list(chain(*examples[k])) for k in examples.keys()}
-        input_id_length = ctx_length - 1  # -1 for shifting
+        return tokenizer(
+            examples[field], 
+            truncation=True,
+            padding=True,
+            max_length=ctx_length
+        )
+        
+    def get_position_ids(input_ids):
+        seq_length = input_ids.shape[1]
+        # Position ids.
+        position_ids = torch.arange(seq_length, dtype=torch.long)
+        return position_ids.unsqueeze(0).expand_as(input_ids)
+    
+    def get_attn_mask(input_ids):
+        """
+        Get triangular attention mask for a given sequence length / device.
+        """
+        bs = input_ids.shape[0]
+        seq_length = input_ids.shape[1]
+        # lower triangular attention mask
+        mask = torch.tril(torch.ones((bs, seq_length, seq_length))).view(
+            bs, 1, seq_length, seq_length
+        )
+        # convert to binary
+        return mask < 0.5
+    
+    def group_texts(examples):
+        # TODO(xiaozhe): we'd better take keys from the dataset, but sometimes dataset doesn't have keys (don't understand why, but I failed to load keys from slimpajama).
+        # Concatenate all texts.
+        concatenated_examples = {k: sum(examples[k], []) for k in examples.keys()}
         total_length = len(concatenated_examples[list(examples.keys())[0]])
-        if total_length >= input_id_length:
-            total_length = (total_length // input_id_length) * input_id_length
+        if total_length >= block_size:
+            total_length = (total_length // block_size) * block_size
+        # split by chunks of block_size.
         result = {
-            k: [
-                t[i : i + input_id_length]
-                for i in range(0, input_id_length, input_id_length)
-            ]
+            k: [t[i : i + block_size] for i in range(0, total_length, block_size)]
             for k, t in concatenated_examples.items()
         }
-        return result
-
-    raw_datasets = raw_datasets.map(
-        tokenize, batched=True, remove_columns=raw_datasets.column_names
-    ).with_format("torch")
-
-    dataloader = DataLoader(
-        raw_datasets, shuffle=False, collate_fn=data_collator, batch_size=batch_size
+        result["labels"] = result["input_ids"].copy()
+        input_ids = [torch.tensor(input_id) for input_id in result['input_ids']]
+        labels = [torch.tensor(label) for label in result['labels']]
+        
+        if shifting_labels:
+            input_ids = [input_id[:-1] for input_id in input_ids]
+            labels = [label[1:] for label in labels]
+        # convert to torch tensors
+        input_ids = torch.stack(input_ids)
+        labels = torch.stack(labels)
+        labels = torch.where(
+            labels == tokenizer.pad_token_id,
+            DEFAULT_IGNORE_INDEX,
+            labels
+        )
+        if return_dict:
+            res = {
+                "input_ids": input_ids,
+                "position_ids": get_position_ids(input_ids),
+                "attention_mask": get_attn_mask(input_ids),
+                "labels": labels,
+            }
+            return res
+        res = (
+            (
+                input_ids,
+                get_position_ids(input_ids),
+                get_attn_mask(input_ids),
+            ),
+            labels,
+        )
+        return res
+        
+    tokenized_ds = raw_datasets.map(
+        tokenize,
+        batched=True,
+        remove_columns=["text", "timestamp", "url"]
     )
-
+    lm_ds = tokenized_ds.map(
+        group_texts,
+        batched=True,
+    )
+    dataloader = DataLoader(
+        lm_ds, shuffle=False, batch_size=batch_size
+    )
     if return_repeating_loader:
         return iter(deepspeed.utils.RepeatingLoader(dataloader))
     else:

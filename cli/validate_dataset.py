@@ -1,7 +1,5 @@
 import transformers
-from fmengine.dataloader.datasets.jsonl_loader import get_jsonl_dataloader
-from fmengine.dataloader.datasets.stream_hf_loader import get_stream_dataset
-
+from fmengine.dataloader import get_dataloader
 tokenizer = transformers.AutoTokenizer.from_pretrained(
     "openlm-research/open_llama_3b_v2",
     model_max_length=2048,
@@ -17,7 +15,16 @@ tokenizer.pad_token_id = tokenizer.eos_token_id
 #         "batch_size": 32,
 #     },
 # )
-data_loader = get_stream_dataset("cerebras/SlimPajama-627B")
+data_loader = get_dataloader(
+    "c4",
+    tokenizer, 
+    {
+        "batch_size": 32,
+        "seq_length": 128,
+        "partition": "en"
+    }
+)
+
 for it in data_loader:
     print(it)
     pass
