@@ -9,7 +9,7 @@ from deepspeed.profiling.flops_profiler import FlopsProfiler
 from fmengine.utils import logger_rank0, get_rank
 from fmengine.utils.monitor import rank0_init_wandb
 from fmengine.profiler.malloc import TorchTracemalloc
-from fmengine.dataloader.checkpointing import write_loader_status
+from fmengine.dataloader.utils import write_loader_status
 
 
 class LLMTrainer:

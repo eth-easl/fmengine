@@ -11,15 +11,10 @@ from dataclasses import dataclass, field, asdict
 
 from fmengine.utils import jload, get_rank
 from fmengine.trainer.llm_trainer import LLMTrainer
+from fmengine.dataloader import get_dataloader
 from fmengine.modeling._common.model import get_model
-from fmengine.dataloader.datasets.jsonl_loader import get_jsonl_dataloader
-from fmengine.dataloader.datasets.stream_hf_loader import get_stream_dataset
-from fmengine.dataloader.loader import get_dataloader_from_datasets
 from fmengine.utils.megatron import initialize_megatron
-from fmengine.modeling.llama.patching import patch_llama
-from fmengine.modeling.neox.flash_attention import replace_neox_attn_with_flash_attn
 from fmengine.callbacks.monitor import speed_monitor, wandb_monitor
-from fmengine.modeling.sigma.configuration_sigma import SigmaConfig
 
 
 def read_ds_config(config_path):
@@ -138,42 +133,24 @@ if __name__ == "__main__":
     tokenizer.pad_token = tokenizer.eos_token
     tokenizer.pad_token_id = tokenizer.eos_token_id
 
-    try:
-        model_config = transformers.AutoConfig.from_pretrained(model_args.init_ckpt)
-    except:
-        model_config = SigmaConfig.from_pretrained(model_args.init_ckpt)
+    model_config = transformers.AutoConfig.from_pretrained(model_args.init_ckpt)
 
-    if "jsonl" in data_args.data_path:
-        train_dataloader = get_jsonl_dataloader(
-            data_args.data_path,
-            tokenizer=tokenizer,
-            args={
-                "seq_length": trainer_args.max_seq_len,
-                "batch_size": data_args.batch_size,
-            },
-        )
-    else:
-        # load from HF dataset
-        stream_dataset = get_stream_dataset(data_args.data_path)
-        train_dataloader = get_dataloader_from_datasets(
-            stream_dataset,
-            tokenizer=tokenizer,
-            args={
-                "seq_length": trainer_args.max_seq_len,
-                "batch_size": data_args.batch_size,
-            },
-        )
-
+    train_dataloader = get_dataloader(
+        data_args.data_path,
+        tokenizer=tokenizer,
+        args={
+            "seq_length": trainer_args.max_seq_len,
+            "batch_size": data_args.batch_size,
+        },
+    )
     _tmp = torch.nn.Linear.reset_parameters
     torch.nn.Linear.reset_parameters = lambda x: None
-    print("sliding window size:", ds_args.window_size)
     model = get_model(model_config, ds_args, activation_checkpointing_config)
 
     if ds_config.get("precision", "bfloat16"):
         print("Using bfloat16")
         # TODO(xiaoyuan): lora is better used with fp32
         model = model.bfloat16()
-
     if "lora" in ds_config:
         for n, p in model.named_parameters():
             if "lora" in n.lower():
