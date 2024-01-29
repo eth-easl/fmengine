@@ -14,6 +14,6 @@ def get_hf_stream_dataset(dataset_name_or_path, args: dict = {}):
         partition,
         split=split,
         streaming=True,
-        trust_remote_code=True
+        trust_remote_code=True,
     )
     return raw_datasets

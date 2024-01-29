@@ -10,6 +10,7 @@ from fmengine.utils import logger_rank0 as logger
 from transformers import DataCollatorForLanguageModeling
 from fmengine.dataloader.constants import DEFAULT_IGNORE_INDEX
 
+
 # deprecated
 @dataclass
 class AutoregressiveLanguageModelDataCollator(object):
@@ -70,12 +71,12 @@ class AutoregressiveLanguageModelDataCollator(object):
 
 
 def get_dataloader_from_datasets(
-    raw_datasets, 
+    raw_datasets,
     tokenizer,
-    return_repeating_loader=True, 
-    shifting_labels = True,
-    return_dict = True,
-    args={}
+    return_repeating_loader=True,
+    shifting_labels=True,
+    return_dict=True,
+    args={},
 ):
     data_collator = AutoregressiveLanguageModelDataCollator(
         tokenizer, return_dict=args.get("return_dict", False)
@@ -84,11 +85,12 @@ def get_dataloader_from_datasets(
     ctx_length = args.get("seq_length", 1024) + 1  # +1 for shifting
 
     def tokenize(examples):
-        examples = tokenizer(examples["text"], 
-                             padding="max_length",
-                             truncation=True, 
-                             max_length=ctx_length,
-                            )
+        examples = tokenizer(
+            examples["text"],
+            padding="max_length",
+            truncation=True,
+            max_length=ctx_length,
+        )
         concatenated_examples = {k: list(chain(*examples[k])) for k in examples.keys()}
         total_length = len(concatenated_examples[list(examples.keys())[0]])
         if total_length >= ctx_length:

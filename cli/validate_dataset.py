@@ -1,5 +1,6 @@
 import transformers
 from fmengine.dataloader import get_dataloader
+
 tokenizer = transformers.AutoTokenizer.from_pretrained(
     "openlm-research/open_llama_3b_v2",
     model_max_length=2048,
@@ -16,13 +17,7 @@ tokenizer.pad_token_id = tokenizer.eos_token_id
 #     },
 # )
 data_loader = get_dataloader(
-    "c4",
-    tokenizer, 
-    {
-        "batch_size": 32,
-        "seq_length": 128,
-        "partition": "en"
-    }
+    "c4", tokenizer, {"batch_size": 32, "seq_length": 128, "partition": "en"}
 )
 
 for it in data_loader:

@@ -137,7 +137,7 @@ if __name__ == "__main__":
         args={
             "seq_length": trainer_args.max_seq_len,
             "batch_size": data_args.batch_size,
-            "remove_columns": ["text", "meta"]
+            "remove_columns": ["text", "meta"],
         },
     )
     _tmp = torch.nn.Linear.reset_parameters
