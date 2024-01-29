@@ -6,7 +6,6 @@ from itertools import chain
 from typing import List, Dict
 from dataclasses import dataclass
 from torch.utils.data.dataloader import DataLoader
-
 from fmengine.utils import logger_rank0 as logger
 
 
@@ -75,28 +74,31 @@ def get_dataloader_from_datasets(
         tokenizer, return_dict=args.get("return_dict", False)
     )
     batch_size = args.get("batch_size", 1)
-    ctx_length = args.get("seq_length", 1024) + 1  # +1 for shifting
-
+    ctx_length = args.get("seq_length", 1024)
+    field = args.get("field", "text")
     def tokenize(examples):
-        examples = tokenizer(examples["text"], truncation=True, max_length=ctx_length)
-        concatenated_examples = {
-            k: list(chain(*examples[k])) for k in examples.keys()
-        }
+        examples = tokenizer(examples[field], truncation=True, max_length=ctx_length)
+        concatenated_examples = {k: list(chain(*examples[k])) for k in examples.keys()}
+        input_id_length = ctx_length - 1 # -1 for shifting 
         total_length = len(concatenated_examples[list(examples.keys())[0]])
-        if total_length >= ctx_length:
-            total_length = (total_length // ctx_length) * ctx_length
+        if total_length >= input_id_length:
+            total_length = (total_length // input_id_length) * input_id_length
+        print(concatenated_examples)
         result = {
-            k: [t[i : i + ctx_length] for i in range(0, total_length, ctx_length)]
+            k: [t[i : i + input_id_length] for i in range(0, input_id_length, input_id_length)]
             for k, t in concatenated_examples.items()
         }
+        logger.info(result)
         return result
 
     raw_datasets = raw_datasets.map(
         tokenize, batched=True, remove_columns=raw_datasets.column_names
     ).with_format("torch")
+    
     dataloader = DataLoader(
         raw_datasets, shuffle=False, collate_fn=data_collator, batch_size=batch_size
     )
+    
     if return_repeating_loader:
         return iter(deepspeed.utils.RepeatingLoader(dataloader))
     else:
