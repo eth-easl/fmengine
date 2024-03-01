@@ -1,8 +1,9 @@
 import pytest
 import torch
-from nanotron.fp8 import DTypes, FP8Linear, FP8Parameter, FP8Tensor
 from torch import nn
 from torch.optim import Adam
+
+from nanotron.fp8 import DTypes, FP8Linear, FP8Parameter, FP8Tensor
 
 
 @pytest.mark.parametrize("is_bias", [True, False])

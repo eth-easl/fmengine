@@ -15,12 +15,15 @@ classifiers = [
 ]
 dependencies = [
     "torch>=1.13.1",
+    "flash-attn>=2.5.0",
     "pyyaml",
     "numpy",
     "packaging",
     "safetensors",
     "dacite",
-    "tqdm"
+    "tqdm",
+    "hydra-core",
+    "datasets"
 ]
 
 [tool.setuptools.packages.find]
@@ -41,10 +44,6 @@ dev = [
 test = [
     "pytest",
     "pytest-xdist"
-]
-
-fast-modeling = [
-    "flash-attn>=2.5.0",
 ]
 
 [build-system]

@@ -6,8 +6,9 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import torch.cuda
 import torch.multiprocessing as mp
-from nanotron.parallel import ParallelContext
 from packaging import version
+
+from nanotron.parallel import ParallelContext
 
 
 def available_gpus():

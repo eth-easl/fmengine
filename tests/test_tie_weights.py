@@ -2,6 +2,8 @@ import torch
 from helpers.distributed_tensor import assert_tensor_equal_over_group
 from helpers.exception import assert_fail_with
 from helpers.utils import init_distributed, rerun_if_address_is_in_use
+from torch import nn
+
 from nanotron import distributed as dist
 from nanotron.parallel import ParallelContext
 from nanotron.parallel.parameters import NanotronParameter
@@ -10,7 +12,6 @@ from nanotron.parallel.tied_parameters import (
     sync_tied_weights_gradients,
     tie_parameters,
 )
-from torch import nn
 
 
 @rerun_if_address_is_in_use()

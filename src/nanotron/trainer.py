@@ -30,7 +30,7 @@ from nanotron.config import (
     RandomInit,
     get_config_from_file,
 )
-from nanotron.dataloader import sanity_check_dataloader
+from nanotron.dataloader.dataloader import sanity_check_dataloader
 from nanotron.helpers import (
     _vocab_size_with_padding,
     get_profiler,

@@ -27,9 +27,3 @@ repos:
           - --profile=black
           - --skip-glob=wandb/**/*
           - --thirdparty=wandb
-  - repo: https://github.com/codespell-project/codespell
-    rev: v2.1.0
-    hooks:
-      - id: codespell
-        args:
-          - --ignore-words-list=nd,reacher,thist,ths,magent,ba,fo

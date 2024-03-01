@@ -2,9 +2,10 @@ from contextlib import contextmanager
 from typing import Optional
 
 import torch
+from torch import nn
+
 from nanotron import distributed as dist
 from nanotron.optim.gradient_accumulator import GradientAccumulator
-from torch import nn
 
 
 @contextmanager

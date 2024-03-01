@@ -11,7 +11,7 @@ from tqdm import tqdm
 
 from nanotron import distributed as dist
 from nanotron import logging
-from nanotron.dataloader import get_dataloader_worker_init
+from nanotron.dataloader.dataloader import get_dataloader_worker_init
 from nanotron.parallel import ParallelContext
 from nanotron.parallel.pipeline_parallel.tensor_pointer import TensorPointer
 from nanotron.parallel.pipeline_parallel.utils import get_input_output_pp_ranks

@@ -2,8 +2,8 @@ import torch
 import transformer_engine as te  # noqa
 import transformer_engine_extensions as tex
 
-from nanotron.fp8.tensor import FP8Tensor
 from nanotron.fp8.meta import FP8Meta
+from nanotron.fp8.tensor import FP8Tensor
 
 
 @torch.no_grad()

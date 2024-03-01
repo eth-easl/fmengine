@@ -2,6 +2,9 @@ from math import ceil
 from typing import Union
 
 import torch
+from torch import nn
+from torch.nn.parallel import DistributedDataParallel
+
 from nanotron import distributed as dist
 from nanotron.models import init_on_device_and_dtype
 from nanotron.optim.base import BaseOptimizer
@@ -13,8 +16,6 @@ from nanotron.parallel.pipeline_parallel.p2p import P2P
 from nanotron.parallel.pipeline_parallel.tensor_pointer import TensorPointer
 from nanotron.parallel.tied_parameters import tie_parameters
 from nanotron.parallel.utils import initial_sync
-from torch import nn
-from torch.nn.parallel import DistributedDataParallel
 
 
 class DummyModel(nn.Module):

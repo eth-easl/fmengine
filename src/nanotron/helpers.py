@@ -18,12 +18,7 @@ from torch.profiler import ProfilerActivity, profile, tensorboard_trace_handler
 
 from nanotron import distributed as dist
 from nanotron import logging
-from nanotron.config import (
-    Config,
-    LRSchedulerArgs,
-    OptimizerArgs,
-    ParallelismArgs,
-)
+from nanotron.config import Config, LRSchedulerArgs, OptimizerArgs, ParallelismArgs
 from nanotron.distributed import ProcessGroup
 from nanotron.logging import LogItem, log_rank
 from nanotron.models.base import NanotronModel
@@ -40,9 +35,7 @@ from nanotron.optim.optimizer_from_gradient_accumulator import (
 )
 from nanotron.optim.zero import ZeroDistributedOptimizer
 from nanotron.parallel import ParallelContext
-from nanotron.parallel.tensor_parallel.nn import (
-    TensorParallelLinearMode,
-)
+from nanotron.parallel.tensor_parallel.nn import TensorParallelLinearMode
 from nanotron.random import (
     RandomStates,
     get_current_random_state,

@@ -13,10 +13,21 @@ import os
 from pathlib import Path
 
 import torch
+
 from nanotron import distributed as dist
 from nanotron import logging
-from nanotron.config import GenerationArgs, LoggingArgs, ParallelismArgs, get_config_from_file
-from nanotron.generation.decode import GenerationInput, TokenizerConfig, decode_text, decode_tokenized
+from nanotron.config import (
+    GenerationArgs,
+    LoggingArgs,
+    ParallelismArgs,
+    get_config_from_file,
+)
+from nanotron.generation.decode import (
+    GenerationInput,
+    TokenizerConfig,
+    decode_text,
+    decode_tokenized,
+)
 from nanotron.logging import log_rank, set_logger_verbosity_format
 from nanotron.models import build_model
 from nanotron.parallel import ParallelContext
@@ -32,9 +43,7 @@ from nanotron.random import (
     get_synced_random_state,
     set_random_seed,
 )
-from nanotron.serialize import (
-    load_weights,
-)
+from nanotron.serialize import load_weights
 from nanotron.trainer import CONFIG_TO_MODEL_CLASS, mark_tied_parameters
 
 try:

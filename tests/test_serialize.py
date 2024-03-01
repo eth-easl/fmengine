@@ -9,6 +9,8 @@ from helpers.utils import (
     is_dict_equal,
     rerun_if_address_is_in_use,
 )
+from torch.nn.parallel import DistributedDataParallel
+
 from nanotron import distributed as dist
 from nanotron.constants import CHECKPOINT_VERSION
 from nanotron.optim.gradient_accumulator import FP32GradientAccumulator
@@ -21,9 +23,16 @@ from nanotron.parallel import ParallelContext
 from nanotron.parallel.pipeline_parallel.engine import (
     AllForwardAllBackwardPipelineEngine,
 )
-from nanotron.parallel.sharded_parameters import SplitConfig, create_sharded_parameter_from_config
+from nanotron.parallel.sharded_parameters import (
+    SplitConfig,
+    create_sharded_parameter_from_config,
+)
 from nanotron.parallel.tied_parameters import sync_tied_weights_gradients
-from nanotron.random import RandomStates, get_current_random_state, get_synced_random_state
+from nanotron.random import (
+    RandomStates,
+    get_current_random_state,
+    get_synced_random_state,
+)
 from nanotron.serialize import (
     load_optimizer,
     load_random_states,
@@ -33,7 +42,6 @@ from nanotron.serialize import (
     save_weights,
 )
 from nanotron.serialize.metadata import TensorMetadata
-from torch.nn.parallel import DistributedDataParallel
 
 
 def test_save_and_load_with_changed_topolgy():

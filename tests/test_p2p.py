@@ -4,6 +4,7 @@ import pytest
 import torch
 from helpers.exception import assert_fail_with
 from helpers.utils import available_gpus, init_distributed, rerun_if_address_is_in_use
+
 from nanotron import distributed as dist
 from nanotron.parallel import ParallelContext
 from nanotron.parallel.pipeline_parallel.p2p import P2P

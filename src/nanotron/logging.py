@@ -18,7 +18,17 @@ import os
 import sys
 from dataclasses import dataclass
 from functools import lru_cache
-from logging import CRITICAL, DEBUG, ERROR, FATAL, INFO, NOTSET, WARNING, Formatter, Logger
+from logging import (
+    CRITICAL,
+    DEBUG,
+    ERROR,
+    FATAL,
+    INFO,
+    NOTSET,
+    WARNING,
+    Formatter,
+    Logger,
+)
 from typing import List, Optional, Union
 
 import torch

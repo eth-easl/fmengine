@@ -1,9 +1,7 @@
 from dataclasses import dataclass
 from typing import Optional
 
-from nanotron.config.utils_config import (
-    cast_str_to_pipeline_engine,
-)
+from nanotron.config.utils_config import cast_str_to_pipeline_engine
 from nanotron.parallel.pipeline_parallel.engine import (
     AllForwardAllBackwardPipelineEngine,
     PipelineEngine,

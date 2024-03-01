@@ -32,10 +32,7 @@ from nanotron.parallel.tensor_parallel.distributed_differentiable_primitives imp
     differentiable_reduce_scatter_sum,
 )
 from nanotron.parallel.tensor_parallel.enum import TensorParallelLinearMode
-from nanotron.parallel.tensor_parallel.functional import (
-    column_linear,
-    row_linear,
-)
+from nanotron.parallel.tensor_parallel.functional import column_linear, row_linear
 from nanotron.parallel.tied_parameters import create_tied_parameter
 
 

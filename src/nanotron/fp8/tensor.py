@@ -12,7 +12,7 @@ class FP8Tensor(torch.Tensor):
     def __new__(cls, tensor: torch.Tensor, dtype: DTypes) -> torch.Tensor:
         assert isinstance(tensor, torch.Tensor), "tensor must be a tensor"
         assert tensor.dtype not in FP8_DTYPES, "The tensor already quantized to FP8"
-        
+
         # TODO(xrsrke): there is a circular import issue
         # between tensor.py and meta.py fix this
         from nanotron.fp8.meta import FP8Meta

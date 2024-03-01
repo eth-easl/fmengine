@@ -7,8 +7,9 @@ from helpers.utils import (
     init_distributed,
     rerun_if_address_is_in_use,
 )
-from nanotron.parallel import ParallelContext
 from torch.distributed import ProcessGroup
+
+from nanotron.parallel import ParallelContext
 
 
 def _test_init_parallel_context(parallel_context: ParallelContext):

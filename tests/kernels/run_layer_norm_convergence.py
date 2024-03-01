@@ -1,7 +1,8 @@
 import torch
+from torch.nn import LayerNorm
+
 from nanotron.logging import LoggerWriter
 from nanotron.nn.layer_norm import TritonLayerNorm
-from torch.nn import LayerNorm
 
 
 def get_time_name():

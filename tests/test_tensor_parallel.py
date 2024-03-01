@@ -3,6 +3,8 @@ import os
 import pytest
 import torch
 from helpers.utils import available_gpus, init_distributed, rerun_if_address_is_in_use
+from torch import nn as torch_nn
+
 from nanotron import distributed as dist
 from nanotron.distributed import get_global_rank
 from nanotron.parallel import ParallelContext
@@ -12,7 +14,6 @@ from nanotron.parallel.tensor_parallel.nn import (
     TensorParallelEmbedding,
     TensorParallelRowLinear,
 )
-from torch import nn as torch_nn
 
 
 @pytest.mark.parametrize("tp,dp,pp", [pytest.param(i, 1, 1) for i in range(1, min(4, available_gpus()) + 1)])

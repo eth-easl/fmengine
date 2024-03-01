@@ -7,6 +7,7 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 from config_llamoe import LlaMoEConfig
+
 from nanotron.parallel.tensor_parallel.enum import TensorParallelLinearMode
 
 try:
@@ -18,10 +19,11 @@ except ImportError:
 import stk
 from megablocks.layers import weight_parallel as wp
 from megablocks.layers.activation_fn import act_fn
+from torch import nn
+
 from nanotron import distributed as dist
 from nanotron import logging
 from nanotron.config import ParallelismArgs
-from torch import nn
 
 logger = logging.get_logger(__name__)
 

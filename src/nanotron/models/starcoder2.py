@@ -30,8 +30,9 @@ from flash_attn.flash_attn_interface import (
     flash_attn_with_kvcache,
 )
 from torch import nn
-from torch.nn import LayerNorm, init
+from torch.nn import LayerNorm
 from torch.nn import functional as F
+from torch.nn import init
 
 from nanotron import distributed as dist
 from nanotron.config import ParallelismArgs, Starcoder2Config
@@ -44,9 +45,15 @@ from nanotron.parallel.parameters import NanotronParameter
 from nanotron.parallel.pipeline_parallel.block import PipelineBlock
 from nanotron.parallel.pipeline_parallel.p2p import P2P
 from nanotron.parallel.pipeline_parallel.tensor_pointer import TensorPointer
-from nanotron.parallel.sharded_parameters import SplitConfig, mark_all_parameters_in_module_as_sharded
+from nanotron.parallel.sharded_parameters import (
+    SplitConfig,
+    mark_all_parameters_in_module_as_sharded,
+)
 from nanotron.parallel.tensor_parallel.enum import TensorParallelLinearMode
-from nanotron.parallel.tensor_parallel.functional import column_linear, sharded_cross_entropy
+from nanotron.parallel.tensor_parallel.functional import (
+    column_linear,
+    sharded_cross_entropy,
+)
 from nanotron.parallel.tensor_parallel.nn import (
     TensorParallelColumnLinear,
     TensorParallelEmbedding,
