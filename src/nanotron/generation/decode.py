@@ -100,16 +100,24 @@ def micro_batcher(
         input_masks: [max_micro_batch_size, max_input_length]
     """
     if tokenizer_config.padding is None:
-        tokenizer_config.padding = "max_length" if tokenizer_config.max_input_length is not None else True
+        tokenizer_config.padding = (
+            "max_length" if tokenizer_config.max_input_length is not None else True
+        )
     if tokenizer_config.truncation is None:
-        tokenizer_config.truncation = True if tokenizer_config.max_input_length is not None else None
+        tokenizer_config.truncation = (
+            True if tokenizer_config.max_input_length is not None else None
+        )
 
-    for micro_batch_id, micro_batch in enumerate(chunks(input_iter, chunk_size=max_micro_batch_size)):
+    for micro_batch_id, micro_batch in enumerate(
+        chunks(input_iter, chunk_size=max_micro_batch_size)
+    ):
         if len(micro_batch) == 0:
             # Empty micro batches don't matter
             return
 
-        if micro_batch_id % parallel_context.dp_pg.size() != dist.get_rank(parallel_context.dp_pg):
+        if micro_batch_id % parallel_context.dp_pg.size() != dist.get_rank(
+            parallel_context.dp_pg
+        ):
             # Each dp is responsible for its own micro batches
             continue
 
@@ -124,12 +132,17 @@ def micro_batcher(
                 # pad_to_multiple_of=8
             )
 
-            encodings["attention_mask"] = encodings.attention_mask.to(dtype=torch.bool, device="cuda")
+            encodings["attention_mask"] = encodings.attention_mask.to(
+                dtype=torch.bool, device="cuda"
+            )
             encodings.to("cuda")
-            yield GenerationInputs(input_ids=encodings.input_ids, input_masks=encodings.attention_mask)
+            yield GenerationInputs(
+                input_ids=encodings.input_ids, input_masks=encodings.attention_mask
+            )
         else:
             yield GenerationInputs(
-                input_ids=TensorPointer(group_rank=input_rank), input_masks=TensorPointer(group_rank=input_rank)
+                input_ids=TensorPointer(group_rank=input_rank),
+                input_masks=TensorPointer(group_rank=input_rank),
             )
 
 
@@ -146,7 +159,10 @@ def micro_splitter(
         input_masks: [max_micro_batch_size, max_input_length]
     """
     for micro_batch_id, (micro_batch_ids, micro_batch_mask) in enumerate(
-        zip(torch.split(input_ids, max_micro_batch_size), torch.split(input_mask, max_micro_batch_size))
+        zip(
+            torch.split(input_ids, max_micro_batch_size),
+            torch.split(input_mask, max_micro_batch_size),
+        )
     ):
         if len(micro_batch_ids) == 0:
             # Empty micro batches don't matter
@@ -159,10 +175,13 @@ def micro_splitter(
         if dist.get_rank(parallel_context.pp_pg) == input_rank:
             micro_batch_mask = micro_batch_mask.to(dtype=torch.bool, device="cuda")
             micro_batch_mask.to("cuda")
-            yield GenerationInputs(input_ids=micro_batch_ids.clone(), input_masks=micro_batch_mask.clone())
+            yield GenerationInputs(
+                input_ids=micro_batch_ids.clone(), input_masks=micro_batch_mask.clone()
+            )
         else:
             yield GenerationInputs(
-                input_ids=TensorPointer(group_rank=input_rank), input_masks=TensorPointer(group_rank=input_rank)
+                input_ids=TensorPointer(group_rank=input_rank),
+                input_masks=TensorPointer(group_rank=input_rank),
             )
 
 
@@ -247,7 +266,10 @@ def decode_text(
                     elapsed_time_first_iteration = start_time - time.perf_counter()
 
                 all_new_decoder_input_ids_and_mask_same_rank: List[
-                    Tuple[Union[torch.LongTensor, TensorPointer], Union[torch.BoolTensor, TensorPointer]]
+                    Tuple[
+                        Union[torch.LongTensor, TensorPointer],
+                        Union[torch.BoolTensor, TensorPointer],
+                    ]
                 ] = []
                 new_decoder_states: List[GenerationStates] = []
                 for state_id, state in enumerate(decoder_states):
@@ -262,8 +284,12 @@ def decode_text(
                             )
                     else:
                         if isinstance(state.new_input_ids, torch.Tensor):
-                            batch_generated_ids = torch.cat(state.generation_ids, dim=-1)
-                            batch_generated_mask = torch.cat(state.generation_mask, dim=-1)
+                            batch_generated_ids = torch.cat(
+                                state.generation_ids, dim=-1
+                            )
+                            batch_generated_mask = torch.cat(
+                                state.generation_mask, dim=-1
+                            )
                         else:
                             batch_generated_ids = state.new_input_ids
                             batch_generated_mask = state.new_input_mask
@@ -282,24 +308,44 @@ def decode_text(
                             if generation_iter == 0:
                                 if state_id == number_states_in_buffer - 1:
                                     # `2` is because we receive decoder_ids AND decoder_mask from last rank
-                                    nb_send = len(pipeline_state.microbatches_activations_to_send) - 2
+                                    nb_send = (
+                                        len(
+                                            pipeline_state.microbatches_activations_to_send
+                                        )
+                                        - 2
+                                    )
                                 else:
                                     # Send everything
-                                    nb_send = len(pipeline_state.microbatches_activations_to_send)
+                                    nb_send = len(
+                                        pipeline_state.microbatches_activations_to_send
+                                    )
                             else:
                                 # `2` is because we receive decoder_ids AND decoder_mask from last rank
-                                nb_send = len(pipeline_state.microbatches_activations_to_send) - 2
+                                nb_send = (
+                                    len(pipeline_state.microbatches_activations_to_send)
+                                    - 2
+                                )
                         else:
-                            if number_states_in_buffer - 1 == state_id or generation_iter == 0:
+                            if (
+                                number_states_in_buffer - 1 == state_id
+                                or generation_iter == 0
+                            ):
                                 # Send everything
-                                nb_send = len(pipeline_state.microbatches_activations_to_send)
+                                nb_send = len(
+                                    pipeline_state.microbatches_activations_to_send
+                                )
                             else:
                                 # `2` is because we receive decoder_ids AND decoder_mask from last rank
-                                nb_send = len(pipeline_state.microbatches_activations_to_send) - 2
+                                nb_send = (
+                                    len(pipeline_state.microbatches_activations_to_send)
+                                    - 2
+                                )
                     else:
                         if state_id == number_states_in_buffer - 1:
                             if not is_max_nb_microbatches:
-                                nb_send = len(pipeline_state.microbatches_activations_to_send)
+                                nb_send = len(
+                                    pipeline_state.microbatches_activations_to_send
+                                )
                     for _ in range(nb_send):
                         pipeline_state.run_communication()
 
@@ -316,9 +362,13 @@ def decode_text(
                         elif sampler_type == SamplerType.BASIC:
                             sampler = BasicSampler(pg=parallel_context.tp_pg)
                         else:
-                            raise NotImplementedError(f"Sampler type {sampler_type} is not implemented")
+                            raise NotImplementedError(
+                                f"Sampler type {sampler_type} is not implemented"
+                            )
 
-                        new_decoder_input_ids = sampler(sharded_logits=sharded_logits[:, -1, :])
+                        new_decoder_input_ids = sampler(
+                            sharded_logits=sharded_logits[:, -1, :]
+                        )
 
                         # TODO @thomasw21: Handle this correctly, ie from some point after <eos> this should only generate masked tokens
                         # TODO @thomasw21: Actually I can probably build this thing on the next device directly. Will save some communication
@@ -338,12 +388,19 @@ def decode_text(
                             )
                         else:
                             pipeline_state.register_send_activation(
-                                new_decoder_input_ids, to_rank=decoder_input_rank, p2p=p2p
+                                new_decoder_input_ids,
+                                to_rank=decoder_input_rank,
+                                p2p=p2p,
                             )
                             pipeline_state.register_send_activation(
-                                new_decoder_input_mask, to_rank=decoder_input_rank, p2p=p2p
+                                new_decoder_input_mask,
+                                to_rank=decoder_input_rank,
+                                p2p=p2p,
                             )
-                            if not is_max_nb_microbatches and state_id == number_states_in_buffer - 1:
+                            if (
+                                not is_max_nb_microbatches
+                                and state_id == number_states_in_buffer - 1
+                            ):
                                 # Send new_decoder_input_ids AND new_decoder_input_ids
                                 pipeline_state.run_communication()
                                 pipeline_state.run_communication()
@@ -352,30 +409,49 @@ def decode_text(
                         assert isinstance(sharded_logits, TensorPointer)
 
                 all_new_decoder_input_ids_and_mask: Iterable[
-                    Tuple[Union[torch.LongTensor, TensorPointer], Union[torch.BoolTensor, TensorPointer]]
+                    Tuple[
+                        Union[torch.LongTensor, TensorPointer],
+                        Union[torch.BoolTensor, TensorPointer],
+                    ]
                 ]
                 if is_decoder_input_rank:
                     # We receive the tensor from other ranks unless `decoder_input_rank` == `decoder_logit_rank` in which case `all_new_decoder_input_ids` is already populated.
                     if decoder_input_rank == decoder_logit_rank:
                         # `all_new_decoder_input_ids_and_mask_same_rank` is already populated. Since `decoder_input_rank` and `decoder_logit_rank` are the same, there's no need to communicate as we can just store the new input_ids in a list.
-                        assert len(all_new_decoder_input_ids_and_mask_same_rank) == number_states_in_buffer
-                        all_new_decoder_input_ids_and_mask = all_new_decoder_input_ids_and_mask_same_rank
+                        assert (
+                            len(all_new_decoder_input_ids_and_mask_same_rank)
+                            == number_states_in_buffer
+                        )
+                        all_new_decoder_input_ids_and_mask = (
+                            all_new_decoder_input_ids_and_mask_same_rank
+                        )
                     else:
 
                         def generator():
                             for _ in range(number_states_in_buffer):
-                                pipeline_state.register_recv_activation(from_rank=decoder_logit_rank, p2p=p2p)
-                                pipeline_state.register_recv_activation(from_rank=decoder_logit_rank, p2p=p2p)
+                                pipeline_state.register_recv_activation(
+                                    from_rank=decoder_logit_rank, p2p=p2p
+                                )
+                                pipeline_state.register_recv_activation(
+                                    from_rank=decoder_logit_rank, p2p=p2p
+                                )
                                 while len(pipeline_state.activations_buffer) < 2:
                                     pipeline_state.run_communication()
-                                new_decoder_input_ids = pipeline_state.activations_buffer.popleft()
-                                new_decoder_input_mask = pipeline_state.activations_buffer.popleft()
+                                new_decoder_input_ids = (
+                                    pipeline_state.activations_buffer.popleft()
+                                )
+                                new_decoder_input_mask = (
+                                    pipeline_state.activations_buffer.popleft()
+                                )
                                 yield new_decoder_input_ids, new_decoder_input_mask
 
                         all_new_decoder_input_ids_and_mask = iter(generator())
                 else:
                     all_new_decoder_input_ids_and_mask = (
-                        (TensorPointer(group_rank=decoder_input_rank), TensorPointer(group_rank=decoder_input_rank))
+                        (
+                            TensorPointer(group_rank=decoder_input_rank),
+                            TensorPointer(group_rank=decoder_input_rank),
+                        )
                         for _ in range(number_states_in_buffer)
                     )
 
@@ -385,8 +461,10 @@ def decode_text(
                         new_input_ids=new_decoder_input_ids_and_mask[0],
                         new_input_mask=new_decoder_input_ids_and_mask[1],
                         store=state.store,
-                        generation_ids=state.generation_ids + [new_decoder_input_ids_and_mask[0]],
-                        generation_mask=state.generation_mask + [new_decoder_input_ids_and_mask[1]],
+                        generation_ids=state.generation_ids
+                        + [new_decoder_input_ids_and_mask[0]],
+                        generation_mask=state.generation_mask
+                        + [new_decoder_input_ids_and_mask[1]],
                     )
                     for state, new_decoder_input_ids_and_mask in zip(
                         new_decoder_states, all_new_decoder_input_ids_and_mask
@@ -396,7 +474,9 @@ def decode_text(
             if is_bench:
                 # Compute throughput (tok/s/gpu). Note that the first generation is done with full seq_len, so we don't count it.
                 torch.cuda.synchronize()
-                total_time_sec = time.perf_counter() - start_time - elapsed_time_first_iteration
+                total_time_sec = (
+                    time.perf_counter() - start_time - elapsed_time_first_iteration
+                )
                 # We generate 1 token per iteration per batch (batch=microbatch)
                 # Number of tokens generated every iteration: gbs/iteration_time
                 global_batch_size = len(batches) * parallel_context.dp_pg.size()
@@ -417,7 +497,10 @@ def decode_text(
                 )
 
                 model_size = sum(
-                    [p.numel() * p.data.element_size() for p in chain(model.parameters(), model.buffers())]
+                    [
+                        p.numel() * p.data.element_size()
+                        for p in chain(model.parameters(), model.buffers())
+                    ]
                 )
 
                 log_throughput(
@@ -444,11 +527,15 @@ def decode_text(
             decoder_states = list(decoder_states)
             for state, batch in zip(decoder_states, batches):
                 if is_decoder_input_rank:
-                    assert all(isinstance(elt, torch.Tensor) for elt in state.generation_ids)
+                    assert all(
+                        isinstance(elt, torch.Tensor) for elt in state.generation_ids
+                    )
                     batch_generated_ids = torch.cat(state.generation_ids, dim=-1)
                     batch_generated_mask = torch.cat(state.generation_mask, dim=-1)
                 else:
-                    assert all(isinstance(elt, TensorPointer) for elt in state.generation_ids)
+                    assert all(
+                        isinstance(elt, TensorPointer) for elt in state.generation_ids
+                    )
                     batch_generated_ids = TensorPointer(group_rank=decoder_input_rank)
                     batch_generated_mask = TensorPointer(group_rank=decoder_input_rank)
 
@@ -459,7 +546,9 @@ def decode_text(
                     group=parallel_context.pp_pg,
                 )
                 batch.input_ids, batch.input_masks = broadcast_tensors(
-                    [batch.input_ids, batch.input_masks], group_src=decoder_input_rank, group=parallel_context.pp_pg
+                    [batch.input_ids, batch.input_masks],
+                    group_src=decoder_input_rank,
+                    group=parallel_context.pp_pg,
                 )
 
                 # Flush the store to release memory
@@ -477,7 +566,9 @@ def decode_text(
                         batch_generated_ids.shape[1] == batch_generated_mask.shape[1]
                     ), f"Sequence length needs to match {batch_generated_ids.shape[1]} != {batch_generated_mask.shape[0]}"
 
-                for i, (generated_ids, generated_mask) in enumerate(zip(batch_generated_ids, batch_generated_mask)):
+                for i, (generated_ids, generated_mask) in enumerate(
+                    zip(batch_generated_ids, batch_generated_mask)
+                ):
                     # TODO @thomasw21: We could actually have all ranks return the output, since it's been already broadcasted
                     if dist.get_rank(parallel_context.pp_pg) == decoder_input_rank:
                         input_ids = batch.input_ids[i]
@@ -568,7 +659,10 @@ def decode_tokenized(
 
             for generation_iter in range(max_new_tokens):
                 all_new_decoder_input_ids_and_mask_same_rank: List[
-                    Tuple[Union[torch.LongTensor, TensorPointer], Union[torch.BoolTensor, TensorPointer]]
+                    Tuple[
+                        Union[torch.LongTensor, TensorPointer],
+                        Union[torch.BoolTensor, TensorPointer],
+                    ]
                 ] = []
                 new_decoder_states: List[GenerationStates] = []
                 for state_id, state in enumerate(decoder_states):
@@ -591,24 +685,44 @@ def decode_tokenized(
                             if generation_iter == 0:
                                 if state_id == number_states_in_buffer - 1:
                                     # `2` is because we receive decoder_ids AND decoder_mask from last rank
-                                    nb_send = len(pipeline_state.microbatches_activations_to_send) - 2
+                                    nb_send = (
+                                        len(
+                                            pipeline_state.microbatches_activations_to_send
+                                        )
+                                        - 2
+                                    )
                                 else:
                                     # Send everything
-                                    nb_send = len(pipeline_state.microbatches_activations_to_send)
+                                    nb_send = len(
+                                        pipeline_state.microbatches_activations_to_send
+                                    )
                             else:
                                 # `2` is because we receive decoder_ids AND decoder_mask from last rank
-                                nb_send = len(pipeline_state.microbatches_activations_to_send) - 2
+                                nb_send = (
+                                    len(pipeline_state.microbatches_activations_to_send)
+                                    - 2
+                                )
                         else:
-                            if number_states_in_buffer - 1 == state_id or generation_iter == 0:
+                            if (
+                                number_states_in_buffer - 1 == state_id
+                                or generation_iter == 0
+                            ):
                                 # Send everything
-                                nb_send = len(pipeline_state.microbatches_activations_to_send)
+                                nb_send = len(
+                                    pipeline_state.microbatches_activations_to_send
+                                )
                             else:
                                 # `2` is because we receive decoder_ids AND decoder_mask from last rank
-                                nb_send = len(pipeline_state.microbatches_activations_to_send) - 2
+                                nb_send = (
+                                    len(pipeline_state.microbatches_activations_to_send)
+                                    - 2
+                                )
                     else:
                         if state_id == number_states_in_buffer - 1:
                             if not is_max_nb_microbatches:
-                                nb_send = len(pipeline_state.microbatches_activations_to_send)
+                                nb_send = len(
+                                    pipeline_state.microbatches_activations_to_send
+                                )
                     for _ in range(nb_send):
                         pipeline_state.run_communication()
 
@@ -633,9 +747,13 @@ def decode_tokenized(
                         elif sampler_type == SamplerType.BASIC:
                             sampler = BasicSampler(pg=parallel_context.tp_pg)
                         else:
-                            raise NotImplementedError(f"Sampler type {sampler_type} is not implemented")
+                            raise NotImplementedError(
+                                f"Sampler type {sampler_type} is not implemented"
+                            )
 
-                        new_decoder_input_ids = sampler(sharded_logits=sharded_logits[:, -1, :])
+                        new_decoder_input_ids = sampler(
+                            sharded_logits=sharded_logits[:, -1, :]
+                        )
 
                         # TODO @thomasw21: Handle this correctly, ie from some point after <eos> this should only generate masked tokens
                         # TODO @thomasw21: Actually I can probably build this thing on the next device directly. Will save some communication
@@ -655,12 +773,19 @@ def decode_tokenized(
                             )
                         else:
                             pipeline_state.register_send_activation(
-                                new_decoder_input_ids, to_rank=decoder_input_rank, p2p=p2p
+                                new_decoder_input_ids,
+                                to_rank=decoder_input_rank,
+                                p2p=p2p,
                             )
                             pipeline_state.register_send_activation(
-                                new_decoder_input_mask, to_rank=decoder_input_rank, p2p=p2p
+                                new_decoder_input_mask,
+                                to_rank=decoder_input_rank,
+                                p2p=p2p,
                             )
-                            if not is_max_nb_microbatches and state_id == number_states_in_buffer - 1:
+                            if (
+                                not is_max_nb_microbatches
+                                and state_id == number_states_in_buffer - 1
+                            ):
                                 # Send new_decoder_input_ids AND new_decoder_input_ids
                                 pipeline_state.run_communication()
                                 pipeline_state.run_communication()
@@ -669,30 +794,49 @@ def decode_tokenized(
                         assert isinstance(sharded_logits, TensorPointer)
 
                 all_new_decoder_input_ids_and_mask: Iterable[
-                    Tuple[Union[torch.LongTensor, TensorPointer], Union[torch.BoolTensor, TensorPointer]]
+                    Tuple[
+                        Union[torch.LongTensor, TensorPointer],
+                        Union[torch.BoolTensor, TensorPointer],
+                    ]
                 ]
                 if is_decoder_input_rank:
                     # We receive the tensor from other ranks unless `decoder_input_rank` == `decoder_logit_rank` in which case `all_new_decoder_input_ids` is already populated.
                     if decoder_input_rank == decoder_logit_rank:
                         # `all_new_decoder_input_ids_and_mask_same_rank` is already populated. Since `decoder_input_rank` and `decoder_logit_rank` are the same, there's no need to communicate as we can just store the new input_ids in a list.
-                        assert len(all_new_decoder_input_ids_and_mask_same_rank) == number_states_in_buffer
-                        all_new_decoder_input_ids_and_mask = all_new_decoder_input_ids_and_mask_same_rank
+                        assert (
+                            len(all_new_decoder_input_ids_and_mask_same_rank)
+                            == number_states_in_buffer
+                        )
+                        all_new_decoder_input_ids_and_mask = (
+                            all_new_decoder_input_ids_and_mask_same_rank
+                        )
                     else:
 
                         def generator():
                             for _ in range(number_states_in_buffer):
-                                pipeline_state.register_recv_activation(from_rank=decoder_logit_rank, p2p=p2p)
-                                pipeline_state.register_recv_activation(from_rank=decoder_logit_rank, p2p=p2p)
+                                pipeline_state.register_recv_activation(
+                                    from_rank=decoder_logit_rank, p2p=p2p
+                                )
+                                pipeline_state.register_recv_activation(
+                                    from_rank=decoder_logit_rank, p2p=p2p
+                                )
                                 while len(pipeline_state.activations_buffer) < 2:
                                     pipeline_state.run_communication()
-                                new_decoder_input_ids = pipeline_state.activations_buffer.popleft()
-                                new_decoder_input_mask = pipeline_state.activations_buffer.popleft()
+                                new_decoder_input_ids = (
+                                    pipeline_state.activations_buffer.popleft()
+                                )
+                                new_decoder_input_mask = (
+                                    pipeline_state.activations_buffer.popleft()
+                                )
                                 yield new_decoder_input_ids, new_decoder_input_mask
 
                         all_new_decoder_input_ids_and_mask = iter(generator())
                 else:
                     all_new_decoder_input_ids_and_mask = (
-                        (TensorPointer(group_rank=decoder_input_rank), TensorPointer(group_rank=decoder_input_rank))
+                        (
+                            TensorPointer(group_rank=decoder_input_rank),
+                            TensorPointer(group_rank=decoder_input_rank),
+                        )
                         for _ in range(number_states_in_buffer)
                     )
 
@@ -702,8 +846,10 @@ def decode_tokenized(
                         new_input_ids=new_decoder_input_ids_and_mask[0],
                         new_input_mask=new_decoder_input_ids_and_mask[1],
                         store=state.store,
-                        generation_ids=state.generation_ids + [new_decoder_input_ids_and_mask[0]],
-                        generation_mask=state.generation_mask + [new_decoder_input_ids_and_mask[1]],
+                        generation_ids=state.generation_ids
+                        + [new_decoder_input_ids_and_mask[0]],
+                        generation_mask=state.generation_mask
+                        + [new_decoder_input_ids_and_mask[1]],
                     )
                     for state, new_decoder_input_ids_and_mask in zip(
                         new_decoder_states, all_new_decoder_input_ids_and_mask
@@ -725,11 +871,15 @@ def decode_tokenized(
             decoder_states = list(decoder_states)
             for state, batch in zip(decoder_states, batches):
                 if is_decoder_input_rank:
-                    assert all(isinstance(elt, torch.Tensor) for elt in state.generation_ids)
+                    assert all(
+                        isinstance(elt, torch.Tensor) for elt in state.generation_ids
+                    )
                     batch_generated_ids = torch.cat(state.generation_ids, dim=-1)
                     batch_generated_mask = torch.cat(state.generation_mask, dim=-1)
                 else:
-                    assert all(isinstance(elt, TensorPointer) for elt in state.generation_ids)
+                    assert all(
+                        isinstance(elt, TensorPointer) for elt in state.generation_ids
+                    )
                     batch_generated_ids = TensorPointer(group_rank=decoder_input_rank)
                     batch_generated_mask = TensorPointer(group_rank=decoder_input_rank)
 
@@ -740,7 +890,9 @@ def decode_tokenized(
                     group=parallel_context.pp_pg,
                 )
                 batch.input_ids, batch.input_masks = broadcast_tensors(
-                    [batch.input_ids, batch.input_masks], group_src=decoder_input_rank, group=parallel_context.pp_pg
+                    [batch.input_ids, batch.input_masks],
+                    group_src=decoder_input_rank,
+                    group=parallel_context.pp_pg,
                 )
 
                 # Flush the store to release memory
@@ -758,7 +910,9 @@ def decode_tokenized(
                         batch_generated_ids.shape[1] == batch_generated_mask.shape[1]
                     ), f"Sequence length needs to match {batch_generated_ids.shape[1]} != {batch_generated_mask.shape[0]}"
 
-                for i, (generated_ids, generated_mask) in enumerate(zip(batch_generated_ids, batch_generated_mask)):
+                for i, (generated_ids, generated_mask) in enumerate(
+                    zip(batch_generated_ids, batch_generated_mask)
+                ):
                     # TODO @thomasw21: We could actually have all ranks return the output, since it's been already broadcasted
                     if dist.get_rank(parallel_context.pp_pg) == decoder_input_rank:
                         input_ids = batch.input_ids[i]
@@ -776,7 +930,9 @@ def decode_tokenized(
 
 # Distributed utilities
 def broadcast_tensors(
-    tensors: List[Union[torch.Tensor, TensorPointer]], group_src: int, group: Optional[ProcessGroup] = None
+    tensors: List[Union[torch.Tensor, TensorPointer]],
+    group_src: int,
+    group: Optional[ProcessGroup] = None,
 ) -> List[torch.Tensor]:
     result = []
     for tensor in tensors:
@@ -796,8 +952,18 @@ def broadcast_tensors(
         else:
             assert isinstance(tensor, TensorPointer)
             meta = [None]
-        dist.broadcast_object_list(meta, src=get_global_rank(group_rank=group_src, group=group), group=group)
-        dtype, requires_grad, shape, untyped_storage_size, stride, is_contiguous, storage_offset = meta[0]
+        dist.broadcast_object_list(
+            meta, src=get_global_rank(group_rank=group_src, group=group), group=group
+        )
+        (
+            dtype,
+            requires_grad,
+            shape,
+            untyped_storage_size,
+            stride,
+            is_contiguous,
+            storage_offset,
+        ) = meta[0]
         meta = P2PTensorMetaData(
             dtype=dtype,
             requires_grad=requires_grad,
@@ -811,7 +977,9 @@ def broadcast_tensors(
             tensor = meta.create_empty_storage(device=torch.device("cuda"))
         else:
             tensor = view_as_contiguous(tensor)
-        dist.broadcast(tensor, src=get_global_rank(group_rank=group_src, group=group), group=group)
+        dist.broadcast(
+            tensor, src=get_global_rank(group_rank=group_src, group=group), group=group
+        )
         # Set shape and stride
         tensor = tensor.as_strided(size=tuple(meta.shape), stride=tuple(meta.stride))
         result.append(tensor)

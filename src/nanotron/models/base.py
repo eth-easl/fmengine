@@ -23,7 +23,8 @@ logger = logging.get_logger(__name__)
 class NanotronModel(nn.Module, metaclass=ABCMeta):
     """Abstract class for Nanotron models
     We make the following assumptions:
-    - When building PP blocks, we assume that the modules order are in the same order as the forward pass."""
+    - When building PP blocks, we assume that the modules order are in the same order as the forward pass.
+    """
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
@@ -36,12 +37,18 @@ class NanotronModel(nn.Module, metaclass=ABCMeta):
         self.output_pp_rank: int
 
         # Useful mapping to get param names
-        self.module_id_to_prefix = {id(module): f"{module_name}." for module_name, module in self.named_modules()}
+        self.module_id_to_prefix = {
+            id(module): f"{module_name}."
+            for module_name, module in self.named_modules()
+        }
         self.module_id_to_prefix[id(self)] = ""
 
-    def get_named_params_with_correct_tied(self) -> Iterator[Tuple[str, "NanotronParameter"]]:
+    def get_named_params_with_correct_tied(
+        self,
+    ) -> Iterator[Tuple[str, "NanotronParameter"]]:
         """Return named parameters with correct tied params names.
-        For example in the case of tied kv heads in MQA, we need to make sure tied params names are correct."""
+        For example in the case of tied kv heads in MQA, we need to make sure tied params names are correct.
+        """
 
         def params_gen():
             for name, param in self.named_parameters():
@@ -58,8 +65,7 @@ class NanotronModel(nn.Module, metaclass=ABCMeta):
         yield from params_gen()
 
     @abstractmethod
-    def init_model_randomly(self, init_method, scaled_init_method):
-        ...
+    def init_model_randomly(self, init_method, scaled_init_method): ...
 
     def tie_custom_params(self) -> None:
         """Tie custom parameters. For example for MQA marks kv heads as tied."""
@@ -85,8 +91,15 @@ class NanotronModel(nn.Module, metaclass=ABCMeta):
     def after_optim_step_sanity_checks(self) -> None:
         pass
 
-    def log_modules(self, level: int = logging.DEBUG, group: Optional[ProcessGroup] = None, rank: int = 0):
-        assert hasattr(self, "parallel_context"), "`NanotronModel` needs to have a `parallel_context` attribute"
+    def log_modules(
+        self,
+        level: int = logging.DEBUG,
+        group: Optional[ProcessGroup] = None,
+        rank: int = 0,
+    ):
+        assert hasattr(
+            self, "parallel_context"
+        ), "`NanotronModel` needs to have a `parallel_context` attribute"
 
         for name, module in self.named_modules():
             if not isinstance(module, PipelineBlock):
@@ -121,10 +134,14 @@ class DTypeInvariantTensor(torch.Tensor):
         raise RuntimeError("Cannot change the type of an DTypeInvariantTensor")
 
     def float(self, *args, **kwargs):
-        raise RuntimeError("Cannot convert the type of an DTypeInvariantTensor to float")
+        raise RuntimeError(
+            "Cannot convert the type of an DTypeInvariantTensor to float"
+        )
 
     def double(self, *args, **kwargs):
-        raise RuntimeError("Cannot convert the type of an DTypeInvariantTensor to double")
+        raise RuntimeError(
+            "Cannot convert the type of an DTypeInvariantTensor to double"
+        )
 
     def half(self, *args, **kwargs):
         raise RuntimeError("Cannot convert the type of an DTypeInvariantTensor to half")
@@ -136,7 +153,9 @@ class DTypeInvariantTensor(torch.Tensor):
         raise RuntimeError("Cannot convert the type of an DTypeInvariantTensor to int")
 
     def short(self, *args, **kwargs):
-        raise RuntimeError("Cannot convert the type of an DTypeInvariantTensor to short")
+        raise RuntimeError(
+            "Cannot convert the type of an DTypeInvariantTensor to short"
+        )
 
     def char(self, *args, **kwargs):
         raise RuntimeError("Cannot convert the type of an DTypeInvariantTensor to char")
@@ -148,7 +167,9 @@ class DTypeInvariantTensor(torch.Tensor):
         raise RuntimeError("Cannot convert the type of an DTypeInvariantTensor to bool")
 
     def bfloat16(self, *args, **kwargs):
-        raise RuntimeError("Cannot convert the type of an DTypeInvariantTensor to bfloat16")
+        raise RuntimeError(
+            "Cannot convert the type of an DTypeInvariantTensor to bfloat16"
+        )
 
 
 def build_model(
@@ -160,7 +181,13 @@ def build_model(
 ) -> NanotronModel:
     """Build the model and set the pp ranks for each pipeline block."""
     # TODO: classes dont take same args
-    log_rank("Building model..", logger=logger, level=logging.INFO, rank=0, group=parallel_context.world_pg)
+    log_rank(
+        "Building model..",
+        logger=logger,
+        level=logging.INFO,
+        rank=0,
+        group=parallel_context.world_pg,
+    )
     model: NanotronModel = model_builder()
 
     # If no target pp ranks are specified, we assume that we want to use all pp ranks
@@ -171,8 +198,18 @@ def build_model(
         pp_size = len(target_pp_ranks)
 
     # Set rank for each pipeline block
-    log_rank("Setting PP block ranks..", logger=logger, level=logging.INFO, rank=0, group=parallel_context.world_pg)
-    pipeline_blocks = [module for name, module in model.named_modules() if isinstance(module, PipelineBlock)]
+    log_rank(
+        "Setting PP block ranks..",
+        logger=logger,
+        level=logging.INFO,
+        rank=0,
+        group=parallel_context.world_pg,
+    )
+    pipeline_blocks = [
+        module
+        for name, module in model.named_modules()
+        if isinstance(module, PipelineBlock)
+    ]
     # "cuda" is already defaulted for each process to it's own cuda device
     with init_on_device_and_dtype(device=device, dtype=dtype):
         # TODO: https://github.com/huggingface/nanotron/issues/65
@@ -181,12 +218,19 @@ def build_model(
         block_compute_costs = model.get_block_compute_costs()
         block_cumulative_costs = np.cumsum(
             [
-                block_compute_costs[module.module_builder] if module.module_builder in block_compute_costs else 0
+                (
+                    block_compute_costs[module.module_builder]
+                    if module.module_builder in block_compute_costs
+                    else 0
+                )
                 for module in pipeline_blocks
             ]
         )
 
-        thresholds = [block_cumulative_costs[-1] * ((rank + 1) / pp_size) for rank in range(pp_size)]
+        thresholds = [
+            block_cumulative_costs[-1] * ((rank + 1) / pp_size)
+            for rank in range(pp_size)
+        ]
         assert thresholds[-1] >= block_cumulative_costs[-1]
         target_pp_rank_idx = 0
         for block, cumulative_cost in zip(pipeline_blocks, block_cumulative_costs):
@@ -263,12 +307,19 @@ def init_on_device_and_dtype(
         nn.Module.register_parameter = register_empty_parameter
         nn.Module.register_buffer = register_empty_buffer
         for torch_function_name in tensor_constructors_to_patch.keys():
-            setattr(torch, torch_function_name, patch_tensor_constructor(getattr(torch, torch_function_name)))
+            setattr(
+                torch,
+                torch_function_name,
+                patch_tensor_constructor(getattr(torch, torch_function_name)),
+            )
         yield
     finally:
         nn.Module.register_parameter = old_register_parameter
         nn.Module.register_buffer = old_register_buffer
-        for torch_function_name, old_torch_function in tensor_constructors_to_patch.items():
+        for (
+            torch_function_name,
+            old_torch_function,
+        ) in tensor_constructors_to_patch.items():
             setattr(torch, torch_function_name, old_torch_function)
 
 

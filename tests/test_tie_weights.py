@@ -20,7 +20,12 @@ def test_tie_weight_in_same_device():
 
 
 def _test_tie_weight_in_same_device(parallel_context: ParallelContext):
-    model = nn.ModuleDict({"dense0": nn.Linear(10, 10, device="cuda"), "dense1": nn.Linear(10, 10, device="cuda")})
+    model = nn.ModuleDict(
+        {
+            "dense0": nn.Linear(10, 10, device="cuda"),
+            "dense1": nn.Linear(10, 10, device="cuda"),
+        }
+    )
 
     # Tie weights/bias
     tie_parameters(
@@ -159,10 +164,14 @@ def _test_tie_weight_across_dp_is_impossible(parallel_context: ParallelContext):
 
 @rerun_if_address_is_in_use()
 def test_tie_weight_in_different_device_have_gradients_synchronized():
-    init_distributed(tp=1, dp=1, pp=2)(_test_tie_weight_in_different_device_have_gradients_synchronized)()
+    init_distributed(tp=1, dp=1, pp=2)(
+        _test_tie_weight_in_different_device_have_gradients_synchronized
+    )()
 
 
-def _test_tie_weight_in_different_device_have_gradients_synchronized(parallel_context: ParallelContext):
+def _test_tie_weight_in_different_device_have_gradients_synchronized(
+    parallel_context: ParallelContext,
+):
     if dist.get_rank(parallel_context.pp_pg) == 0:
         model = nn.ModuleDict(
             {
@@ -220,7 +229,9 @@ def _test_tie_weight_in_different_device_have_gradients_synchronized(parallel_co
 
     # sync gradients
     # TODO @thomasw21: This should be done in hooks
-    sync_tied_weights_gradients(model, parallel_context=parallel_context, grad_accumulator=None)
+    sync_tied_weights_gradients(
+        model, parallel_context=parallel_context, grad_accumulator=None
+    )
 
     # Check that we have gradient
     assert weight.grad is not None

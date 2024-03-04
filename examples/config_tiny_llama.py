@@ -1,4 +1,5 @@
 """ Example python script to generate a YAML config file which can be used to run a training with nanotron. Refer to "examples" section in the `/README.md` for more information."""
+
 import os
 
 from nanotron.config import (
@@ -53,7 +54,11 @@ print(f"Model has {num_params} parameters")
 seed = 42
 
 learning_rate = LRSchedulerArgs(
-    learning_rate=3e-4, lr_warmup_steps=2, lr_warmup_style="linear", lr_decay_style="cosine", min_decay_lr=1e-5
+    learning_rate=3e-4,
+    lr_warmup_steps=2,
+    lr_warmup_style="linear",
+    lr_decay_style="cosine",
+    min_decay_lr=1e-5,
 )
 
 optimizer = OptimizerArgs(
@@ -77,10 +82,16 @@ parallelism = ParallelismArgs(
     tp_linear_async_communication=True,
 )
 
-tokens = TokensArgs(sequence_length=32, train_steps=10, micro_batch_size=2, batch_accumulation_per_replica=1)
+tokens = TokensArgs(
+    sequence_length=32,
+    train_steps=10,
+    micro_batch_size=2,
+    batch_accumulation_per_replica=1,
+)
 
 dataset = PretrainDatasetsArgs(
-    hf_dataset_or_datasets="HuggingFaceH4/testing_alpaca_small", text_column_name="completion"
+    hf_dataset_or_datasets="HuggingFaceH4/testing_alpaca_small",
+    text_column_name="completion",
 )
 
 checkpoints_path = os.path.dirname(os.path.dirname(__file__)) + "/checkpoints"
@@ -88,7 +99,9 @@ os.makedirs(checkpoints_path, exist_ok=True)
 
 config = Config(
     general=GeneralArgs(project="debug", run="tiny_llama_%date_%jobid", seed=seed),
-    checkpoints=CheckpointsArgs(checkpoints_path=checkpoints_path, checkpoint_interval=10),
+    checkpoints=CheckpointsArgs(
+        checkpoints_path=checkpoints_path, checkpoint_interval=10
+    ),
     parallelism=parallelism,
     model=ModelArgs(init_method=RandomInit(std=0.025), model_config=model_config),
     tokenizer=TokenizerArgs("gpt2"),

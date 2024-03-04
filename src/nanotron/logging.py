@@ -102,7 +102,9 @@ def get_logger(name: Optional[str] = None, log_level: Optional[str] = None) -> L
     """
     Return a logger with the specified name.
     """
-    logger_already_exists = isinstance(logging.root.manager.loggerDict.get(name, None), Logger)
+    logger_already_exists = isinstance(
+        logging.root.manager.loggerDict.get(name, None), Logger
+    )
     logger = logging.getLogger(name)
 
     if logger_already_exists or name is None:
@@ -162,7 +164,8 @@ def set_verbosity(verbosity: int) -> None:
     all_nanotron_loggers = {
         name: logger
         for name, logger in logging.root.manager.loggerDict.items()
-        if isinstance(logger, Logger) and (name.startswith(f"{LIBRARY_NAME}.") or name == LIBRARY_NAME)
+        if isinstance(logger, Logger)
+        and (name.startswith(f"{LIBRARY_NAME}.") or name == LIBRARY_NAME)
     }
     for name, logger in all_nanotron_loggers.items():
         logger.setLevel(verbosity)
@@ -194,7 +197,8 @@ def set_formatter(formatter: logging.Formatter) -> None:
     all_nanotron_loggers = {
         name: logger
         for name, logger in logging.root.manager.loggerDict.items()
-        if isinstance(logger, Logger) and (name.startswith(f"{LIBRARY_NAME}.") or name == LIBRARY_NAME)
+        if isinstance(logger, Logger)
+        and (name.startswith(f"{LIBRARY_NAME}.") or name == LIBRARY_NAME)
     }
     for name, logger in all_nanotron_loggers.items():
         # We keep only a single handler
@@ -225,12 +229,20 @@ def log_rank(
 
 @lru_cache(maxsize=None)
 def warn_once(
-    msg: str, logger: Logger, group: Optional[dist.ProcessGroup] = None, rank: Optional[int] = None, **kwargs
+    msg: str,
+    logger: Logger,
+    group: Optional[dist.ProcessGroup] = None,
+    rank: Optional[int] = None,
+    **kwargs,
 ):
-    log_rank(msg=msg, logger=logger, level=logging.WARNING, group=group, rank=rank, **kwargs)
+    log_rank(
+        msg=msg, logger=logger, level=logging.WARNING, group=group, rank=rank, **kwargs
+    )
 
 
-def human_format(num: float, billions: bool = False, divide_by_1024: bool = False) -> str:
+def human_format(
+    num: float, billions: bool = False, divide_by_1024: bool = False
+) -> str:
     if abs(num) < 1:
         return "{:.3g}".format(num)
     SIZES = ["", "K", "M", "G", "T", "P", "E"]
@@ -267,17 +279,24 @@ class LogItem:
 class LoggerWriter:
     global_step: int
 
-    def add_scalar(self, tag: str, scalar_value: Union[float, int], log_format=None) -> str:
+    def add_scalar(
+        self, tag: str, scalar_value: Union[float, int], log_format=None
+    ) -> str:
         if log_format == "human_format":
             log_str = f"{tag}: {human_format(scalar_value)}"
         else:
-            log_str = f"{tag}: {scalar_value:{log_format}}" if log_format is not None else f"{tag}: {scalar_value}"
+            log_str = (
+                f"{tag}: {scalar_value:{log_format}}"
+                if log_format is not None
+                else f"{tag}: {scalar_value}"
+            )
         return log_str
 
     def add_scalars_from_list(self, log_entries: List[LogItem], iteration_step: int):
         log_strs = [f"iteration: {iteration_step} / {self.global_step}"]
         log_strs += [
-            self.add_scalar(log_item.tag, log_item.scalar_value, log_item.log_format) for log_item in log_entries
+            self.add_scalar(log_item.tag, log_item.scalar_value, log_item.log_format)
+            for log_item in log_entries
         ]
         log_str = " | ".join(log_strs)
         log_rank(log_str, logger=get_logger(__name__), level=logging.INFO)
@@ -286,7 +305,9 @@ class LoggerWriter:
 def set_logger_verbosity_format(logging_level: str, parallel_context: ParallelContext):
     node_name = os.environ.get("SLURMD_NODENAME")
     expert_parallel_log = (
-        f"|EXP={dist.get_rank(parallel_context.expert_pg)}" if parallel_context.expert_parallel_size > 1 else ""
+        f"|EXP={dist.get_rank(parallel_context.expert_pg)}"
+        if parallel_context.expert_parallel_size > 1
+        else ""
     )
     formatter = Formatter(
         fmt=f"%(asctime)s [%(levelname)s|DP={dist.get_rank(parallel_context.dp_pg)}|PP={dist.get_rank(parallel_context.pp_pg)}|"

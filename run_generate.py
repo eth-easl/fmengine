@@ -60,7 +60,12 @@ def get_args():
     parser.add_argument("--dp", type=int, default=0)
     parser.add_argument("--pp", type=int, default=0)
     parser.add_argument("--tp", type=int, default=0)
-    parser.add_argument("--max-new-tokens", type=int, default=128, help="Maximum number of new tokens to generate")
+    parser.add_argument(
+        "--max-new-tokens",
+        type=int,
+        default=128,
+        help="Maximum number of new tokens to generate",
+    )
     return parser.parse_args()
 
 
@@ -97,13 +102,19 @@ def main():
 
     if dist.get_rank(parallel_context.world_pg) == 0:
         if logging_config.log_level is not None:
-            set_logger_verbosity_format(logging_config.log_level, parallel_context=parallel_context)
+            set_logger_verbosity_format(
+                logging_config.log_level, parallel_context=parallel_context
+            )
     else:
         if logging_config.log_level_replica is not None:
-            set_logger_verbosity_format(logging_config.log_level_replica, parallel_context=parallel_context)
+            set_logger_verbosity_format(
+                logging_config.log_level_replica, parallel_context=parallel_context
+            )
 
     log_rank(f"model_config: {model_config}", logger=logger, level=logging.INFO, rank=0)
-    log_rank(f"tokenizer_path: {tokenizer_path}", logger=logger, level=logging.INFO, rank=0)
+    log_rank(
+        f"tokenizer_path: {tokenizer_path}", logger=logger, level=logging.INFO, rank=0
+    )
 
     dtype = torch.bfloat16
 
@@ -119,7 +130,11 @@ def main():
     # Get synchronized random states
     if parallel_config.tp_mode is TensorParallelLinearMode.ALL_REDUCE:
         random_states = RandomStates(
-            {"tp_synced": get_synced_random_state(random_state=get_current_random_state(), pg=parallel_context.tp_pg)}
+            {
+                "tp_synced": get_synced_random_state(
+                    random_state=get_current_random_state(), pg=parallel_context.tp_pg
+                )
+            }
         )
     else:
         # We don't need to sync across TP when using sequence parallel (REDUCE_SCATTER)
@@ -138,7 +153,9 @@ def main():
 
     # Mark some parameters as tied
     # TODO @nouamane: this is only needed for training, can we just mark params as NanotronParameter instead?
-    mark_tied_parameters(model=model, parallel_context=parallel_context, parallel_config=parallel_config)
+    mark_tied_parameters(
+        model=model, parallel_context=parallel_context, parallel_config=parallel_config
+    )
 
     # Sanity check model
     sanity_check(root_module=model)
@@ -151,7 +168,9 @@ def main():
         level=logging.INFO,
         rank=0,
     )
-    load_weights(model=model, parallel_context=parallel_context, root_folder=checkpoint_path)
+    load_weights(
+        model=model, parallel_context=parallel_context, root_folder=checkpoint_path
+    )
 
     model.eval()
     if AutoTokenizer is not None:

@@ -43,14 +43,20 @@ def assert_fail_except_rank_with(exception_class, rank_exception, pg):
         yield
     except exception_class:
         if rank_exception == dist.get_rank(pg):
-            raise AssertionError(f"Expected rank {rank_exception} to not raise {exception_class}.")
+            raise AssertionError(
+                f"Expected rank {rank_exception} to not raise {exception_class}."
+            )
         else:
             return
 
     except Exception as e:
-        raise AssertionError(f"Expected {exception_class} to be raised, but got {type(e)} instead:\n{e}")
+        raise AssertionError(
+            f"Expected {exception_class} to be raised, but got {type(e)} instead:\n{e}"
+        )
     if dist.get_rank(pg) != rank_exception:
-        raise AssertionError(f"Expected {exception_class} to be raised, but no exception was raised.")
+        raise AssertionError(
+            f"Expected {exception_class} to be raised, but no exception was raised."
+        )
 
 
 def before_tbi_sanity_checks(
@@ -61,7 +67,9 @@ def before_tbi_sanity_checks(
 ) -> None:
     if not config.general.ignore_sanity_checks:
         # SANITY CHECK: Check that the model params are synchronized across dp
-        for name, param in sorted(unwrapped_model.named_parameters(), key=lambda x: x[0]):
+        for name, param in sorted(
+            unwrapped_model.named_parameters(), key=lambda x: x[0]
+        ):
             assert_tensor_synced_across_pg(
                 tensor=param,
                 pg=parallel_context.dp_pg,
@@ -147,7 +155,9 @@ def before_optim_step_sanity_checks(
     if not config.general.ignore_sanity_checks:
         # SANITY CHECK: Test tied weights gradients are synchronized
         for (name, group_ranks), param in sorted(
-            get_tied_id_to_param(parameters=unwrapped_model.parameters(), root_module=unwrapped_model).items(),
+            get_tied_id_to_param(
+                parameters=unwrapped_model.parameters(), root_module=unwrapped_model
+            ).items(),
             key=lambda x: x[0],
         ):
             if not param.requires_grad:
@@ -167,7 +177,9 @@ def before_optim_step_sanity_checks(
             )
 
         # SANITY CHECK: Test gradients are synchronized across DP
-        for name, param in sorted(unwrapped_model.named_parameters(), key=lambda x: x[0]):
+        for name, param in sorted(
+            unwrapped_model.named_parameters(), key=lambda x: x[0]
+        ):
             if not param.requires_grad:
                 continue
 
@@ -190,7 +202,9 @@ def before_optim_step_sanity_checks(
             )
 
         # SANITY CHECK: Check that the model params are synchronized across dp
-        for name, param in sorted(unwrapped_model.named_parameters(), key=lambda x: x[0]):
+        for name, param in sorted(
+            unwrapped_model.named_parameters(), key=lambda x: x[0]
+        ):
             assert_tensor_synced_across_pg(
                 tensor=param,
                 pg=parallel_context.dp_pg,
@@ -199,7 +213,9 @@ def before_optim_step_sanity_checks(
 
         # SANITY CHECK: Tied weights are synchronized
         tied_params_list = sorted(
-            get_tied_id_to_param(parameters=unwrapped_model.parameters(), root_module=unwrapped_model).items(),
+            get_tied_id_to_param(
+                parameters=unwrapped_model.parameters(), root_module=unwrapped_model
+            ).items(),
             key=lambda x: x[0],
         )
 
@@ -239,11 +255,15 @@ def after_optim_step_sanity_checks(
 
 
 def check_optim_state_in_sync(optimizer: optim.BaseOptimizer, pg: dist.ProcessGroup):
-    for _, optim_state in sorted(optimizer.state_dict()["state"].items(), key=lambda x: x[0]):
+    for _, optim_state in sorted(
+        optimizer.state_dict()["state"].items(), key=lambda x: x[0]
+    ):
         for name, tensor in optim_state.items():
             if name == "step":
                 tensor = tensor.to("cuda")
 
             assert_tensor_synced_across_pg(
-                tensor=tensor, pg=pg, msg=lambda err: f"{name} are not synced across DP {err}"
+                tensor=tensor,
+                pg=pg,
+                msg=lambda err: f"{name} are not synced across DP {err}",
             )

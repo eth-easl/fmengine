@@ -4,7 +4,9 @@ from nanotron import distributed as dist
 from nanotron.distributed import ProcessGroup, get_global_rank
 
 
-def assert_tensor_equal_over_group(tensor: torch.Tensor, group: ProcessGroup, assert_: bool = True) -> bool:
+def assert_tensor_equal_over_group(
+    tensor: torch.Tensor, group: ProcessGroup, assert_: bool = True
+) -> bool:
     """We assume that tensors are already of correct size."""
     reference_rank = 0
     if dist.get_rank(group) == reference_rank:

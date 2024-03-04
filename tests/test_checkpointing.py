@@ -20,7 +20,9 @@ class CheckpointedModel(nn.Module):
     def forward(self, x: Union[torch.Tensor, TensorPointer]):
         x = self.dense1(x)
         if self.is_checkpointed and self.fwd_counter == 0:
-            assert not x.requires_grad, "x should not require grad when checkpointed, because fwd runs in no_grad mode"
+            assert (
+                not x.requires_grad
+            ), "x should not require grad when checkpointed, because fwd runs in no_grad mode"
             assert (
                 x.grad_fn is None
             ), "x should not store any activation when checkpointed, because fwd runs in no_grad mode"
@@ -40,7 +42,9 @@ class DummyModel(nn.Module):
     def forward(self, x: Union[torch.Tensor, TensorPointer]):
         x = self.dense0(x)
         x = self.checkpointed_model(x)
-        assert x.requires_grad  # inside forward, x should require grad even if calculated in no_grad mode
+        assert (
+            x.requires_grad
+        )  # inside forward, x should require grad even if calculated in no_grad mode
         x = self.dense3(x)
         return x
 
@@ -70,7 +74,9 @@ def test_activation_checkpointing():
 
     # Backward pass (check that fwd is called twice, and that we don't store the activations)
     ref_output.sum().backward()
-    assert ref_model.checkpointed_model.fwd_counter == 1, "ref_model fwd should not be called twice"
+    assert (
+        ref_model.checkpointed_model.fwd_counter == 1
+    ), "ref_model fwd should not be called twice"
 
     # make sure grads are not synced between test_model and ref_model
     assert ref_model.dense0.weight.grad is not None
@@ -78,10 +84,14 @@ def test_activation_checkpointing():
 
     assert test_model.checkpointed_model.fwd_counter == 1
     checkpointed_output.sum().backward()
-    assert test_model.checkpointed_model.fwd_counter == 2, "test_model fwd should be called twice"
+    assert (
+        test_model.checkpointed_model.fwd_counter == 2
+    ), "test_model fwd should be called twice"
 
     # compare all models grads
-    for ref_param, checkpointed_param in zip(ref_model.parameters(), test_model.parameters()):
+    for ref_param, checkpointed_param in zip(
+        ref_model.parameters(), test_model.parameters()
+    ):
         torch.testing.assert_close(ref_param.grad, checkpointed_param.grad)
 
 

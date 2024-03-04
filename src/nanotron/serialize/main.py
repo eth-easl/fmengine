@@ -76,7 +76,9 @@ def save(
         raise e
     try:
         if should_save_model:
-            save_weights(model=model, parallel_context=parallel_context, root_folder=root_folder)
+            save_weights(
+                model=model, parallel_context=parallel_context, root_folder=root_folder
+            )
     except Exception as e:
         log_rank(
             f"Error while saving weights checkpoint: {e}",
@@ -87,7 +89,11 @@ def save(
         raise e
     try:
         if should_save_optimizer:
-            save_optimizer(optimizer=optimizer, parallel_context=parallel_context, root_folder=root_folder)
+            save_optimizer(
+                optimizer=optimizer,
+                parallel_context=parallel_context,
+                root_folder=root_folder,
+            )
     except Exception as e:
         log_rank(
             f"Error while saving optimizer checkpoint: {e}",
@@ -112,13 +118,19 @@ def save(
         )
         raise e
 
-    save_meta(root_folder=root_folder, parallel_context=parallel_context, checkpoint_metadata=checkpoint_metadata)
+    save_meta(
+        root_folder=root_folder,
+        parallel_context=parallel_context,
+        checkpoint_metadata=checkpoint_metadata,
+    )
 
     # TODO @thomas21: sanity check, not sure whether that needs to happen at testing or now (depends how much it costs)
     ###
     # SANITY CHECK: Check that the model params are synchronized across `parallel_context.dp_pg`
     if sanity_checks:
-        for name, param_or_buffer in sorted(model.state_dict().items(), key=lambda x: x[0]):
+        for name, param_or_buffer in sorted(
+            model.state_dict().items(), key=lambda x: x[0]
+        ):
             assert_tensor_synced_across_pg(
                 tensor=param_or_buffer,
                 pg=parallel_context.dp_pg,
@@ -131,7 +143,9 @@ def save(
                 param
                 for parameters_group in optimizer.param_groups
                 for param in parameters_group["params"]
-                if param.requires_grad and isinstance(param, NanotronParameter) and param.is_tied
+                if param.requires_grad
+                and isinstance(param, NanotronParameter)
+                and param.is_tied
             ),
             key=lambda param: param.get_tied_info().name,
         )
@@ -140,7 +154,9 @@ def save(
             group_ranks = tied_info.global_ranks
             group = parallel_context.world_ranks_to_pg[group_ranks]
             assert_tensor_synced_across_pg(
-                tensor=tied_param, pg=group, msg=lambda err: f"Tied {tied_info.name} are not synced {err}"
+                tensor=tied_param,
+                pg=group,
+                msg=lambda err: f"Tied {tied_info.name} are not synced {err}",
             )
 
         if not optimizer.inherit_from(optim.ZeroDistributedOptimizer):
@@ -151,7 +167,9 @@ def save(
         state_dict = optimizer.state_dict()
         assert len(optimizer.param_groups) == len(state_dict["param_groups"])
         index_to_param = {}
-        for real_param_group, index_param_group in zip(optimizer.param_groups, state_dict["param_groups"]):
+        for real_param_group, index_param_group in zip(
+            optimizer.param_groups, state_dict["param_groups"]
+        ):
             indices = index_param_group["params"]
             parameters = real_param_group["params"]
             assert len(indices) == len(parameters)
@@ -160,7 +178,9 @@ def save(
                 index_to_param[index] = param
 
         current_state_dict = optimizer.state_dict()
-        for index, optim_state in sorted(current_state_dict["state"].items(), key=lambda x: x[0]):
+        for index, optim_state in sorted(
+            current_state_dict["state"].items(), key=lambda x: x[0]
+        ):
             param = index_to_param[index]
             if not isinstance(param, NanotronParameter):
                 continue
@@ -212,8 +232,12 @@ def load(
     :param filepath: Path
     :return:
     """
-    checkpoint_metadata = load_meta(parallel_context=parallel_context, root_folder=root_folder)
-    load_weights(model=model, parallel_context=parallel_context, root_folder=root_folder)
+    checkpoint_metadata = load_meta(
+        parallel_context=parallel_context, root_folder=root_folder
+    )
+    load_weights(
+        model=model, parallel_context=parallel_context, root_folder=root_folder
+    )
 
     # SANITY CHECK: assert that optimizer's named_params still point to model's params (check only the first one)
     if isinstance(optimizer, optim.ZeroDistributedOptimizer):
@@ -221,13 +245,19 @@ def load(
             len(optimizer.zero_named_param_groups) > 0
             and len(optimizer.zero_named_param_groups[0]["named_params"]) > 0
         ):
-            optim_model_param_name, optim_model_param = optimizer.zero_named_param_groups[0]["named_params"][0]
+            optim_model_param_name, optim_model_param = (
+                optimizer.zero_named_param_groups[0]["named_params"][0]
+            )
             if isinstance(model, DistributedDataParallel):
                 optim_model_param_name = f"module.{optim_model_param_name}"
-            param = next(p for n, p in model.named_parameters() if n == optim_model_param_name)
+            param = next(
+                p for n, p in model.named_parameters() if n == optim_model_param_name
+            )
             assert param.data_ptr() == optim_model_param.data_ptr()
 
-    load_optimizer(optimizer=optimizer, parallel_context=parallel_context, root_folder=root_folder)
+    load_optimizer(
+        optimizer=optimizer, parallel_context=parallel_context, root_folder=root_folder
+    )
     load_lr_scheduler(
         lr_scheduler=lr_scheduler,
         root_folder=root_folder,
@@ -250,10 +280,14 @@ def parse_ckpt_path(config: Config) -> Optional[Path]:
 
     latest_meta_path: Path = config.checkpoints.resume_checkpoint_path / "latest.txt"
     if latest_meta_path.exists():
-        with open(config.checkpoints.resume_checkpoint_path / "latest.txt", mode="r") as fi:
+        with open(
+            config.checkpoints.resume_checkpoint_path / "latest.txt", mode="r"
+        ) as fi:
             # TODO @thomasw21: make a better structure system so that we get typing correct
             load_from_candidate = int(fi.read())
-        checkpoint_path = config.checkpoints.resume_checkpoint_path / str(load_from_candidate)
+        checkpoint_path = config.checkpoints.resume_checkpoint_path / str(
+            load_from_candidate
+        )
 
     elif (config.checkpoints.resume_checkpoint_path / "model_config.json").exists():
         # we assume that the checkpoint path is a path to a checkpoint

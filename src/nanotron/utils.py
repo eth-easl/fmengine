@@ -77,7 +77,10 @@ def checkpoint_method(attr_name: str):
                 signature_params = inspect.signature(func).parameters
                 # Parameters are ordered in the function definition order: https://docs.python.org/3/library/inspect.html#inspect.Signature.parameters
                 for i, (arg_name, arg_value) in enumerate(signature_params.items()):
-                    if arg_value.kind in [inspect.Parameter.VAR_KEYWORD, inspect.Parameter.VAR_POSITIONAL]:
+                    if arg_value.kind in [
+                        inspect.Parameter.VAR_KEYWORD,
+                        inspect.Parameter.VAR_POSITIONAL,
+                    ]:
                         raise NotImplementedError(
                             "Checkpointing of functions with *args or **kwargs is not supported."
                         )
@@ -90,7 +93,9 @@ def checkpoint_method(attr_name: str):
                         all_args.append(arg_value.default)
                     else:
                         all_args.append(kwargs[arg_name])
-                assert len(all_args) == len(signature_params), f"Missing arguments for {func.__name__}"
+                assert len(all_args) == len(
+                    signature_params
+                ), f"Missing arguments for {func.__name__}"
                 # TODO @nouamanetazi: we pass `self`(which is module) to checkpoint, so it's stored in `ctx.inputs` whereas some other methods create a custom fwd and pass only tensors without `self`. Need to investigate which is better
                 return checkpoint(func, *all_args)
             else:
@@ -133,7 +138,9 @@ def init_method_normal(sigma: float) -> Callable[[torch.Tensor], None]:
     return init_
 
 
-def scaled_init_method_normal(sigma: float, num_layers: int) -> Callable[[torch.Tensor], None]:
+def scaled_init_method_normal(
+    sigma: float, num_layers: int
+) -> Callable[[torch.Tensor], None]:
     """Init method based on N(0, sigma/sqrt(2*num_layers)."""
     std = sigma / math.sqrt(2.0 * num_layers)
 
@@ -143,7 +150,9 @@ def scaled_init_method_normal(sigma: float, num_layers: int) -> Callable[[torch.
     return init_
 
 
-def tensor_from_untyped_storage(untyped_storage: torch.UntypedStorage, dtype: torch.dtype):
+def tensor_from_untyped_storage(
+    untyped_storage: torch.UntypedStorage, dtype: torch.dtype
+):
     # TODO @thomasw21: Figure out what's the best Pytorch way of building a tensor from a storage.
     device = untyped_storage.device
     tensor = torch.empty([], dtype=dtype, device=device)

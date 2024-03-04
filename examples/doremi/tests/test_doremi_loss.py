@@ -49,14 +49,18 @@ def test_computing_per_token_loss(tp: int):
     logits = torch.randn(BATCH_SIZE, SEQ_LEN, VOCAB_SIZE)
     targets = torch.randint(0, VOCAB_SIZE, (BATCH_SIZE, SEQ_LEN))
 
-    ref_losses = F.cross_entropy(logits.view(-1, logits.size(2)), targets.view(-1), reduction="none")
+    ref_losses = F.cross_entropy(
+        logits.view(-1, logits.size(2)), targets.view(-1), reduction="none"
+    )
 
     init_distributed(tp=tp, dp=1, pp=1)(_test_computing_per_token_loss)(
         logits=logits, targets=targets, ref_losses=ref_losses
     )
 
 
-def _test_computing_per_token_loss(parallel_context: ParallelContext, logits, targets, ref_losses):
+def _test_computing_per_token_loss(
+    parallel_context: ParallelContext, logits, targets, ref_losses
+):
     logits = logits.to("cuda")
     targets = targets.to("cuda")
     parallel_logits = get_partition_logit(logits, parallel_context)
@@ -85,7 +89,12 @@ def test_domain_loss_for_proxy_training(dp: int):
 
 
 def _test_domain_loss_for_proxy_training(
-    parallel_context: ParallelContext, global_batch_size, batch_size, seq_len, domain_keys, domain_weights
+    parallel_context: ParallelContext,
+    global_batch_size,
+    batch_size,
+    seq_len,
+    domain_keys,
+    domain_weights,
 ):
     N_DOMAINS = domain_weights.shape[0]
     domain_weights = domain_weights.to("cuda")
@@ -97,19 +106,25 @@ def _test_domain_loss_for_proxy_training(
     doremi_context = DoReMiContext(domain_weights, domain_keys, is_proxy=False)
     loss_func = DomainLossForProxyTraining(doremi_context, parallel_context)
 
-    excess_loss, domain_losses, domain_weights, samples_per_domain = loss_func(losses, ref_losses, domain_idxs)
+    excess_loss, domain_losses, domain_weights, samples_per_domain = loss_func(
+        losses, ref_losses, domain_idxs
+    )
 
     # NOTE: no values in excess_loss should be negative
     assert (excess_loss >= 0.0).all()
     assert excess_loss.shape == (global_batch_size, seq_len)
     assert_tensor_synced_across_pg(
-        excess_loss, parallel_context.dp_pg, msg=lambda err: f"Excess losses are not synced across ranks {err}"
+        excess_loss,
+        parallel_context.dp_pg,
+        msg=lambda err: f"Excess losses are not synced across ranks {err}",
     )
 
     assert (domain_losses > 0.0).all()
     assert domain_losses.shape == (N_DOMAINS,)
     assert_tensor_synced_across_pg(
-        domain_losses, parallel_context.dp_pg, msg=lambda err: f"Domain losses are not synced across ranks {err}"
+        domain_losses,
+        parallel_context.dp_pg,
+        msg=lambda err: f"Domain losses are not synced across ranks {err}",
     )
 
     assert (domain_weights > 0.0).all()
@@ -118,7 +133,9 @@ def _test_domain_loss_for_proxy_training(
     assert torch.allclose(domain_weights.sum(dim=-1), torch.tensor(1.0))
     # NOTE: check if the loss function updates the domain weights in the doremi context
     assert_tensor_synced_across_pg(
-        domain_weights, parallel_context.dp_pg, msg=lambda err: f"Domain weights are not synced across ranks {err}"
+        domain_weights,
+        parallel_context.dp_pg,
+        msg=lambda err: f"Domain weights are not synced across ranks {err}",
     )
 
 
@@ -142,7 +159,12 @@ def test_computing_per_domain_loss(dp: int):
 
 
 def _test_computing_per_domain_loss(
-    parallel_context: ParallelContext, batch_size, global_batch_size, seq_len, domain_keys, domain_weights
+    parallel_context: ParallelContext,
+    batch_size,
+    global_batch_size,
+    seq_len,
+    domain_keys,
+    domain_weights,
 ):
     N_DOMAINS = domain_weights.shape[0]
     domain_weights = domain_weights.to("cuda")
@@ -157,7 +179,9 @@ def _test_computing_per_domain_loss(
 
     assert per_domain_loss.shape == (N_DOMAINS,)
     assert_tensor_synced_across_pg(
-        per_domain_loss, parallel_context.dp_pg, msg=lambda err: f"Per domain loss are not synced across ranks {err}"
+        per_domain_loss,
+        parallel_context.dp_pg,
+        msg=lambda err: f"Per domain loss are not synced across ranks {err}",
     )
 
     assert samples_per_domain.shape == (N_DOMAINS,)

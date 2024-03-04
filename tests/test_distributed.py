@@ -15,9 +15,21 @@ from nanotron.parallel import ParallelContext
 def _test_init_parallel_context(parallel_context: ParallelContext):
     assert dist.is_initialized() is True
     assert isinstance(parallel_context.world_pg, ProcessGroup)
-    assert isinstance(parallel_context.tp_pg, ProcessGroup) if parallel_context.tensor_parallel_size > 1 else True
-    assert isinstance(parallel_context.pp_pg, ProcessGroup) if parallel_context.pipeline_parallel_size > 1 else True
-    assert isinstance(parallel_context.dp_pg, ProcessGroup) if parallel_context.data_parallel_size > 1 else True
+    assert (
+        isinstance(parallel_context.tp_pg, ProcessGroup)
+        if parallel_context.tensor_parallel_size > 1
+        else True
+    )
+    assert (
+        isinstance(parallel_context.pp_pg, ProcessGroup)
+        if parallel_context.pipeline_parallel_size > 1
+        else True
+    )
+    assert (
+        isinstance(parallel_context.dp_pg, ProcessGroup)
+        if parallel_context.data_parallel_size > 1
+        else True
+    )
 
     world_rank = dist.get_rank(parallel_context.world_pg)
     ranks3d = parallel_context.get_3d_ranks(world_rank)

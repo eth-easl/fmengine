@@ -20,7 +20,10 @@ def get_tp_and_pp_rank_and_size_from(
     world_rank: int, parallel_context: ParallelContext
 ) -> Tuple[Tuple[int, int], Tuple[int, int]]:
     result = parallel_context.get_3d_ranks(world_rank=world_rank)
-    return (result[2], parallel_context.tp_pg.size()), (result[0], parallel_context.pp_pg.size())
+    return (result[2], parallel_context.tp_pg.size()), (
+        result[0],
+        parallel_context.pp_pg.size(),
+    )
 
 
 def get_path(
@@ -35,9 +38,7 @@ def get_path(
 
     if tp_and_pp_rank_and_size:
         (tp_rank, tp_size), (pp_rank, pp_size) = tp_and_pp_rank_and_size
-        suffix_name = (
-            f"{type.value}_{suffix_name}_pp-rank-{pp_rank}-of-{pp_size}_tp-rank-{tp_rank}-of-{tp_size}.safetensors"
-        )
+        suffix_name = f"{type.value}_{suffix_name}_pp-rank-{pp_rank}-of-{pp_size}_tp-rank-{tp_rank}-of-{tp_size}.safetensors"
     else:
         suffix_name = f"{type.value}_{suffix_name}.safetensors"
 

@@ -22,7 +22,9 @@ def new_group(  # pylint: disable=function-redefined
     if len(ranks) == 0:
         raise ValueError("Cannot create a group with not ranks inside it")
 
-    return dist.new_group(ranks=ranks, timeout=timeout, backend=backend, pg_options=pg_options)
+    return dist.new_group(
+        ranks=ranks, timeout=timeout, backend=backend, pg_options=pg_options
+    )
 
 
 def reduce_scatter_tensor(  # pylint: disable=function-redefined
@@ -40,14 +42,21 @@ def reduce_scatter_tensor(  # pylint: disable=function-redefined
     ), "You should probably not call `reduce_scatter_tensor` with a single rank, as it copies data over"
 
     if torch_version_above_1_13:
-        return dist.reduce_scatter_tensor(output=output, input=input, group=group, op=op, async_op=async_op)
+        return dist.reduce_scatter_tensor(
+            output=output, input=input, group=group, op=op, async_op=async_op
+        )
     else:
         # Support pytorch 1.12
-        return dist._reduce_scatter_base(output=output, input=input, group=group, op=op, async_op=async_op)
+        return dist._reduce_scatter_base(
+            output=output, input=input, group=group, op=op, async_op=async_op
+        )
 
 
 def all_gather_into_tensor(  # pylint: disable=function-redefined
-    output_tensor, input_tensor, group: Optional[ProcessGroup] = None, async_op: bool = False
+    output_tensor,
+    input_tensor,
+    group: Optional[ProcessGroup] = None,
+    async_op: bool = False,
 ) -> Optional[Work]:
     if group is None:
         group = dist.torch_dist.distributed_c10d._get_default_group()
@@ -58,12 +67,18 @@ def all_gather_into_tensor(  # pylint: disable=function-redefined
 
     if torch_version_above_1_13:
         return dist.all_gather_into_tensor(
-            output_tensor=output_tensor, input_tensor=input_tensor, group=group, async_op=async_op
+            output_tensor=output_tensor,
+            input_tensor=input_tensor,
+            group=group,
+            async_op=async_op,
         )
     else:
         # Support Pytorch 1.12
         return dist.distributed_c10d._all_gather_base(
-            output_tensor=output_tensor, input_tensor=input_tensor, group=group, async_op=async_op
+            output_tensor=output_tensor,
+            input_tensor=input_tensor,
+            group=group,
+            async_op=async_op,
         )
 
 
@@ -107,7 +122,9 @@ def reduce_scatter_coalesced(
         assert dtype == output_tensor.dtype
 
     for input_tensor_list in input_tensor_lists:
-        assert len(input_tensor_list) == group_size, f"Expected {len(input_tensor_list)} == {group_size}"
+        assert (
+            len(input_tensor_list) == group_size
+        ), f"Expected {len(input_tensor_list)} == {group_size}"
         for input_tensor in input_tensor_list:
             assert device == input_tensor.device
             assert dtype == input_tensor.dtype
@@ -120,11 +137,20 @@ def reduce_scatter_coalesced(
         for group_rank in range(group_size)
     ]
 
-    work = dist.reduce_scatter(output_tensor_buffer, input_tensor_buffer_list, op=op, group=group, async_op=async_op)
+    work = dist.reduce_scatter(
+        output_tensor_buffer,
+        input_tensor_buffer_list,
+        op=op,
+        group=group,
+        async_op=async_op,
+    )
 
     def update_output():
         for original_buffer, reduced_buffer in zip(
-            output_tensor_list, torch._utils._unflatten_dense_tensors(output_tensor_buffer, output_tensor_list)
+            output_tensor_list,
+            torch._utils._unflatten_dense_tensors(
+                output_tensor_buffer, output_tensor_list
+            ),
         ):
             original_buffer.copy_(reduced_buffer)
 
@@ -200,16 +226,23 @@ def all_gather_coalesced(  # pylint: disable=function-redefined
 
     input_tensor_buffer = torch._utils._flatten_dense_tensors(input_tensor_list)
     output_tensor_buffer_list = [
-        torch._utils._flatten_dense_tensors(output_tensor_list) for output_tensor_list in output_tensor_lists
+        torch._utils._flatten_dense_tensors(output_tensor_list)
+        for output_tensor_list in output_tensor_lists
     ]
 
-    work = dist.all_gather(output_tensor_buffer_list, input_tensor_buffer, group=group, async_op=async_op)
+    work = dist.all_gather(
+        output_tensor_buffer_list, input_tensor_buffer, group=group, async_op=async_op
+    )
 
     def update_output():
-        for original_buffer_list, gathered_buffer_tensor in zip(output_tensor_lists, output_tensor_buffer_list):
+        for original_buffer_list, gathered_buffer_tensor in zip(
+            output_tensor_lists, output_tensor_buffer_list
+        ):
             for original_buffer, gathered_buffer in zip(
                 original_buffer_list,
-                torch._utils._unflatten_dense_tensors(gathered_buffer_tensor, original_buffer_list),
+                torch._utils._unflatten_dense_tensors(
+                    gathered_buffer_tensor, original_buffer_list
+                ),
             ):
                 original_buffer.copy_(gathered_buffer)
 
@@ -222,7 +255,9 @@ def all_gather_coalesced(  # pylint: disable=function-redefined
 
 # This cache has a speedup of 4 tflops on a 7b model
 @cache
-def get_global_rank(group: ProcessGroup, group_rank: int) -> int:  # pylint: disable=function-redefined
+def get_global_rank(
+    group: ProcessGroup, group_rank: int
+) -> int:  # pylint: disable=function-redefined
     if torch_version_above_1_13:
         return dist.get_global_rank(group, group_rank=group_rank)
     else:
@@ -232,11 +267,15 @@ def get_global_rank(group: ProcessGroup, group_rank: int) -> int:  # pylint: dis
 
 # We cache for dp, pp, tp process groups, world group, and tied process group for tied params
 @lru_cache
-def get_rank(group: Optional[ProcessGroup] = None) -> int:  # pylint: disable=function-redefined
+def get_rank(
+    group: Optional[ProcessGroup] = None,
+) -> int:  # pylint: disable=function-redefined
     """Similar to `get_rank` except we raise an exception instead of return -1 when current rank is not part of the group"""
     result = dist.get_rank(group)
     if result == -1:
-        raise RuntimeError("Can not call `get_rank` on a group in which current process is not a part of")
+        raise RuntimeError(
+            "Can not call `get_rank` on a group in which current process is not a part of"
+        )
     return result
 
 
@@ -255,7 +294,9 @@ def initialize_torch_distributed():
         backend = "nccl"
     else:
         # TODO @thomasw21: Maybe figure out a way to do distributed `cpu` training at some point
-        raise NotImplementedError(f"CUDA was not found: torch.cuda.is_available(): {torch.cuda.is_available()}")
+        raise NotImplementedError(
+            f"CUDA was not found: torch.cuda.is_available(): {torch.cuda.is_available()}"
+        )
         backend = "gloo"
 
     # Call the init process.
@@ -268,6 +309,10 @@ def initialize_torch_distributed():
 
     init_method = f"env://localhost:{port}"
     dist.init_process_group(
-        init_method=init_method, backend=backend, world_size=world_size, rank=rank, timeout=dist.default_pg_timeout
+        init_method=init_method,
+        backend=backend,
+        world_size=world_size,
+        rank=rank,
+        timeout=dist.default_pg_timeout,
     )
     return True

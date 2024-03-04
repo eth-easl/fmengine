@@ -35,11 +35,15 @@ def clip_grad_norm(
 
     # assert that all params require grad
     for _, p in named_parameters:
-        assert p.requires_grad, "clip_grad_norm_ only supports Tensors that require grad"
+        assert (
+            p.requires_grad
+        ), "clip_grad_norm_ only supports Tensors that require grad"
 
     if grad_accumulator is None:
         grads = [
-            p.grad for _, p in named_parameters if not p.is_tied or world_rank == p.get_tied_info().global_ranks[0]
+            p.grad
+            for _, p in named_parameters
+            if not p.is_tied or world_rank == p.get_tied_info().global_ranks[0]
         ]
     else:
         # In case of FP32 Grad Accum, We need to clip all fp32 grads
@@ -53,7 +57,14 @@ def clip_grad_norm(
     if norm_type == torch.inf:
         if len(grads) > 0:
             total_norm = torch.max(
-                torch.stack([torch.linalg.vector_norm(g.detach(), ord=torch.inf, dtype=torch.float) for g in grads])
+                torch.stack(
+                    [
+                        torch.linalg.vector_norm(
+                            g.detach(), ord=torch.inf, dtype=torch.float
+                        )
+                        for g in grads
+                    ]
+                )
             )
         else:
             total_norm = torch.zeros([], dtype=torch.float, device=torch.device("cuda"))
@@ -63,7 +74,14 @@ def clip_grad_norm(
         if len(grads) > 0:
             # TODO @nouamanetazi: Check if we should calculate norm per parameter (remove .pow(norm_type)
             total_norm = torch.linalg.vector_norm(
-                torch.stack([torch.linalg.vector_norm(g.detach(), ord=norm_type, dtype=torch.float) for g in grads]),
+                torch.stack(
+                    [
+                        torch.linalg.vector_norm(
+                            g.detach(), ord=norm_type, dtype=torch.float
+                        )
+                        for g in grads
+                    ]
+                ),
                 ord=norm_type,
                 dtype=torch.float,
             ).pow(norm_type)
@@ -80,17 +98,25 @@ def clip_grad_norm(
     clip_coef_clamped = torch.clamp(clip_coef, max=1.0)
 
     devices = {
-        param.grad.device if grad_accumulator is None else grad_accumulator.get_grad_buffer(name).device
+        (
+            param.grad.device
+            if grad_accumulator is None
+            else grad_accumulator.get_grad_buffer(name).device
+        )
         for name, param in named_parameters
     }
-    device_to_clip_coef_clamped = {device: clip_coef_clamped.to(device) for device in devices}
+    device_to_clip_coef_clamped = {
+        device: clip_coef_clamped.to(device) for device in devices
+    }
 
     for name, param in named_parameters:
         if grad_accumulator is None:
             param.grad.detach().mul_(device_to_clip_coef_clamped[param.grad.device])
         else:
             grad_accumulator.get_grad_buffer(name).detach().mul_(
-                device_to_clip_coef_clamped[grad_accumulator.get_grad_buffer(name).device]
+                device_to_clip_coef_clamped[
+                    grad_accumulator.get_grad_buffer(name).device
+                ]
             )
 
     return total_norm

@@ -12,7 +12,13 @@ def test_initialization():
     domain_keys = ["domain1", "domain2"]
     step_size, smoothing_param = 0.01, 0.001
     is_proxy = False
-    doremi_context = DoReMiContext(domain_weights, domain_keys, is_proxy, step_size, smoothing_param=smoothing_param)
+    doremi_context = DoReMiContext(
+        domain_weights,
+        domain_keys,
+        is_proxy,
+        step_size,
+        smoothing_param=smoothing_param,
+    )
 
     assert torch.equal(doremi_context.domain_weights, domain_weights)
     assert doremi_context.domain_keys == domain_keys
@@ -44,7 +50,11 @@ def test_domain_keys_length():
 
 
 def test_record_domain_weights_history():
-    domain_weights = [torch.tensor([0.1, 0.3, 0.6]), torch.tensor([0.2, 0.3, 0.5]), torch.tensor([0.3, 0.3, 0.4])]
+    domain_weights = [
+        torch.tensor([0.1, 0.3, 0.6]),
+        torch.tensor([0.2, 0.3, 0.5]),
+        torch.tensor([0.3, 0.3, 0.4]),
+    ]
     domain_keys = ["domain1", "domain2", "domain3"]
 
     doremi_context = DoReMiContext(domain_weights[0], domain_keys, False)

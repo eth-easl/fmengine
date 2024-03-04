@@ -127,7 +127,10 @@ class TensorParallelRowLinear(nn.Linear):
         )
         self.mode = mode
         self.async_communication = async_communication
-        if self.mode is TensorParallelLinearMode.ALL_REDUCE and self.async_communication:
+        if (
+            self.mode is TensorParallelLinearMode.ALL_REDUCE
+            and self.async_communication
+        ):
             raise ValueError("async_communication is not supported for ALL_REDUCE mode")
 
         if contiguous_chunks is not None:
@@ -196,8 +199,14 @@ class TiedLinear(nn.Linear):
             new_param = create_tied_parameter(
                 parameter=param,
                 name=name,
-                global_ranks=tuple(sorted((get_global_rank(self.pg, i) for i in range(self.pg.size())))),
-                reduce_op=None if self.mode is TensorParallelLinearMode.ALL_REDUCE else dist.ReduceOp.SUM,
+                global_ranks=tuple(
+                    sorted((get_global_rank(self.pg, i) for i in range(self.pg.size())))
+                ),
+                reduce_op=(
+                    None
+                    if self.mode is TensorParallelLinearMode.ALL_REDUCE
+                    else dist.ReduceOp.SUM
+                ),
                 root_module=self,
             )
             setattr(self, name, new_param)
@@ -266,12 +275,16 @@ class TensorParallelEmbedding(nn.Embedding):
 
         split_config = SplitConfig(split_dim=0, contiguous_chunks=contiguous_chunks)
 
-        mark_all_parameters_in_module_as_sharded(self, pg=self.pg, split_config=split_config)
+        mark_all_parameters_in_module_as_sharded(
+            self, pg=self.pg, split_config=split_config
+        )
 
     def forward(self, input_ids: torch.Tensor) -> torch.Tensor:
         if self.pg.size() > 1:
             # `0` if input is in the correct interval, else `1`
-            input_mask = torch.logical_or(self.min_id > input_ids, input_ids >= self.max_id)
+            input_mask = torch.logical_or(
+                self.min_id > input_ids, input_ids >= self.max_id
+            )
             # translate for [0, self.max_id - self.min_id[
             masked_input = input_ids.clone() - self.min_id
             # default all out of bounds values to `0`

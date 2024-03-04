@@ -15,11 +15,17 @@ def available_gpus():
     if not torch.cuda.is_available():
         return 0
 
-    device_properties = [torch.cuda.get_device_properties(i) for i in range(torch.cuda.device_count())]
+    device_properties = [
+        torch.cuda.get_device_properties(i) for i in range(torch.cuda.device_count())
+    ]
 
     # We filter out
     blacklisted_gpu_names = {"NVIDIA DGX Display"}
-    device_properties = [property_ for property_ in device_properties if property_.name not in blacklisted_gpu_names]
+    device_properties = [
+        property_
+        for property_ in device_properties
+        if property_.name not in blacklisted_gpu_names
+    ]
 
     # TODO @thomasw21: Can we do this cross node
     return len(device_properties)
@@ -27,7 +33,9 @@ def available_gpus():
 
 # from https://stackoverflow.com/a/34333710/9201239
 @contextlib.contextmanager
-def mock_os_environ(remove_keys: List[str] = None, update_key_values: Dict[str, Any] = None):
+def mock_os_environ(
+    remove_keys: List[str] = None, update_key_values: Dict[str, Any] = None
+):
     """
     Temporarily updates the ``os.environ`` dictionary in-place.
     The ``os.environ`` dictionary is updated in-place so that the modification is sure to work in all situations.
@@ -60,7 +68,9 @@ def mock_os_environ(remove_keys: List[str] = None, update_key_values: Dict[str, 
         env.update(reverse_change)
 
 
-def is_dict_equal(first: Dict, second: Dict, sub_paths: Optional[List[str]] = None) -> Tuple[bool, Optional[str]]:
+def is_dict_equal(
+    first: Dict, second: Dict, sub_paths: Optional[List[str]] = None
+) -> Tuple[bool, Optional[str]]:
     """Returns True or False if the dictionaries match, and an additional message when it's False"""
     if sub_paths is None:
         sub_paths = []
@@ -68,7 +78,10 @@ def is_dict_equal(first: Dict, second: Dict, sub_paths: Optional[List[str]] = No
     first_keys = set(first.keys())
     second_keys = set(second.keys())
     if first_keys != second_keys:
-        return False, f"Keys don't match in {'.'.join(sub_paths)}.\nCur: {first_keys}\nRef: {second_keys}"
+        return (
+            False,
+            f"Keys don't match in {'.'.join(sub_paths)}.\nCur: {first_keys}\nRef: {second_keys}",
+        )
     for key in first_keys:
         first_elt = first[key]
         second_elt = second[key]
@@ -79,7 +92,9 @@ def is_dict_equal(first: Dict, second: Dict, sub_paths: Optional[List[str]] = No
                     False,
                     f"Object types don't match in {'.'.join(sub_paths +  [str(key)])}.\nCur: {first_elt}\nRef: {second_elt}",
                 )
-            match, msg = is_dict_equal(first_elt, second_elt, sub_paths=sub_paths + [str(key)])
+            match, msg = is_dict_equal(
+                first_elt, second_elt, sub_paths=sub_paths + [str(key)]
+            )
             if match is False:
                 return False, msg
         elif isinstance(first_elt, torch.Tensor):
@@ -151,11 +166,15 @@ def rerun_if_address_is_in_use(max_try: int = 500):
     else:
         exception = Exception
 
-    func_wrapper = rerun_on_exception(exception_type=exception, pattern=".*Address already in use.*", max_try=max_try)
+    func_wrapper = rerun_on_exception(
+        exception_type=exception, pattern=".*Address already in use.*", max_try=max_try
+    )
     return func_wrapper
 
 
-def rerun_on_exception(exception_type: Exception = Exception, pattern: str = None, max_try: int = 10) -> Callable:
+def rerun_on_exception(
+    exception_type: Exception = Exception, pattern: str = None, max_try: int = 10
+) -> Callable:
     """
     A decorator on a function to re-run when an exception occurs.
 
@@ -223,14 +242,18 @@ def rerun_on_exception(exception_type: Exception = Exception, pattern: str = Non
                     return ret
                 except exception_type as e:
                     error_lines = str(e).split("\n")
-                    if try_count < max_try and (pattern is None or _match_lines(error_lines, pattern)):
+                    if try_count < max_try and (
+                        pattern is None or _match_lines(error_lines, pattern)
+                    ):
 
                         print("Exception is caught, retrying...")
                         # when pattern is not specified, we always skip the exception
                         # when pattern is specified, we only skip when pattern is matched
                         continue
                     else:
-                        print("Maximum number of attempts is reached or pattern is not matched, no more retrying...")
+                        print(
+                            "Maximum number of attempts is reached or pattern is not matched, no more retrying..."
+                        )
                         raise e
 
         # Override signature
@@ -256,7 +279,9 @@ def global_wrapper(rank, func, tp, pp, dp, port, kwargs):
 
     world_size = tp * pp * dp
     setup_dist_env(rank, world_size, port)
-    parallel_context = ParallelContext(data_parallel_size=dp, pipeline_parallel_size=pp, tensor_parallel_size=tp)
+    parallel_context = ParallelContext(
+        data_parallel_size=dp, pipeline_parallel_size=pp, tensor_parallel_size=tp
+    )
     func(parallel_context, **kwargs)
 
 

@@ -55,7 +55,9 @@ class P2PTensorMetaData:
 
         if self.is_contiguous:
             buffer = buffer.as_strided(
-                size=tuple(self.shape), stride=tuple(self.stride), storage_offset=self.storage_offset
+                size=tuple(self.shape),
+                stride=tuple(self.stride),
+                storage_offset=self.storage_offset,
             )
 
         # Complex needs to be viewed as real first
@@ -72,7 +74,9 @@ class P2PTensorMetaData:
         # Set shape and stride
         if not self.is_contiguous:
             buffer = buffer.as_strided(
-                size=tuple(self.shape), stride=tuple(self.stride), storage_offset=self.storage_offset
+                size=tuple(self.shape),
+                stride=tuple(self.stride),
+                storage_offset=self.storage_offset,
             )
 
         return buffer
@@ -96,7 +100,9 @@ class P2PTensorMetaData:
 
     @staticmethod
     def to_second_metadata(tensor: torch.Tensor, device: torch.device) -> torch.Tensor:
-        return torch.tensor(tensor.shape + tensor.stride(), dtype=torch.long, device=device)
+        return torch.tensor(
+            tensor.shape + tensor.stride(), dtype=torch.long, device=device
+        )
 
     @classmethod
     def from_metadata(cls, first_metadata: List[int], second_metadata: List[int]):
@@ -129,9 +135,12 @@ def view_as_contiguous(tensor: torch.Tensor):
     untyped_storage_size = untyped_storage.size()
     untyped_element_size = untyped_storage.element_size()
     assert (
-        tensor_numel * tensor_element_size >= untyped_storage_size * untyped_element_size
+        tensor_numel * tensor_element_size
+        >= untyped_storage_size * untyped_element_size
     ), "Expect storage_size to be smaller than tensor size. It might not be true, when you use slicing for example though. We probably don't want to support it in our P2P system"
-    buffer = tensor_from_untyped_storage(untyped_storage=untyped_storage, dtype=tensor.dtype)
+    buffer = tensor_from_untyped_storage(
+        untyped_storage=untyped_storage, dtype=tensor.dtype
+    )
     return buffer
 
 
@@ -139,11 +148,19 @@ class P2P:
     def __init__(self, pg: dist.ProcessGroup, device: torch.device):
         self.pg = pg
         self.device = device
-        self.first_metadata = torch.empty(FIRST_METADATA_SIZE, dtype=torch.long, device=self.device)
-        self.second_metadata = torch.empty(SECOND_METADATA_SIZE, dtype=torch.long, device=self.device)
+        self.first_metadata = torch.empty(
+            FIRST_METADATA_SIZE, dtype=torch.long, device=self.device
+        )
+        self.second_metadata = torch.empty(
+            SECOND_METADATA_SIZE, dtype=torch.long, device=self.device
+        )
 
-    def _send_first_metadata_p2p_op(self, tensor: torch.Tensor, to_rank: int, tag: int = 0) -> dist.P2POp:
-        first_metadata = P2PTensorMetaData.to_first_metadata(tensor=tensor, device=self.device)
+    def _send_first_metadata_p2p_op(
+        self, tensor: torch.Tensor, to_rank: int, tag: int = 0
+    ) -> dist.P2POp:
+        first_metadata = P2PTensorMetaData.to_first_metadata(
+            tensor=tensor, device=self.device
+        )
         return dist.P2POp(
             op=dist.isend,
             tensor=first_metadata,
@@ -152,8 +169,12 @@ class P2P:
             tag=tag,
         )
 
-    def _recv_first_metadata_p2p_op(self, from_rank: int, tag: int = 0) -> Tuple[torch.Tensor, dist.P2POp]:
-        first_metadata_buffer = torch.empty((FIRST_METADATA_SIZE,), dtype=torch.long, device=self.device)
+    def _recv_first_metadata_p2p_op(
+        self, from_rank: int, tag: int = 0
+    ) -> Tuple[torch.Tensor, dist.P2POp]:
+        first_metadata_buffer = torch.empty(
+            (FIRST_METADATA_SIZE,), dtype=torch.long, device=self.device
+        )
         return first_metadata_buffer, dist.P2POp(
             op=dist.irecv,
             tensor=first_metadata_buffer,
@@ -162,8 +183,12 @@ class P2P:
             tag=tag,
         )
 
-    def _send_second_metadata_p2p_op(self, tensor: torch.Tensor, to_rank: int, tag: int = 0) -> dist.P2POp:
-        second_metadata = P2PTensorMetaData.to_second_metadata(tensor=tensor, device=self.device)
+    def _send_second_metadata_p2p_op(
+        self, tensor: torch.Tensor, to_rank: int, tag: int = 0
+    ) -> dist.P2POp:
+        second_metadata = P2PTensorMetaData.to_second_metadata(
+            tensor=tensor, device=self.device
+        )
         return dist.P2POp(
             op=dist.isend,
             tensor=second_metadata,
@@ -175,7 +200,9 @@ class P2P:
     def _recv_second_metadata_p2p_op(
         self, shape_length: int, stride_length: int, from_rank: int, tag: int = 0
     ) -> Tuple[torch.Tensor, dist.P2POp]:
-        second_metadata_buffer = torch.empty((shape_length + stride_length,), dtype=torch.long, device=self.device)
+        second_metadata_buffer = torch.empty(
+            (shape_length + stride_length,), dtype=torch.long, device=self.device
+        )
         return second_metadata_buffer, dist.P2POp(
             op=dist.irecv,
             tensor=second_metadata_buffer,
@@ -184,7 +211,9 @@ class P2P:
             tag=tag,
         )
 
-    def _send_data_p2p_op(self, tensor: torch.Tensor, to_rank: int, tag: int = 0) -> dist.P2POp:
+    def _send_data_p2p_op(
+        self, tensor: torch.Tensor, to_rank: int, tag: int = 0
+    ) -> dist.P2POp:
         return dist.P2POp(
             op=dist.isend,
             tensor=tensor,
@@ -232,9 +261,13 @@ class P2P:
 
         # increase buffer size
         if len(second_metadata) > len(self.second_metadata):
-            self.second_metadata = torch.empty(len(second_metadata), dtype=torch.long, device=self.device)
+            self.second_metadata = torch.empty(
+                len(second_metadata), dtype=torch.long, device=self.device
+            )
 
-        self.second_metadata[: len(second_metadata)].copy_(torch.tensor(second_metadata, dtype=torch.long))
+        self.second_metadata[: len(second_metadata)].copy_(
+            torch.tensor(second_metadata, dtype=torch.long)
+        )
 
         dist.send(
             self.second_metadata[: len(second_metadata)],
@@ -265,7 +298,9 @@ class P2P:
 
         # increase buffer size
         if second_metadata_num_elements > len(self.second_metadata):
-            self.second_metadata = torch.empty(second_metadata_num_elements, dtype=torch.long, device=self.device)
+            self.second_metadata = torch.empty(
+                second_metadata_num_elements, dtype=torch.long, device=self.device
+            )
 
         dist.recv(
             self.second_metadata[:second_metadata_num_elements],
@@ -287,10 +322,14 @@ class P2P:
             storage_offset=storage_offset,
         )
 
-    def isend_tensors(self, tensors: List[torch.Tensor], to_rank: int, tag: int = 0) -> List[dist.Work]:
+    def isend_tensors(
+        self, tensors: List[torch.Tensor], to_rank: int, tag: int = 0
+    ) -> List[dist.Work]:
         futures = []
         current_rank = dist.get_rank(self.pg)
-        logger.debug(f"Current rank {current_rank} sending to rank {to_rank}. Nb_tensors: {len(tensors)}")
+        logger.debug(
+            f"Current rank {current_rank} sending to rank {to_rank}. Nb_tensors: {len(tensors)}"
+        )
         for tensor in tensors:
             if to_rank != current_rank:
                 self._send_meta(tensor, to_rank=to_rank, tag=tag)
@@ -321,7 +360,9 @@ class P2P:
         futures = []
         buffers = []
         current_rank = dist.get_rank(self.pg)
-        logger.debug(f"Current rank {current_rank} receiving from rank {from_rank}. Nb_tensors: {num_tensors}")
+        logger.debug(
+            f"Current rank {current_rank} receiving from rank {from_rank}. Nb_tensors: {num_tensors}"
+        )
         for _ in range(num_tensors):
             if from_rank != current_rank:
                 meta = self._recv_meta(from_rank=from_rank, tag=tag)
@@ -350,8 +391,12 @@ class P2P:
         for future in futures:
             future.wait()
 
-    def recv_tensors(self, num_tensors: int, from_rank: int, tag: int = 0) -> List[torch.Tensor]:
-        buffers, futures = self.irecv_tensors(num_tensors=num_tensors, from_rank=from_rank, tag=tag)
+    def recv_tensors(
+        self, num_tensors: int, from_rank: int, tag: int = 0
+    ) -> List[torch.Tensor]:
+        buffers, futures = self.irecv_tensors(
+            num_tensors=num_tensors, from_rank=from_rank, tag=tag
+        )
         for future in futures:
             future.wait()
         return buffers
@@ -388,13 +433,19 @@ class BatchTensorSendRecvState:
 
     def add_send(self, tensor: torch.Tensor, to_rank: int, tag: int = 0):
         self.first_metadata_p2p_ops.append(
-            self.p2p._send_first_metadata_p2p_op(tensor=tensor, to_rank=to_rank, tag=tag)
+            self.p2p._send_first_metadata_p2p_op(
+                tensor=tensor, to_rank=to_rank, tag=tag
+            )
         )
         self.second_metadata_p2p_ops.append(
-            self.p2p._send_second_metadata_p2p_op(tensor=tensor, to_rank=to_rank, tag=tag)
+            self.p2p._send_second_metadata_p2p_op(
+                tensor=tensor, to_rank=to_rank, tag=tag
+            )
         )
         self.data_p2p_ops.append(
-            self.p2p._send_data_p2p_op(tensor=view_as_contiguous(tensor), to_rank=to_rank, tag=tag)
+            self.p2p._send_data_p2p_op(
+                tensor=view_as_contiguous(tensor), to_rank=to_rank, tag=tag
+            )
         )
 
     def add_recv(self, from_rank: int, tag: int = 0) -> int:
@@ -403,7 +454,9 @@ class BatchTensorSendRecvState:
         require results from the first metadata to be transfered first.
         Return: index of the recv_buffer in `self.recv_first_metadata_buffers`
         """
-        buffer, recv_op = self.p2p._recv_first_metadata_p2p_op(from_rank=from_rank, tag=tag)
+        buffer, recv_op = self.p2p._recv_first_metadata_p2p_op(
+            from_rank=from_rank, tag=tag
+        )
         self.first_metadata_p2p_ops.append(recv_op)
         self.recv_first_metadata_buffers.append(buffer)
         self.recv_from_ranks.append(from_rank)
@@ -417,22 +470,32 @@ class BatchTensorSendRecvState:
         # We want an early cpu/gpu sync here as we are right after the wait so it's nearly free.
         # Removing the tolist call here delays the sync and will impact performance.
         # We need to instantiate it in a list because it is used twice
-        first_metadatas = [tensor.tolist() for tensor in self.recv_first_metadata_buffers]
+        first_metadatas = [
+            tensor.tolist() for tensor in self.recv_first_metadata_buffers
+        ]
         return first_metadatas
 
-    def _send_recv_second_metadata(self, first_metadata: List[List[int]]) -> List[List[int]]:
+    def _send_recv_second_metadata(
+        self, first_metadata: List[List[int]]
+    ) -> List[List[int]]:
         # turn a list of tuple into a tuple of list
         recv_second_metadata_buffers, recv_second_metadata_ops = zip(
             *(
                 self.p2p._recv_second_metadata_p2p_op(
-                    shape_length=num_shape, stride_length=num_stride, from_rank=from_rank
+                    shape_length=num_shape,
+                    stride_length=num_stride,
+                    from_rank=from_rank,
                 )
-                for (num_shape, num_stride, *_), from_rank in zip(first_metadata, self.recv_from_ranks)
+                for (num_shape, num_stride, *_), from_rank in zip(
+                    first_metadata, self.recv_from_ranks
+                )
             )
         )
         recv_second_metadata_ops = list(recv_second_metadata_ops)
         # Send/Recv second metadata
-        reqs = dist.batch_isend_irecv(self.second_metadata_p2p_ops + recv_second_metadata_ops)
+        reqs = dist.batch_isend_irecv(
+            self.second_metadata_p2p_ops + recv_second_metadata_ops
+        )
         for req in reqs:
             req.wait()
 
@@ -441,12 +504,18 @@ class BatchTensorSendRecvState:
         second_metadatas = [tensor.tolist() for tensor in recv_second_metadata_buffers]
         return second_metadatas
 
-    def _send_recv_data(self, tensor_metadatas: List[P2PTensorMetaData]) -> List[torch.Tensor]:
+    def _send_recv_data(
+        self, tensor_metadatas: List[P2PTensorMetaData]
+    ) -> List[torch.Tensor]:
         # turn a list of tuples into a tuple of list
         recv_data_buffers, recv_data_ops = zip(
             *(
-                self.p2p._recv_data_p2p_op(tensor_metadata=tensor_metadata, from_rank=from_rank)
-                for tensor_metadata, from_rank in zip(tensor_metadatas, self.recv_from_ranks)
+                self.p2p._recv_data_p2p_op(
+                    tensor_metadata=tensor_metadata, from_rank=from_rank
+                )
+                for tensor_metadata, from_rank in zip(
+                    tensor_metadatas, self.recv_from_ranks
+                )
             )
         )
         recv_data_ops = list(recv_data_ops)
@@ -457,8 +526,12 @@ class BatchTensorSendRecvState:
 
         # Format tensor by setting the stride
         return [
-            recv_data_buffer.as_strided(size=tuple(tensor_metadata.shape), stride=tuple(tensor_metadata.stride))
-            for recv_data_buffer, tensor_metadata in zip(recv_data_buffers, tensor_metadatas)
+            recv_data_buffer.as_strided(
+                size=tuple(tensor_metadata.shape), stride=tuple(tensor_metadata.stride)
+            )
+            for recv_data_buffer, tensor_metadata in zip(
+                recv_data_buffers, tensor_metadatas
+            )
         ]
 
     def flush(self) -> List[torch.Tensor]:
@@ -477,7 +550,9 @@ class BatchTensorSendRecvState:
         # If there is no recv
         if len(self.recv_first_metadata_buffers) == 0:
             reqs = dist.batch_isend_irecv(
-                self.first_metadata_p2p_ops + self.second_metadata_p2p_ops + self.data_p2p_ops
+                self.first_metadata_p2p_ops
+                + self.second_metadata_p2p_ops
+                + self.data_p2p_ops
             )
             for req in reqs:
                 req.wait()
@@ -485,7 +560,9 @@ class BatchTensorSendRecvState:
             return []
 
         # Send/Recv first metadata
-        logger.debug(f"First metadata: {[p2pop.op for p2pop in self.first_metadata_p2p_ops]}")
+        logger.debug(
+            f"First metadata: {[p2pop.op for p2pop in self.first_metadata_p2p_ops]}"
+        )
         # TODO(kunhao): We could actually send all at once like the above no recv case. But I need to benchmark the performance.
         first_metadatas = self._send_recv_first_metadata()
         # Send/Recv second metadata
@@ -493,7 +570,9 @@ class BatchTensorSendRecvState:
 
         tensor_metadatas = [
             P2PTensorMetaData.from_metadata(first_metadata, second_metadata)
-            for first_metadata, second_metadata in zip(first_metadatas, second_metadatas)
+            for first_metadata, second_metadata in zip(
+                first_metadatas, second_metadatas
+            )
         ]
 
         recv_tensors = self._send_recv_data(tensor_metadatas)

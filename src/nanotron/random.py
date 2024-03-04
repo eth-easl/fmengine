@@ -27,7 +27,9 @@ class RandomState:
             )
             and torch.equal(self.torch_cpu, other.torch_cpu)
             and (
-                other.torch_cuda is None if self.torch_cuda is None else torch.equal(self.torch_cuda, other.torch_cuda)
+                other.torch_cuda is None
+                if self.torch_cuda is None
+                else torch.equal(self.torch_cuda, other.torch_cuda)
             )
         )
 
@@ -44,7 +46,9 @@ class RandomStates(MutableMapping[str, RandomState]):
         if not isinstance(key, str):
             raise ValueError(f"Expected key to be of type str. Got {type(key)}")
         if not isinstance(value, RandomState):
-            raise ValueError(f"Expected value to be of type `nanotron.dataclass.RandomState`. Got {type(value)}")
+            raise ValueError(
+                f"Expected value to be of type `nanotron.dataclass.RandomState`. Got {type(value)}"
+            )
 
     def __getitem__(self, item):
         return self._dict[item]
@@ -95,7 +99,9 @@ def get_current_random_state():
         random=random.getstate(),
         numpy=np.random.get_state(),
         torch_cpu=torch.random.get_rng_state(),
-        torch_cuda=torch.cuda.get_rng_state("cuda") if torch.cuda.is_available() else None,
+        torch_cuda=(
+            torch.cuda.get_rng_state("cuda") if torch.cuda.is_available() else None
+        ),
     )
 
 
@@ -140,7 +146,10 @@ def get_synced_random_state(
 
     # TODO @thomasw21: broadcast tensor using `broadcast` in order not to use pickle
     dist.broadcast_object_list(
-        random_states, src=dist.get_global_rank(pg, reference_rank), group=pg, device=torch.device("cuda")
+        random_states,
+        src=dist.get_global_rank(pg, reference_rank),
+        group=pg,
+        device=torch.device("cuda"),
     )
 
     new_random_state = random_states[0]

@@ -27,7 +27,9 @@ from nanotron.parallel.utils import initial_sync
 from nanotron.sanity_checks import assert_tensor_synced_across_pg
 
 
-@pytest.mark.skipif(available_gpus() < 2, reason="test_clip_grads_with_pp requires at least 2 gpus")
+@pytest.mark.skipif(
+    available_gpus() < 2, reason="test_clip_grads_with_pp requires at least 2 gpus"
+)
 @pytest.mark.parametrize("norm_type", [math.inf, 1.0, 2.0])
 @rerun_if_address_is_in_use()
 def test_clip_grads_with_pp(norm_type: float):
@@ -84,17 +86,26 @@ def _test_clip_grads_with_pp(parallel_context: ParallelContext, norm_type: float
                 reference_non_linear.bias.data.copy_(bias.data)
     else:
         p2p.send_tensors(
-            [model.mlp[current_pp_rank].linear.pp_block.weight, model.mlp[current_pp_rank].linear.pp_block.bias],
+            [
+                model.mlp[current_pp_rank].linear.pp_block.weight,
+                model.mlp[current_pp_rank].linear.pp_block.bias,
+            ],
             to_rank=reference_rank,
         )
 
     # Get infinite dummy data iterator
-    data_iterator = dummy_infinite_data_loader(pp_pg=parallel_context.pp_pg)  # First rank receives data
+    data_iterator = dummy_infinite_data_loader(
+        pp_pg=parallel_context.pp_pg
+    )  # First rank receives data
 
     n_micro_batches_per_batch = 5
     batch = [next(data_iterator) for _ in range(n_micro_batches_per_batch)]
     pipeline_engine.train_batch_iter(
-        model, pg=parallel_context.pp_pg, batch=batch, nb_microbatches=n_micro_batches_per_batch, grad_accumulator=None
+        model,
+        pg=parallel_context.pp_pg,
+        batch=batch,
+        nb_microbatches=n_micro_batches_per_batch,
+        grad_accumulator=None,
     )
 
     # Equivalent on the reference model
@@ -118,15 +129,27 @@ def _test_clip_grads_with_pp(parallel_context: ParallelContext, norm_type: float
                     atol=1e-6,
                     rtol=1e-7,
                 )
-                torch.testing.assert_close(non_linear.bias.grad, reference_non_linear.bias.grad, atol=1e-6, rtol=1e-7)
+                torch.testing.assert_close(
+                    non_linear.bias.grad,
+                    reference_non_linear.bias.grad,
+                    atol=1e-6,
+                    rtol=1e-7,
+                )
                 continue
 
             weight_grad, bias_grad = p2p.recv_tensors(num_tensors=2, from_rank=pp_rank)
-            torch.testing.assert_close(weight_grad, reference_non_linear.weight.grad, atol=1e-6, rtol=1e-7)
-            torch.testing.assert_close(bias_grad, reference_non_linear.bias.grad, atol=1e-6, rtol=1e-7)
+            torch.testing.assert_close(
+                weight_grad, reference_non_linear.weight.grad, atol=1e-6, rtol=1e-7
+            )
+            torch.testing.assert_close(
+                bias_grad, reference_non_linear.bias.grad, atol=1e-6, rtol=1e-7
+            )
     else:
         p2p.send_tensors(
-            [model.mlp[pp_rank].linear.pp_block.weight.grad, model.mlp[pp_rank].linear.pp_block.bias.grad],
+            [
+                model.mlp[pp_rank].linear.pp_block.weight.grad,
+                model.mlp[pp_rank].linear.pp_block.bias.grad,
+            ],
             to_rank=reference_rank,
         )
 
@@ -145,11 +168,17 @@ def _test_clip_grads_with_pp(parallel_context: ParallelContext, norm_type: float
         reference_total_norm = torch.nn.utils.clip_grad_norm_(
             reference_model.parameters(), max_norm=1.0, norm_type=norm_type
         )
-        torch.testing.assert_close(total_norm, reference_total_norm, atol=1e-6, rtol=1e-7)
+        torch.testing.assert_close(
+            total_norm, reference_total_norm, atol=1e-6, rtol=1e-7
+        )
 
     # Check that grad changed
-    assert not torch.allclose(old_weight_grad, non_linear.weight.grad), "Grad should have changed"
-    assert not torch.allclose(old_bias_grad, non_linear.weight.grad), "Grad should have changed"
+    assert not torch.allclose(
+        old_weight_grad, non_linear.weight.grad
+    ), "Grad should have changed"
+    assert not torch.allclose(
+        old_bias_grad, non_linear.weight.grad
+    ), "Grad should have changed"
 
     # Check that gradient are the same as reference
     if has_reference_model:
@@ -173,8 +202,12 @@ def _test_clip_grads_with_pp(parallel_context: ParallelContext, norm_type: float
                 continue
 
             weight_grad, bias_grad = p2p.recv_tensors(num_tensors=2, from_rank=pp_rank)
-            torch.testing.assert_close(weight_grad, reference_non_linear.weight.grad, atol=1e-6, rtol=1e-7)
-            torch.testing.assert_close(bias_grad, reference_non_linear.bias.grad, atol=1e-6, rtol=1e-7)
+            torch.testing.assert_close(
+                weight_grad, reference_non_linear.weight.grad, atol=1e-6, rtol=1e-7
+            )
+            torch.testing.assert_close(
+                bias_grad, reference_non_linear.bias.grad, atol=1e-6, rtol=1e-7
+            )
     else:
         p2p.send_tensors(
             [
@@ -189,7 +222,9 @@ def _test_clip_grads_with_pp(parallel_context: ParallelContext, norm_type: float
     parallel_context.destroy()
 
 
-@pytest.mark.skipif(available_gpus() < 2, reason="test_clip_grads_with_tp requires at least 2 gpus")
+@pytest.mark.skipif(
+    available_gpus() < 2, reason="test_clip_grads_with_tp requires at least 2 gpus"
+)
 @pytest.mark.parametrize(
     "tp_mode,async_communication",
     [
@@ -199,14 +234,19 @@ def _test_clip_grads_with_pp(parallel_context: ParallelContext, norm_type: float
 )
 @pytest.mark.parametrize("norm_type", [math.inf, 1.0, 2.0])
 @rerun_if_address_is_in_use()
-def test_clip_grads_with_tp(tp_mode: TensorParallelLinearMode, async_communication: bool, norm_type: float):
+def test_clip_grads_with_tp(
+    tp_mode: TensorParallelLinearMode, async_communication: bool, norm_type: float
+):
     init_distributed(tp=2, dp=1, pp=1)(_test_clip_grads_with_tp)(
         tp_mode=tp_mode, async_communication=async_communication, norm_type=norm_type
     )
 
 
 def _test_clip_grads_with_tp(
-    parallel_context: ParallelContext, tp_mode: TensorParallelLinearMode, async_communication: bool, norm_type: float
+    parallel_context: ParallelContext,
+    tp_mode: TensorParallelLinearMode,
+    async_communication: bool,
+    norm_type: float,
 ):
     if async_communication:
         os.environ["CUDA_DEVICE_MAX_CONNECTIONS"] = "1"
@@ -226,17 +266,23 @@ def _test_clip_grads_with_tp(
     )
 
     # Un-sharded
-    reference_linear = nn.Linear(in_features=in_features, out_features=out_features, device="cuda")
+    reference_linear = nn.Linear(
+        in_features=in_features, out_features=out_features, device="cuda"
+    )
 
     # Copy weights/bias from sharded to un-sharded
     with torch.inference_mode():
         dist.all_gather(
-            tensor_list=list(reference_linear.weight.split(out_features_per_tp_rank, dim=0)),
+            tensor_list=list(
+                reference_linear.weight.split(out_features_per_tp_rank, dim=0)
+            ),
             tensor=column_linear.weight,
             group=parallel_context.tp_pg,
         )
         dist.all_gather(
-            tensor_list=list(reference_linear.bias.split(out_features_per_tp_rank, dim=0)),
+            tensor_list=list(
+                reference_linear.bias.split(out_features_per_tp_rank, dim=0)
+            ),
             tensor=column_linear.bias,
             group=parallel_context.tp_pg,
         )
@@ -248,18 +294,24 @@ def _test_clip_grads_with_tp(
         batch_size = 5
         random_input = torch.randn(batch_size, in_features, device="cuda")
         # synchronize random_input across tp
-        dist.all_reduce(random_input, op=dist.ReduceOp.AVG, group=parallel_context.tp_pg)
+        dist.all_reduce(
+            random_input, op=dist.ReduceOp.AVG, group=parallel_context.tp_pg
+        )
         sharded_random_input = random_input
     elif tp_mode is TensorParallelLinearMode.REDUCE_SCATTER:
         sharded_batch_size = 5
-        sharded_random_input = torch.randn(sharded_batch_size, in_features, device="cuda")
+        sharded_random_input = torch.randn(
+            sharded_batch_size, in_features, device="cuda"
+        )
         random_input = torch.empty(
             sharded_batch_size * parallel_context.tp_pg.size(),
             *(sharded_random_input.shape[1:]),
             device=sharded_random_input.device,
             dtype=sharded_random_input.dtype,
         )
-        dist.all_gather_into_tensor(random_input, sharded_random_input, group=parallel_context.tp_pg)
+        dist.all_gather_into_tensor(
+            random_input, sharded_random_input, group=parallel_context.tp_pg
+        )
     else:
         ValueError(f"Unsupported mode: {tp_mode}")
 
@@ -312,10 +364,14 @@ def _test_clip_grads_with_tp(
         max_norm=1.0,
         norm_type=norm_type,
     )
-    ref_total_norm = torch.nn.utils.clip_grad_norm_(reference_linear.parameters(), max_norm=1.0, norm_type=norm_type)
+    ref_total_norm = torch.nn.utils.clip_grad_norm_(
+        reference_linear.parameters(), max_norm=1.0, norm_type=norm_type
+    )
 
     # Check that the gradients have changed
-    assert not torch.allclose(old_grad, column_linear.weight.grad), "Gradients should have changed after clipping"
+    assert not torch.allclose(
+        old_grad, column_linear.weight.grad
+    ), "Gradients should have changed after clipping"
 
     # Test that we get the same gradient after clipping
     torch.testing.assert_close(
@@ -339,11 +395,15 @@ def _test_clip_grads_with_tp(
     parallel_context.destroy()
 
 
-@pytest.mark.skipif(available_gpus() < 2, reason="test_clip_grads_tied_weights requires at least 2 gpus")
+@pytest.mark.skipif(
+    available_gpus() < 2, reason="test_clip_grads_tied_weights requires at least 2 gpus"
+)
 @pytest.mark.parametrize("norm_type", [math.inf, 1.0, 2.0])
 @rerun_if_address_is_in_use()
 def test_clip_grads_tied_weights(norm_type: float):
-    init_distributed(tp=1, dp=1, pp=2)(_test_clip_grads_tied_weights)(norm_type=norm_type)
+    init_distributed(tp=1, dp=1, pp=2)(_test_clip_grads_tied_weights)(
+        norm_type=norm_type
+    )
 
 
 def _test_clip_grads_tied_weights(parallel_context: ParallelContext, norm_type: float):
@@ -398,7 +458,9 @@ def _test_clip_grads_tied_weights(parallel_context: ParallelContext, norm_type: 
     out.sum().backward()
 
     # sync gradients
-    sync_tied_weights_gradients(model, parallel_context=parallel_context, grad_accumulator=None)
+    sync_tied_weights_gradients(
+        model, parallel_context=parallel_context, grad_accumulator=None
+    )
 
     # We check that we both gradients are synchronized
     assert_tensor_synced_across_pg(weight.grad, group)
@@ -419,15 +481,21 @@ def _test_clip_grads_tied_weights(parallel_context: ParallelContext, norm_type: 
         max_norm=1.0,
         norm_type=norm_type,
     )
-    ref_total_norm = torch.nn.utils.clip_grad_norm_([ref_weight, ref_bias], max_norm=1.0, norm_type=norm_type)
+    ref_total_norm = torch.nn.utils.clip_grad_norm_(
+        [ref_weight, ref_bias], max_norm=1.0, norm_type=norm_type
+    )
 
     # Check that the gradients have changed
-    assert not torch.allclose(old_grad, weight.grad), "Gradients should have changed after clipping"
+    assert not torch.allclose(
+        old_grad, weight.grad
+    ), "Gradients should have changed after clipping"
 
     # Test that we get the same gradient after clipping
     assert torch.allclose(weight.grad, ref_weight.grad, rtol=1e-7, atol=1e-6)
     assert torch.allclose(bias.grad, ref_bias.grad, rtol=1e-7, atol=1e-6)
-    assert torch.allclose(total_norm, ref_total_norm, rtol=0, atol=0), f"Got {total_norm} and {ref_total_norm}"
+    assert torch.allclose(
+        total_norm, ref_total_norm, rtol=0, atol=0
+    ), f"Got {total_norm} and {ref_total_norm}"
 
     parallel_context.destroy()
 
@@ -495,7 +563,10 @@ def _test_clip_grads_fp32_accumulator(
                 reference_non_linear.bias.data.copy_(bias.data)
     else:
         p2p.send_tensors(
-            [model.mlp[current_pp_rank].linear.pp_block.weight, model.mlp[current_pp_rank].linear.pp_block.bias],
+            [
+                model.mlp[current_pp_rank].linear.pp_block.weight,
+                model.mlp[current_pp_rank].linear.pp_block.bias,
+            ],
             to_rank=reference_rank,
         )
 
@@ -529,8 +600,12 @@ def _test_clip_grads_fp32_accumulator(
             prefix_name = f"mlp.{pp_rank}.linear.pp_block"
             if pp_rank == current_pp_rank:
                 # We already have the gradients locally
-                reference_non_linear.weight.grad = grad_accumulator.get_grad_buffer(f"{prefix_name}.weight").clone()
-                reference_non_linear.bias.grad = grad_accumulator.get_grad_buffer(f"{prefix_name}.bias").clone()
+                reference_non_linear.weight.grad = grad_accumulator.get_grad_buffer(
+                    f"{prefix_name}.weight"
+                ).clone()
+                reference_non_linear.bias.grad = grad_accumulator.get_grad_buffer(
+                    f"{prefix_name}.bias"
+                ).clone()
                 continue
 
             weight_grad, bias_grad = p2p.recv_tensors(num_tensors=2, from_rank=pp_rank)
@@ -539,14 +614,19 @@ def _test_clip_grads_fp32_accumulator(
     else:
         p2p.send_tensors(
             [
-                grad_accumulator.get_grad_buffer(f"mlp.{current_pp_rank}.linear.pp_block.weight"),
-                grad_accumulator.get_grad_buffer(f"mlp.{current_pp_rank}.linear.pp_block.bias"),
+                grad_accumulator.get_grad_buffer(
+                    f"mlp.{current_pp_rank}.linear.pp_block.weight"
+                ),
+                grad_accumulator.get_grad_buffer(
+                    f"mlp.{current_pp_rank}.linear.pp_block.bias"
+                ),
             ],
             to_rank=reference_rank,
         )
 
     old_fp32_grads = {
-        name: grad_accumulator.get_grad_buffer(name=name).clone() for name, _ in model.named_parameters()
+        name: grad_accumulator.get_grad_buffer(name=name).clone()
+        for name, _ in model.named_parameters()
     }
 
     # Clip grads
@@ -565,7 +645,9 @@ def _test_clip_grads_fp32_accumulator(
     # Check that the gradients have changed
     for name, _ in model.named_parameters():
         new_fp32_grad = grad_accumulator.get_grad_buffer(name=name)
-        assert not torch.allclose(old_fp32_grads[name], new_fp32_grad), "Gradients should have changed after clipping"
+        assert not torch.allclose(
+            old_fp32_grads[name], new_fp32_grad
+        ), "Gradients should have changed after clipping"
 
     # We check that we get the same gradient accumulation. In theory we do get more precision by promoting gradients to fp32.
     if has_reference_model:
@@ -611,8 +693,12 @@ def _test_clip_grads_fp32_accumulator(
     else:
         p2p.send_tensors(
             [
-                grad_accumulator.get_grad_buffer(f"mlp.{current_pp_rank}.linear.pp_block.weight"),
-                grad_accumulator.get_grad_buffer(f"mlp.{current_pp_rank}.linear.pp_block.bias"),
+                grad_accumulator.get_grad_buffer(
+                    f"mlp.{current_pp_rank}.linear.pp_block.weight"
+                ),
+                grad_accumulator.get_grad_buffer(
+                    f"mlp.{current_pp_rank}.linear.pp_block.bias"
+                ),
             ],
             to_rank=reference_rank,
         )

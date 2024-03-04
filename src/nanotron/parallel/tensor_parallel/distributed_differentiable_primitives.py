@@ -115,7 +115,9 @@ class DifferentiableReduceScatterSum(torch.autograd.Function):
             dtype=tensor.dtype,
             requires_grad=tensor.requires_grad,
         )
-        dist.reduce_scatter_tensor(sharded_tensor, tensor, group=group, op=dist.ReduceOp.SUM)
+        dist.reduce_scatter_tensor(
+            sharded_tensor, tensor, group=group, op=dist.ReduceOp.SUM
+        )
         return sharded_tensor
 
     @staticmethod

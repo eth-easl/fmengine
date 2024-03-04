@@ -16,11 +16,19 @@ from nanotron.parallel.tensor_parallel.nn import (
 )
 
 
-@pytest.mark.parametrize("tp,dp,pp", [pytest.param(i, 1, 1) for i in range(1, min(4, available_gpus()) + 1)])
+@pytest.mark.parametrize(
+    "tp,dp,pp", [pytest.param(i, 1, 1) for i in range(1, min(4, available_gpus()) + 1)]
+)
 @pytest.mark.parametrize("tp_mode", list(TensorParallelLinearMode))
 @pytest.mark.parametrize("async_communication", [False, True])
 @rerun_if_address_is_in_use()
-def test_column_linear(tp: int, dp: int, pp: int, tp_mode: TensorParallelLinearMode, async_communication: bool):
+def test_column_linear(
+    tp: int,
+    dp: int,
+    pp: int,
+    tp_mode: TensorParallelLinearMode,
+    async_communication: bool,
+):
     if tp_mode is TensorParallelLinearMode.ALL_REDUCE and async_communication:
         pytest.skip("ALL_REDUCE mode does not support async communication")
     init_distributed(tp=tp, dp=dp, pp=pp)(_test_column_linear)(
@@ -29,7 +37,9 @@ def test_column_linear(tp: int, dp: int, pp: int, tp_mode: TensorParallelLinearM
 
 
 def _test_column_linear(
-    parallel_context: ParallelContext, tp_mode: TensorParallelLinearMode, async_communication: bool
+    parallel_context: ParallelContext,
+    tp_mode: TensorParallelLinearMode,
+    async_communication: bool,
 ):
     if async_communication:
         os.environ["CUDA_DEVICE_MAX_CONNECTIONS"] = "1"
@@ -48,17 +58,23 @@ def _test_column_linear(
     )
 
     # Un-sharded
-    reference_linear = torch_nn.Linear(in_features=in_features, out_features=out_features, device="cuda")
+    reference_linear = torch_nn.Linear(
+        in_features=in_features, out_features=out_features, device="cuda"
+    )
 
     # Copy weights/bias from sharded to un-sharded
     with torch.inference_mode():
         dist.all_gather(
-            tensor_list=list(reference_linear.weight.split(out_features_per_tp_rank, dim=0)),
+            tensor_list=list(
+                reference_linear.weight.split(out_features_per_tp_rank, dim=0)
+            ),
             tensor=column_linear.weight,
             group=parallel_context.tp_pg,
         )
         dist.all_gather(
-            tensor_list=list(reference_linear.bias.split(out_features_per_tp_rank, dim=0)),
+            tensor_list=list(
+                reference_linear.bias.split(out_features_per_tp_rank, dim=0)
+            ),
             tensor=column_linear.bias,
             group=parallel_context.tp_pg,
         )
@@ -70,11 +86,15 @@ def _test_column_linear(
         batch_size = 5
         random_input = torch.randn(batch_size, in_features, device="cuda")
         # synchronize random_input across tp
-        dist.all_reduce(random_input, op=dist.ReduceOp.AVG, group=parallel_context.tp_pg)
+        dist.all_reduce(
+            random_input, op=dist.ReduceOp.AVG, group=parallel_context.tp_pg
+        )
         sharded_random_input = random_input
     elif tp_mode is TensorParallelLinearMode.REDUCE_SCATTER:
         sharded_batch_size = 5
-        sharded_random_input = torch.randn(sharded_batch_size, in_features, device="cuda")
+        sharded_random_input = torch.randn(
+            sharded_batch_size, in_features, device="cuda"
+        )
         if parallel_context.tp_pg.size() > 1:
             random_input = torch.empty(
                 sharded_batch_size * parallel_context.tp_pg.size(),
@@ -82,7 +102,9 @@ def _test_column_linear(
                 device=sharded_random_input.device,
                 dtype=sharded_random_input.dtype,
             )
-            dist.all_gather_into_tensor(random_input, sharded_random_input, group=parallel_context.tp_pg)
+            dist.all_gather_into_tensor(
+                random_input, sharded_random_input, group=parallel_context.tp_pg
+            )
         else:
             random_input = sharded_random_input
     else:
@@ -148,18 +170,32 @@ def _test_column_linear(
     parallel_context.destroy()
 
 
-@pytest.mark.parametrize("tp,dp,pp", [pytest.param(i, 1, 1) for i in range(1, min(4, available_gpus()) + 1)])
+@pytest.mark.parametrize(
+    "tp,dp,pp", [pytest.param(i, 1, 1) for i in range(1, min(4, available_gpus()) + 1)]
+)
 @pytest.mark.parametrize("tp_mode", list(TensorParallelLinearMode))
 @pytest.mark.parametrize("async_communication", [False, True])
 @rerun_if_address_is_in_use()
-def test_row_linear(tp: int, dp: int, pp: int, tp_mode: TensorParallelLinearMode, async_communication: bool):
+def test_row_linear(
+    tp: int,
+    dp: int,
+    pp: int,
+    tp_mode: TensorParallelLinearMode,
+    async_communication: bool,
+):
     if tp_mode is TensorParallelLinearMode.ALL_REDUCE and async_communication:
         pytest.skip("ALL_REDUCE mode does not support async communication")
 
-    init_distributed(tp=tp, dp=dp, pp=pp)(_test_row_linear)(tp_mode=tp_mode, async_communication=async_communication)
+    init_distributed(tp=tp, dp=dp, pp=pp)(_test_row_linear)(
+        tp_mode=tp_mode, async_communication=async_communication
+    )
 
 
-def _test_row_linear(parallel_context: ParallelContext, tp_mode: TensorParallelLinearMode, async_communication: bool):
+def _test_row_linear(
+    parallel_context: ParallelContext,
+    tp_mode: TensorParallelLinearMode,
+    async_communication: bool,
+):
     if async_communication:
         os.environ["CUDA_DEVICE_MAX_CONNECTIONS"] = "1"
     out_features = 3
@@ -177,11 +213,17 @@ def _test_row_linear(parallel_context: ParallelContext, tp_mode: TensorParallelL
     )
 
     # Un-sharded
-    reference_linear = torch_nn.Linear(in_features=in_features, out_features=out_features, device="cuda")
+    reference_linear = torch_nn.Linear(
+        in_features=in_features, out_features=out_features, device="cuda"
+    )
 
     # Copy weights/bias from sharded to un-sharded
     with torch.inference_mode():
-        dist.all_reduce(tensor=reference_linear.weight, op=dist.ReduceOp.SUM, group=parallel_context.tp_pg)
+        dist.all_reduce(
+            tensor=reference_linear.weight,
+            op=dist.ReduceOp.SUM,
+            group=parallel_context.tp_pg,
+        )
         row_linear.weight.copy_(
             reference_linear.weight[
                 :,
@@ -265,14 +307,22 @@ def _test_row_linear(parallel_context: ParallelContext, tp_mode: TensorParallelL
     parallel_context.destroy()
 
 
-@pytest.mark.parametrize("tp,dp,pp", [pytest.param(i, 1, 1) for i in range(1, min(4, available_gpus()) + 1)])
+@pytest.mark.parametrize(
+    "tp,dp,pp", [pytest.param(i, 1, 1) for i in range(1, min(4, available_gpus()) + 1)]
+)
 @pytest.mark.parametrize("tp_mode", list(TensorParallelLinearMode))
 @rerun_if_address_is_in_use()
-def test_tensor_parallel_embedding(tp: int, dp: int, pp: int, tp_mode: TensorParallelLinearMode):
-    init_distributed(tp=tp, dp=dp, pp=pp)(_test_tensor_parallel_embedding)(tp_mode=tp_mode)
+def test_tensor_parallel_embedding(
+    tp: int, dp: int, pp: int, tp_mode: TensorParallelLinearMode
+):
+    init_distributed(tp=tp, dp=dp, pp=pp)(_test_tensor_parallel_embedding)(
+        tp_mode=tp_mode
+    )
 
 
-def _test_tensor_parallel_embedding(parallel_context: ParallelContext, tp_mode: TensorParallelLinearMode):
+def _test_tensor_parallel_embedding(
+    parallel_context: ParallelContext, tp_mode: TensorParallelLinearMode
+):
     num_embeddings_per_rank = 100
     embedding_dim = 3
     num_embeddings = parallel_context.tp_pg.size() * num_embeddings_per_rank
@@ -287,11 +337,17 @@ def _test_tensor_parallel_embedding(parallel_context: ParallelContext, tp_mode: 
     )
 
     # Un-sharded
-    reference_embedding = torch_nn.Embedding(num_embeddings=num_embeddings, embedding_dim=embedding_dim, device="cuda")
+    reference_embedding = torch_nn.Embedding(
+        num_embeddings=num_embeddings, embedding_dim=embedding_dim, device="cuda"
+    )
 
     # Copy weights/bias from sharded to un-sharded
     with torch.inference_mode():
-        dist.all_reduce(tensor=reference_embedding.weight, op=dist.ReduceOp.SUM, group=parallel_context.tp_pg)
+        dist.all_reduce(
+            tensor=reference_embedding.weight,
+            op=dist.ReduceOp.SUM,
+            group=parallel_context.tp_pg,
+        )
         sharded_embedding.weight.copy_(
             reference_embedding.weight[
                 dist.get_rank(parallel_context.tp_pg)
@@ -309,7 +365,9 @@ def _test_tensor_parallel_embedding(parallel_context: ParallelContext, tp_mode: 
         batch_size = 5 * parallel_context.tp_pg.size()
     else:
         raise ValueError(f"Unsupported mode: {tp_mode}")
-    random_input = torch.randint(low=0, high=num_embeddings, size=(batch_size,), device="cuda")
+    random_input = torch.randint(
+        low=0, high=num_embeddings, size=(batch_size,), device="cuda"
+    )
     dist.all_reduce(random_input, op=dist.ReduceOp.AVG, group=parallel_context.tp_pg)
 
     # Test that we get the same output after forward pass

@@ -44,7 +44,9 @@ def sync_gradients_across_dp(
     """
     if grad_accumulator is not None:
         # This is an optimized path that
-        grad_accumulator.sync_gradients_across_dp(dp_pg=dp_pg, reduce_op=reduce_op, **sync_options)
+        grad_accumulator.sync_gradients_across_dp(
+            dp_pg=dp_pg, reduce_op=reduce_op, **sync_options
+        )
         return
 
     # Sync gradients

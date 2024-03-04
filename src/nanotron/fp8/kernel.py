@@ -21,7 +21,9 @@ def fp8_matmul_kernel(
     device = mat_a.device
 
     _empty_tensor = torch.Tensor()
-    output = torch.empty(mat_a.shape[0], mat_b.shape[1], device=device, dtype=torch.float32)
+    output = torch.empty(
+        mat_a.shape[0], mat_b.shape[1], device=device, dtype=torch.float32
+    )
     workspace = torch.empty(33_554_432, dtype=torch.int8, device=device)
     accumulate = False
 
@@ -40,8 +42,16 @@ def fp8_matmul_kernel(
     TE_CONFIG_TRANSPOSE_B = False
     SCALE = AMAX = _empty_tensor
 
-    mat_a = tex.fp8_transpose(mat_a, mat_a_fp8_meta.te_dtype) if transpose_a is False else mat_a
-    mat_b = tex.fp8_transpose(mat_b, mat_b_fp8_meta.te_dtype) if transpose_b is True else mat_b
+    mat_a = (
+        tex.fp8_transpose(mat_a, mat_a_fp8_meta.te_dtype)
+        if transpose_a is False
+        else mat_a
+    )
+    mat_b = (
+        tex.fp8_transpose(mat_b, mat_b_fp8_meta.te_dtype)
+        if transpose_b is True
+        else mat_b
+    )
 
     tex.te_gemm(
         mat_a,

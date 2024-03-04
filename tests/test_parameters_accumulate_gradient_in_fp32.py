@@ -59,7 +59,9 @@ def test_gradient_promoting_in_fp32(half_precision: torch.dtype):
     assert accumulator.parameters["weight"]["fp32"].grad.dtype == torch.float
     if model.weight.grad is not None:
         # We check that it's zero
-        torch.testing.assert_close(model.weight.grad, torch.zeros_like(model.weight.grad), atol=1e-6, rtol=1e-7)
+        torch.testing.assert_close(
+            model.weight.grad, torch.zeros_like(model.weight.grad), atol=1e-6, rtol=1e-7
+        )
 
 
 @pytest.mark.parametrize("half_precision", [torch.float16, torch.bfloat16])
@@ -105,7 +107,9 @@ def test_optimizer_can_step_gradient_in_fp32(half_precision: torch.dtype):
 
     # Add optimizer
     optimizer = OptimizerFromGradientAccumulator(
-        gradient_accumulator_builder=lambda named_params: FP32GradientAccumulator(named_parameters=named_params),
+        gradient_accumulator_builder=lambda named_params: FP32GradientAccumulator(
+            named_parameters=named_params
+        ),
         named_params_or_groups=model.named_parameters(),
         optimizer_builder=lambda named_param_groups: NamedOptimizer(
             named_params_or_groups=named_param_groups,
@@ -125,7 +129,9 @@ def test_optimizer_can_step_gradient_in_fp32(half_precision: torch.dtype):
     assert accumulator.parameters["weight"]["fp32"].grad.dtype == torch.float
     if model.weight.grad is not None:
         # We check that it's zero
-        torch.testing.assert_close(model.weight.grad, torch.zeros_like(model.weight.grad), atol=1e-6, rtol=1e-7)
+        torch.testing.assert_close(
+            model.weight.grad, torch.zeros_like(model.weight.grad), atol=1e-6, rtol=1e-7
+        )
 
     optimizer.step()
     optimizer.zero_grad()
@@ -136,18 +142,24 @@ def test_optimizer_can_step_gradient_in_fp32(half_precision: torch.dtype):
 
     # Check that gradients have been set to zero
     fp32_grad = accumulator.get_grad_buffer(name="weight")
-    torch.testing.assert_close(fp32_grad, torch.zeros_like(fp32_grad), atol=1e-6, rtol=1e-7)
+    torch.testing.assert_close(
+        fp32_grad, torch.zeros_like(fp32_grad), atol=1e-6, rtol=1e-7
+    )
 
     # weights has been updates
     assert not torch.allclose(original_weight, model.weight)
 
 
-@pytest.mark.skipif(available_gpus() < 2, reason="Testing ddp_hook_allreduce requires at least 2 gpus")
+@pytest.mark.skipif(
+    available_gpus() < 2, reason="Testing ddp_hook_allreduce requires at least 2 gpus"
+)
 @pytest.mark.parametrize("half_precision", [torch.float16, torch.bfloat16])
 @pytest.mark.parametrize("accumulation_steps", [1, 10])
 @pytest.mark.parametrize("train_iterations", [1, 3])
 @rerun_if_address_is_in_use()
-def test_ddp_with_grad_accum_in_fp32(half_precision: torch.dtype, accumulation_steps: int, train_iterations: int):
+def test_ddp_with_grad_accum_in_fp32(
+    half_precision: torch.dtype, accumulation_steps: int, train_iterations: int
+):
     init_distributed(tp=1, dp=2, pp=1)(_test_ddp_with_grad_accum_in_fp32)(
         half_precision=half_precision,
         accumulation_steps=accumulation_steps,
@@ -166,7 +178,13 @@ def _test_ddp_with_grad_accum_in_fp32(
     model = nn.Sequential(
         nn.Linear(3, hidden_size, bias=False, dtype=half_precision, device="cuda"),
         *(
-            nn.Linear(hidden_size, hidden_size, bias=False, dtype=half_precision, device="cuda")
+            nn.Linear(
+                hidden_size,
+                hidden_size,
+                bias=False,
+                dtype=half_precision,
+                device="cuda",
+            )
             for _ in range(n_layers - 1)
         ),
     )
@@ -198,7 +216,9 @@ def _test_ddp_with_grad_accum_in_fp32(
     state = FP32GradBucketManager(
         dp_pg=parallel_context.dp_pg,
         accumulator=accumulator,
-        param_id_to_name={id(param): name for name, param in model_ddp_fp32_accum.named_parameters()},
+        param_id_to_name={
+            id(param): name for name, param in model_ddp_fp32_accum.named_parameters()
+        },
     )
     model_ddp_fp32_accum.register_comm_hook(
         state=state,
@@ -216,7 +236,9 @@ def _test_ddp_with_grad_accum_in_fp32(
             loss = model_ddp.module(input).sum()
             assert not torch.isinf(loss).any(), "loss is inf"
             loss.backward()
-            with ContextManagers([model_ddp_fp32_accum.no_sync(), accumulator.no_sync()]):
+            with ContextManagers(
+                [model_ddp_fp32_accum.no_sync(), accumulator.no_sync()]
+            ):
                 loss_fp32_accum = model_ddp_fp32_accum(input).sum()
                 accumulator.backward(loss_fp32_accum)
 
@@ -227,21 +249,33 @@ def _test_ddp_with_grad_accum_in_fp32(
 
                 # Check that FP32GradAccum+DDP+hook gives close gradients to DDP
                 model_ddp_accum_ref[name] = (
-                    grad.float() if accum_step == 0 else model_ddp_accum_ref[name] + grad.float()
+                    grad.float()
+                    if accum_step == 0
+                    else model_ddp_accum_ref[name] + grad.float()
                 )
 
                 dist.barrier()
-                torch.testing.assert_close(model_ddp_accum_ref[name], fp32_grad_bucket, atol=1e-6, rtol=1e-7)
+                torch.testing.assert_close(
+                    model_ddp_accum_ref[name], fp32_grad_bucket, atol=1e-6, rtol=1e-7
+                )
 
                 dist.barrier()
                 # Check that we correctly copied grads from buckets to params (`copy_buckets_to_grads`)
-                torch.testing.assert_close(fp32_grad_bucket, grad_fp32_accum, atol=1e-6, rtol=1e-7)
+                torch.testing.assert_close(
+                    fp32_grad_bucket, grad_fp32_accum, atol=1e-6, rtol=1e-7
+                )
 
                 # Check that the gradients are not synchronized across DP
-                with assert_fail_except_rank_with(AssertionError, rank_exception=0, pg=parallel_context.dp_pg):
+                with assert_fail_except_rank_with(
+                    AssertionError, rank_exception=0, pg=parallel_context.dp_pg
+                ):
                     assert_tensor_synced_across_pg(grad, parallel_context.dp_pg)
-                with assert_fail_except_rank_with(AssertionError, rank_exception=0, pg=parallel_context.dp_pg):
-                    assert_tensor_synced_across_pg(fp32_grad_bucket, parallel_context.dp_pg)
+                with assert_fail_except_rank_with(
+                    AssertionError, rank_exception=0, pg=parallel_context.dp_pg
+                ):
+                    assert_tensor_synced_across_pg(
+                        fp32_grad_bucket, parallel_context.dp_pg
+                    )
 
             # We zero out half grads for `model_ddp` because we're accumulating grads manually in `model_ddp_accum_ref`
             model_ddp.zero_grad()
@@ -254,9 +288,15 @@ def _test_ddp_with_grad_accum_in_fp32(
         for name, param in model_ddp.named_parameters():
             grad = param.grad
             model_ddp_accum_ref[name] = (
-                model_ddp_accum_ref[name] + grad.float() if name in model_ddp_accum_ref else grad.float()
+                model_ddp_accum_ref[name] + grad.float()
+                if name in model_ddp_accum_ref
+                else grad.float()
             )
-            dist.all_reduce(model_ddp_accum_ref[name], group=parallel_context.dp_pg, op=dist.ReduceOp.AVG)
+            dist.all_reduce(
+                model_ddp_accum_ref[name],
+                group=parallel_context.dp_pg,
+                op=dist.ReduceOp.AVG,
+            )
 
         loss_fp32_accum = model_ddp_fp32_accum(input).sum()
         accumulator.backward(loss_fp32_accum)
@@ -294,34 +334,47 @@ def _test_ddp_with_grad_accum_in_fp32(
             assert param.grad is None
             fp32_grad_bucket = accumulator.get_grad_buffer(name=name)
             dist.barrier()
-            torch.testing.assert_close(fp32_grad_bucket, torch.zeros_like(fp32_grad_bucket), atol=1e-6, rtol=1e-7)
+            torch.testing.assert_close(
+                fp32_grad_bucket,
+                torch.zeros_like(fp32_grad_bucket),
+                atol=1e-6,
+                rtol=1e-7,
+            )
 
         # Check that all fp32 grad buckets are zeroed out
         for _, elt in accumulator.fp32_grad_buffers.items():
             fp32_grad = elt["fp32_grad"]
             # This is important as we assume grad buckets to be zeroed out at the first accumulation step
             dist.barrier()
-            torch.testing.assert_close(fp32_grad, torch.zeros_like(fp32_grad), atol=1e-6, rtol=1e-7)
+            torch.testing.assert_close(
+                fp32_grad, torch.zeros_like(fp32_grad), atol=1e-6, rtol=1e-7
+            )
 
     parallel_context.destroy()
 
 
 @pytest.mark.skipif(
-    available_gpus() < 4, reason="Testing test_tied_weights_sync_with_grad_accum_in_fp32 requires at least 4 gpus"
+    available_gpus() < 4,
+    reason="Testing test_tied_weights_sync_with_grad_accum_in_fp32 requires at least 4 gpus",
 )
 @pytest.mark.parametrize(
-    "pipeline_engine", [AllForwardAllBackwardPipelineEngine(), OneForwardOneBackwardPipelineEngine()]
+    "pipeline_engine",
+    [AllForwardAllBackwardPipelineEngine(), OneForwardOneBackwardPipelineEngine()],
 )
 @pytest.mark.parametrize("reduce_scatter", [True, False])
 @rerun_if_address_is_in_use()
-def test_tied_weights_sync_with_grad_accum_in_fp32(pipeline_engine: PipelineEngine, reduce_scatter: bool):
+def test_tied_weights_sync_with_grad_accum_in_fp32(
+    pipeline_engine: PipelineEngine, reduce_scatter: bool
+):
     init_distributed(tp=1, dp=2, pp=2)(_test_tied_weights_sync_with_grad_accum_in_fp32)(
         pipeline_engine=pipeline_engine, reduce_scatter=reduce_scatter
     )
 
 
 def _test_tied_weights_sync_with_grad_accum_in_fp32(
-    parallel_context: ParallelContext, pipeline_engine: PipelineEngine, reduce_scatter: bool
+    parallel_context: ParallelContext,
+    pipeline_engine: PipelineEngine,
+    reduce_scatter: bool,
 ):
     # We init two replicas of 2 denses. Each dense is on a device.
     dtype = torch.float16
@@ -336,7 +389,9 @@ def _test_tied_weights_sync_with_grad_accum_in_fp32(
         # Set the ranks
         with init_on_device_and_dtype(device, dtype):
             assert parallel_context.pp_pg.size() == len(mdl.mlp)
-            for pp_rank, non_linear in zip(range(parallel_context.pp_pg.size()), mdl.mlp):
+            for pp_rank, non_linear in zip(
+                range(parallel_context.pp_pg.size()), mdl.mlp
+            ):
                 non_linear.linear.build_and_set_rank(pp_rank=pp_rank)
                 non_linear.activation.build_and_set_rank(pp_rank=pp_rank)
             mdl.loss.build_and_set_rank(pp_rank=parallel_context.pp_pg.size() - 1)
@@ -357,7 +412,8 @@ def _test_tied_weights_sync_with_grad_accum_in_fp32(
                     ),
                 )
                 for target in [
-                    f"mlp.{pp_rank}.linear.pp_block.weight" for pp_rank in range(parallel_context.pp_pg.size())
+                    f"mlp.{pp_rank}.linear.pp_block.weight"
+                    for pp_rank in range(parallel_context.pp_pg.size())
                 ]
             ],
             parallel_context=parallel_context,
@@ -377,10 +433,15 @@ def _test_tied_weights_sync_with_grad_accum_in_fp32(
             param.copy_(reference_model.get_parameter(name))
 
     # DDP
-    model_ddp = torch.nn.parallel.DistributedDataParallel(model, process_group=parallel_context.dp_pg)
-    module_id_to_prefix = {id(module): f"{module_name}." for module_name, module in model.named_modules()}
+    model_ddp = torch.nn.parallel.DistributedDataParallel(
+        model, process_group=parallel_context.dp_pg
+    )
+    module_id_to_prefix = {
+        id(module): f"{module_name}." for module_name, module in model.named_modules()
+    }
     reference_module_id_to_prefix = {
-        id(module): f"{module_name}." for module_name, module in reference_model.named_modules()
+        id(module): f"{module_name}."
+        for module_name, module in reference_model.named_modules()
     }
     # Fix the root_model
     module_id_to_prefix[id(model)] = ""
@@ -389,9 +450,13 @@ def _test_tied_weights_sync_with_grad_accum_in_fp32(
     # named parameters
     named_parameters = [
         (
-            param.get_tied_info().get_full_name_from_module_id_to_prefix(module_id_to_prefix=module_id_to_prefix)
-            if param.is_tied
-            else name,
+            (
+                param.get_tied_info().get_full_name_from_module_id_to_prefix(
+                    module_id_to_prefix=module_id_to_prefix
+                )
+                if param.is_tied
+                else name
+            ),
             param,
         )
         for name, param in model.named_parameters()
@@ -414,11 +479,13 @@ def _test_tied_weights_sync_with_grad_accum_in_fp32(
         ),
     )
     param_id_to_name = {
-        id(param): param.get_tied_info().get_full_name_from_module_id_to_prefix(
-            module_id_to_prefix=module_id_to_prefix
+        id(param): (
+            param.get_tied_info().get_full_name_from_module_id_to_prefix(
+                module_id_to_prefix=module_id_to_prefix
+            )
+            if param.is_tied
+            else name
         )
-        if param.is_tied
-        else name
         for name, param in model.named_parameters()
     }
 
@@ -435,11 +502,15 @@ def _test_tied_weights_sync_with_grad_accum_in_fp32(
             accumulator=accumulator,
             param_id_to_name=param_id_to_name,
         ),
-        hook=get_fp32_accum_hook(reduce_scatter=reduce_scatter, reduce_op=dist.ReduceOp.AVG),
+        hook=get_fp32_accum_hook(
+            reduce_scatter=reduce_scatter, reduce_op=dist.ReduceOp.AVG
+        ),
     )
 
     # Get infinite dummy data iterator
-    data_iterator = dummy_infinite_data_loader(pp_pg=parallel_context.pp_pg, dtype=dtype)  # First rank receives data
+    data_iterator = dummy_infinite_data_loader(
+        pp_pg=parallel_context.pp_pg, dtype=dtype
+    )  # First rank receives data
 
     n_micro_batches_per_batch = 2
     batch = [next(data_iterator) for _ in range(n_micro_batches_per_batch)]
@@ -447,7 +518,11 @@ def _test_tied_weights_sync_with_grad_accum_in_fp32(
     ## Reference model iteration step
     def forward_backward_reference(mdl, micro_batch):
         pipeline_engine.train_batch_iter(
-            mdl, pg=parallel_context.pp_pg, batch=[micro_batch], nb_microbatches=1, grad_accumulator=None
+            mdl,
+            pg=parallel_context.pp_pg,
+            batch=[micro_batch],
+            nb_microbatches=1,
+            grad_accumulator=None,
         )
 
     for accum_step in range(n_micro_batches_per_batch - 1):
@@ -462,7 +537,9 @@ def _test_tied_weights_sync_with_grad_accum_in_fp32(
                     module_id_to_prefix=reference_module_id_to_prefix
                 )
             reference_model_accum_ref[name] = (
-                grad.float() if accum_step == 0 else reference_model_accum_ref[name] + grad.float()
+                grad.float()
+                if accum_step == 0
+                else reference_model_accum_ref[name] + grad.float()
             )
 
         # We zero out half grads for `reference_model` because we're accumulating grads manually in `reference_model_accum_ref`
@@ -475,11 +552,19 @@ def _test_tied_weights_sync_with_grad_accum_in_fp32(
         grad = param.grad
         if param.is_tied:
             tied_info = param.get_tied_info()
-            name = tied_info.get_full_name_from_module_id_to_prefix(module_id_to_prefix=reference_module_id_to_prefix)
+            name = tied_info.get_full_name_from_module_id_to_prefix(
+                module_id_to_prefix=reference_module_id_to_prefix
+            )
         reference_model_accum_ref[name] = (
-            reference_model_accum_ref[name] + grad.float() if name in reference_model_accum_ref else grad.float()
+            reference_model_accum_ref[name] + grad.float()
+            if name in reference_model_accum_ref
+            else grad.float()
         )
-        dist.all_reduce(reference_model_accum_ref[name], group=parallel_context.dp_pg, op=dist.ReduceOp.AVG)
+        dist.all_reduce(
+            reference_model_accum_ref[name],
+            group=parallel_context.dp_pg,
+            op=dist.ReduceOp.AVG,
+        )
 
     ## Model iteration step
     pipeline_engine.train_batch_iter(
@@ -492,7 +577,9 @@ def _test_tied_weights_sync_with_grad_accum_in_fp32(
     for name, param in model_ddp.module.named_parameters():
         if param.is_tied:
             tied_info = param.get_tied_info()
-            name = tied_info.get_full_name_from_module_id_to_prefix(module_id_to_prefix=module_id_to_prefix)
+            name = tied_info.get_full_name_from_module_id_to_prefix(
+                module_id_to_prefix=module_id_to_prefix
+            )
 
         # Each parameter is sharded across DP.
         assert (
@@ -520,11 +607,18 @@ def _test_tied_weights_sync_with_grad_accum_in_fp32(
             )
         else:
             # Check that gradients are correct
-            torch.testing.assert_close(fp32_grad_ref / n_micro_batches_per_batch, fp32_grad, rtol=1e-7, atol=1e-6)
+            torch.testing.assert_close(
+                fp32_grad_ref / n_micro_batches_per_batch,
+                fp32_grad,
+                rtol=1e-7,
+                atol=1e-6,
+            )
 
     # Check that tied weights grads are not synchronized yet
     for (name, group_ranks), param in sorted(
-        get_tied_id_to_param(parameters=model_ddp.parameters(), root_module=model_ddp.module).items(),
+        get_tied_id_to_param(
+            parameters=model_ddp.parameters(), root_module=model_ddp.module
+        ).items(),
         key=lambda x: x[0],
     ):
         if not (isinstance(param, NanotronParameter) and param.is_tied):
@@ -544,12 +638,16 @@ def _test_tied_weights_sync_with_grad_accum_in_fp32(
     # - accumulator keeps grads for all DPs, so we can just sync the grads
     with timeout_after():
         sync_tied_weights_gradients(
-            module=model_ddp.module, parallel_context=parallel_context, grad_accumulator=accumulator
+            module=model_ddp.module,
+            parallel_context=parallel_context,
+            grad_accumulator=accumulator,
         )
 
     tied_infos_dict = {
         (
-            param.get_tied_info().get_full_name_from_module_id_to_prefix(module_id_to_prefix=module_id_to_prefix),
+            param.get_tied_info().get_full_name_from_module_id_to_prefix(
+                module_id_to_prefix=module_id_to_prefix
+            ),
             param.get_tied_info().global_ranks,
             param.get_tied_info().reduce_op,
         ): param
@@ -558,7 +656,9 @@ def _test_tied_weights_sync_with_grad_accum_in_fp32(
     }
 
     # Check that tied weights grads are synchronized
-    for (name, group_ranks, reduce_op), param in sorted(tied_infos_dict.items(), key=lambda x: x[0]):
+    for (name, group_ranks, reduce_op), param in sorted(
+        tied_infos_dict.items(), key=lambda x: x[0]
+    ):
         # Make sure we don't get None for reduce_op
         assert reduce_op == dist.ReduceOp.SUM
 
@@ -568,7 +668,9 @@ def _test_tied_weights_sync_with_grad_accum_in_fp32(
         fp32_grad = accumulator.parameters[name]["fp32"].grad
         # Tied weights are synced using the fp32 grad buffers. Let's make sure they still point to the same memory
         # When using ZeRODistributedOptimizer gradients are slices across dp
-        dp_slice_fp_32_grad_buffer = fp32_grad_buffer.view(-1)[slice(*accumulator.param_name_to_offsets[name])]
+        dp_slice_fp_32_grad_buffer = fp32_grad_buffer.view(-1)[
+            slice(*accumulator.param_name_to_offsets[name])
+        ]
         assert (
             dp_slice_fp_32_grad_buffer.data_ptr() == fp32_grad.data_ptr()
         ), "dp_slice_fp_32_grad_buffer and fp32_grad should point to the same memory"
@@ -601,7 +703,8 @@ def _test_tied_weights_sync_with_grad_accum_in_fp32(
         if reduce_scatter:
             slice_ = slice(*accumulator.param_name_to_offsets[name])
             torch.testing.assert_close(
-                reference_model_accum_ref[name].view(-1)[slice_] / n_micro_batches_per_batch,
+                reference_model_accum_ref[name].view(-1)[slice_]
+                / n_micro_batches_per_batch,
                 fp32_grad.view(-1)[slice_],
                 atol=1e-6,
                 rtol=1e-7,

@@ -25,7 +25,11 @@ class FP8Meta:
 
     def __post_init__(self):
         # NOTE: transformer engine only accepts torch tensors
-        self.amax = torch.tensor(self.amax, device="cuda") if not isinstance(self.amax, torch.Tensor) else self.amax
+        self.amax = (
+            torch.tensor(self.amax, device="cuda")
+            if not isinstance(self.amax, torch.Tensor)
+            else self.amax
+        )
 
     @property
     def fp8_max(self) -> float:

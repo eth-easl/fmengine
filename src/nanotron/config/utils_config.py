@@ -46,7 +46,9 @@ def serialize(data) -> dict:
         elif isinstance(value, (list, tuple)):
             result[field.name] = [serialize(v) for v in value]
         elif isinstance(value, dict) and not value:
-            result[field.name] = None  # So we can serialize empty dicts without issue with `datasets` in particular
+            result[field.name] = (
+                None  # So we can serialize empty dicts without issue with `datasets` in particular
+            )
         else:
             result[field.name] = value
 
@@ -88,7 +90,9 @@ def cast_str_to_torch_dtype(str_dtype: str):
     if str_dtype in str_to_dtype:
         return str_to_dtype[str_dtype]
     else:
-        raise ValueError(f"dtype should be a string selected in {str_to_dtype.keys()} and not {str_dtype}")
+        raise ValueError(
+            f"dtype should be a string selected in {str_to_dtype.keys()} and not {str_dtype}"
+        )
 
 
 def cast_str_to_pipeline_engine(str_pp_engine: str) -> PipelineEngine:
@@ -97,7 +101,9 @@ def cast_str_to_pipeline_engine(str_pp_engine: str) -> PipelineEngine:
     elif str_pp_engine == "1f1b":
         return OneForwardOneBackwardPipelineEngine()
     else:
-        raise ValueError(f"pp_engine should be a string selected in ['afab', '1f1b'] and not {str_pp_engine}")
+        raise ValueError(
+            f"pp_engine should be a string selected in ['afab', '1f1b'] and not {str_pp_engine}"
+        )
 
 
 def cast_pipeline_engine_to_str(pp_engine: PipelineEngine) -> str:

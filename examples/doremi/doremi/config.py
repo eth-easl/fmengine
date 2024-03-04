@@ -35,11 +35,15 @@ class DoReMiArgs:
 
     def __post_init__(self):
         if isinstance(self.domain_names, str):
-            self.domain_names = [str(name.strip()) for name in self.domain_names.split(",")]
+            self.domain_names = [
+                str(name.strip()) for name in self.domain_names.split(",")
+            ]
 
         if self.domain_weights is not None:
             if isinstance(self.domain_weights, str):
-                domain_weights = [float(weight.strip()) for weight in self.domain_weights.split(",")]
+                domain_weights = [
+                    float(weight.strip()) for weight in self.domain_weights.split(",")
+                ]
             else:
                 domain_weights = self.domain_weights
 
@@ -52,7 +56,9 @@ class DoReMiArgs:
             self.ref_model_checkpoint_path = Path(self.ref_model_checkpoint_path)
 
         if self.ref_model_resume_checkpoint_path is not None:
-            self.ref_model_resume_checkpoint_path = Path(self.ref_model_resume_checkpoint_path)
+            self.ref_model_resume_checkpoint_path = Path(
+                self.ref_model_resume_checkpoint_path
+            )
 
 
 @dataclass
@@ -77,12 +83,17 @@ class DoReMiConfig:
 
         if self.optimizer.learning_rate_scheduler.lr_decay_steps is None:
             self.optimizer.learning_rate_scheduler.lr_decay_steps = (
-                self.tokens.train_steps - self.optimizer.learning_rate_scheduler.lr_warmup_steps
+                self.tokens.train_steps
+                - self.optimizer.learning_rate_scheduler.lr_warmup_steps
             )
 
     @property
     def global_batch_size(self):
-        return self.tokens.micro_batch_size * self.tokens.batch_accumulation_per_replica * self.parallelism.dp
+        return (
+            self.tokens.micro_batch_size
+            * self.tokens.batch_accumulation_per_replica
+            * self.parallelism.dp
+        )
 
     def save_as_yaml(self, file_path: str):
         config_dict = serialize(self)

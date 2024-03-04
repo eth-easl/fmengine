@@ -19,11 +19,15 @@ class FP8Tensor(torch.Tensor):
 
         # TODO(xrsrke): if the tensor is on cpu, then bypass the quantization
         # because the current kernels only support gpu tensor
-        assert tensor.device != torch.device("cpu"), "FP8Tensor only supports CUDA device"
+        assert tensor.device != torch.device(
+            "cpu"
+        ), "FP8Tensor only supports CUDA device"
         assert isinstance(dtype, DTypes)
 
         amax = tensor.abs().max().clone()
-        scale = update_scaling_factor(amax, torch.tensor(INITIAL_SCALING_FACTOR, dtype=torch.float32), dtype)
+        scale = update_scaling_factor(
+            amax, torch.tensor(INITIAL_SCALING_FACTOR, dtype=torch.float32), dtype
+        )
         fp8_meta = FP8Meta(amax, scale, dtype)
         fp8_tensor = convert_tensor_to_fp8(tensor, fp8_meta)
 
@@ -65,7 +69,9 @@ def convert_tensor_to_fp8(tensor: torch.Tensor, meta) -> FP8Tensor:
     return tex.cast_to_fp8(tensor, meta.scale, meta.amax, inverse_scale, te_dtype)
 
 
-def convert_tensor_from_fp8(tensor: torch.Tensor, meta, dtype: torch.dtype) -> torch.Tensor:
+def convert_tensor_from_fp8(
+    tensor: torch.Tensor, meta, dtype: torch.dtype
+) -> torch.Tensor:
     assert isinstance(tensor, torch.Tensor)
     assert isinstance(dtype, torch.dtype)
     tensor_dtype = convert_torch_dtype_to_te_dtype(meta.dtype)
@@ -92,14 +98,23 @@ def update_scaling_factor(
     # NOTE: torch.jit only take a concrete value rather than a DTYPE_TO_FP8_MAX[dtype],
     # so we create an inner function to bypass that
     @torch.jit.script
-    def _inner(amax: torch.Tensor, fp8_max: torch.Tensor, scaling_factor: torch.Tensor, margin: float):
+    def _inner(
+        amax: torch.Tensor,
+        fp8_max: torch.Tensor,
+        scaling_factor: torch.Tensor,
+        margin: float,
+    ):
         # NOTE: calculate the number of bits to shift the exponent
         ratio = fp8_max / amax
         exp = torch.floor(torch.log2(ratio)) - margin
         new_scaling_factor = torch.round(torch.pow(2, torch.abs(exp)))
         new_scaling_factor = torch.where(amax > 0.0, new_scaling_factor, scaling_factor)
-        new_scaling_factor = torch.where(torch.isfinite(amax), new_scaling_factor, scaling_factor)
-        new_scaling_factor = torch.where(exp < 0, 1 / new_scaling_factor, new_scaling_factor)
+        new_scaling_factor = torch.where(
+            torch.isfinite(amax), new_scaling_factor, scaling_factor
+        )
+        new_scaling_factor = torch.where(
+            exp < 0, 1 / new_scaling_factor, new_scaling_factor
+        )
         return new_scaling_factor
 
     return _inner(amax, fp8_max, scaling_factor, margin)

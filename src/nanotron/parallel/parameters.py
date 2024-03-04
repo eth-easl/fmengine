@@ -20,7 +20,9 @@ class SlicesPair:
     def slice_to_str(s: slice):
         # e.g. slice(0, 10, 2) -> "0,10,2"
         # e.g. slice(None, None, None) -> "None,None,None"
-        return ",".join(str(x) if x is not None else "None" for x in (s.start, s.stop, s.step))
+        return ",".join(
+            str(x) if x is not None else "None" for x in (s.start, s.stop, s.step)
+        )
 
     @staticmethod
     def str_to_slice(s: str):
@@ -63,12 +65,17 @@ class TiedInfo:
     reduce_op: Optional[dist.ReduceOp]
 
     def get_full_name_from_model(self, model: nn.Module) -> str:
-        module_id_to_prefix = {id(module): f"{module_name}." for module_name, module in model.named_modules()}
+        module_id_to_prefix = {
+            id(module): f"{module_name}."
+            for module_name, module in model.named_modules()
+        }
         # Fix the root_model
         module_id_to_prefix[id(model)] = ""
         return self.get_full_name_from_module_id_to_prefix(module_id_to_prefix)
 
-    def get_full_name_from_module_id_to_prefix(self, module_id_to_prefix: Dict[int, str]) -> str:
+    def get_full_name_from_module_id_to_prefix(
+        self, module_id_to_prefix: Dict[int, str]
+    ) -> str:
         return f"{module_id_to_prefix[id(self.root_module)]}{self.name}"  # this assumes root_module is part of module_id_to_prefix
 
 
@@ -101,7 +108,9 @@ class NanotronParameter(nn.Parameter):
     NANOTRON_PARAMETER_METADATA_SHARDED_KEY = "sharded"
 
     def __new__(cls, tensor: torch.Tensor, requires_grad: bool = True):
-        param = nn.Parameter.__new__(cls, data=tensor.data.detach(), requires_grad=requires_grad)
+        param = nn.Parameter.__new__(
+            cls, data=tensor.data.detach(), requires_grad=requires_grad
+        )
 
         if isinstance(tensor, NanotronParameter):
             # Check that we don't inherit a weird class
@@ -128,11 +137,20 @@ class NanotronParameter(nn.Parameter):
             metadata[key] = value
 
     def mark_as_tied(
-        self, name: str, global_ranks: Tuple[int, ...], reduce_op: Optional[dist.ReduceOp], root_module: NanotronModel
+        self,
+        name: str,
+        global_ranks: Tuple[int, ...],
+        reduce_op: Optional[dist.ReduceOp],
+        root_module: NanotronModel,
     ):
         self._set_metadata(
             self.NANOTRON_PARAMETER_METADATA_TIED_KEY,
-            TiedInfo(name=name, global_ranks=global_ranks, reduce_op=reduce_op, root_module=root_module),
+            TiedInfo(
+                name=name,
+                global_ranks=global_ranks,
+                reduce_op=reduce_op,
+                root_module=root_module,
+            ),
         )
 
     def get_tied_info(self) -> TiedInfo:

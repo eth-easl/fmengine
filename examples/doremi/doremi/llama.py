@@ -38,7 +38,10 @@ class BaseLLaMa(NanotronModel):
         model = self
         initialized_parameters = set()
         # Handle tensor parallelism
-        module_id_to_prefix = {id(module): f"{module_name}." for module_name, module in model.named_modules()}
+        module_id_to_prefix = {
+            id(module): f"{module_name}."
+            for module_name, module in model.named_modules()
+        }
         # Fix the root_model
         module_id_to_prefix[id(model)] = ""
 
@@ -50,15 +53,17 @@ class BaseLLaMa(NanotronModel):
                 #  - run init method on it
                 #  - shard result to get only a specific shard
                 # Instead I'm lazy and just going to run init_method, since they are scalar independent
-                assert {"weight"} == {name for name, _ in module.named_parameters()} or {"weight"} == {
+                assert {"weight"} == {
                     name for name, _ in module.named_parameters()
-                }
+                } or {"weight"} == {name for name, _ in module.named_parameters()}
                 for param_name, param in module.named_parameters():
                     assert isinstance(param, NanotronParameter)
                     if param.is_tied:
                         tied_info = param.get_tied_info()
-                        full_param_name = tied_info.get_full_name_from_module_id_to_prefix(
-                            module_id_to_prefix=module_id_to_prefix
+                        full_param_name = (
+                            tied_info.get_full_name_from_module_id_to_prefix(
+                                module_id_to_prefix=module_id_to_prefix
+                            )
                         )
                     else:
                         full_param_name = f"{module_name}.{param_name}"
@@ -83,15 +88,17 @@ class BaseLLaMa(NanotronModel):
                 #  - run init method on it
                 #  - shard result to get only a specific shard
                 # Instead I'm lazy and just going to run init_method, since they are scalar independent
-                assert {"weight"} == {name for name, _ in module.named_parameters()} or {"weight"} == {
+                assert {"weight"} == {
                     name for name, _ in module.named_parameters()
-                }
+                } or {"weight"} == {name for name, _ in module.named_parameters()}
                 for param_name, param in module.named_parameters():
                     assert isinstance(param, NanotronParameter)
                     if param.is_tied:
                         tied_info = param.get_tied_info()
-                        full_param_name = tied_info.get_full_name_from_module_id_to_prefix(
-                            module_id_to_prefix=module_id_to_prefix
+                        full_param_name = (
+                            tied_info.get_full_name_from_module_id_to_prefix(
+                                module_id_to_prefix=module_id_to_prefix
+                            )
                         )
                     else:
                         full_param_name = f"{module_name}.{param_name}"
@@ -115,8 +122,10 @@ class BaseLLaMa(NanotronModel):
                     assert isinstance(param, NanotronParameter)
                     if param.is_tied:
                         tied_info = param.get_tied_info()
-                        full_param_name = tied_info.get_full_name_from_module_id_to_prefix(
-                            module_id_to_prefix=module_id_to_prefix
+                        full_param_name = (
+                            tied_info.get_full_name_from_module_id_to_prefix(
+                                module_id_to_prefix=module_id_to_prefix
+                            )
                         )
                     else:
                         full_param_name = f"{module_name}.{param_name}"
@@ -163,9 +172,13 @@ class BaseLLaMa(NanotronModel):
                 initialized_parameters.add(full_param_name)
 
         assert initialized_parameters == {
-            param.get_tied_info().get_full_name_from_module_id_to_prefix(module_id_to_prefix=module_id_to_prefix)
-            if param.is_tied
-            else name
+            (
+                param.get_tied_info().get_full_name_from_module_id_to_prefix(
+                    module_id_to_prefix=module_id_to_prefix
+                )
+                if param.is_tied
+                else name
+            )
             for name, param in model.named_parameters()
         }, f"Somehow the initialized set of parameters don't match:\n - Expected: { {name for name, _ in model.named_parameters()} }\n - Got: {initialized_parameters}"
 
@@ -173,9 +186,13 @@ class BaseLLaMa(NanotronModel):
         """Computes the compute cost of each block in the model so that we can do a better job of load balancing."""
         return self.model.get_block_compute_costs()
 
-    def get_flops_per_sec(self, iteration_time_in_sec, sequence_length, global_batch_size):
+    def get_flops_per_sec(
+        self, iteration_time_in_sec, sequence_length, global_batch_size
+    ):
         """Get flops per second for a given model"""
-        return self.model.get_flops_per_sec(iteration_time_in_sec, sequence_length, global_batch_size)
+        return self.model.get_flops_per_sec(
+            iteration_time_in_sec, sequence_length, global_batch_size
+        )
 
 
 class LLaMaForInference(BaseLLaMa):
@@ -186,7 +203,11 @@ class LLaMaForInference(BaseLLaMa):
         parallel_context: ParallelContext,
     ):
         super().__init__()
-        self.model = LlamaModel(config=config, parallel_context=parallel_context, parallel_config=parallel_config)
+        self.model = LlamaModel(
+            config=config,
+            parallel_context=parallel_context,
+            parallel_config=parallel_config,
+        )
         self.parallel_context = parallel_context
         self.config = config
         self.parallel_config = parallel_config
@@ -220,7 +241,11 @@ class LlamaForDoReMiTraining(BaseLLaMa):
         parallel_config: Optional[ParallelismArgs],
     ):
         super().__init__()
-        self.model = LlamaModel(config=config, parallel_context=parallel_context, parallel_config=parallel_config)
+        self.model = LlamaModel(
+            config=config,
+            parallel_context=parallel_context,
+            parallel_config=parallel_config,
+        )
         self.loss = PipelineBlock(
             p2p=self.model.p2p,
             module_builder=DoReMiLossForProxyTraining,
@@ -235,7 +260,13 @@ class LlamaForDoReMiTraining(BaseLLaMa):
                 "domain_idxs",
                 "ref_losses",
             },
-            module_output_keys={"loss", "excess_losses", "domain_losses", "domain_weights", "samples_per_domain"},
+            module_output_keys={
+                "loss",
+                "excess_losses",
+                "domain_losses",
+                "domain_weights",
+                "samples_per_domain",
+            },
         )
         self.parallel_context = parallel_context
         self.config = config
@@ -274,7 +305,11 @@ class LlamaReferenceForTrainingWithPerDomainLoss(BaseLLaMa):
         parallel_config: Optional[ParallelismArgs],
     ):
         super().__init__()
-        self.model = LlamaModel(config=config, parallel_context=parallel_context, parallel_config=parallel_config)
+        self.model = LlamaModel(
+            config=config,
+            parallel_context=parallel_context,
+            parallel_config=parallel_config,
+        )
         self.loss = PipelineBlock(
             p2p=self.model.p2p,
             module_builder=CrossEntropyWithPerDomainLoss,
@@ -282,7 +317,12 @@ class LlamaReferenceForTrainingWithPerDomainLoss(BaseLLaMa):
                 "doremi_context": doremi_context,
                 "parallel_context": parallel_context,
             },
-            module_input_keys={"sharded_logits", "label_ids", "label_mask", "domain_idxs"},
+            module_input_keys={
+                "sharded_logits",
+                "label_ids",
+                "label_mask",
+                "domain_idxs",
+            },
             module_output_keys={"loss", "domain_losses", "samples_per_domain"},
         )
         self.parallel_context = parallel_context

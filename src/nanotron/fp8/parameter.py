@@ -13,10 +13,16 @@ class FP8Parameter(nn.Parameter):
     to flow into FP8 tensors (which are integer tensors).
     """
 
-    def __new__(cls, data: torch.Tensor, dtype: DTypes, requires_grad: bool = True) -> nn.Parameter:
+    def __new__(
+        cls, data: torch.Tensor, dtype: DTypes, requires_grad: bool = True
+    ) -> nn.Parameter:
         assert isinstance(data, torch.Tensor), "data must be a tensor"
-        assert data.dtype not in FP8_DTYPES, "Currently only support turn a non-fp8 tensor to an fp8 parameter"
-        assert data.device != torch.device("cpu"), "FP8Parameter only supports CUDA tensors"
+        assert (
+            data.dtype not in FP8_DTYPES
+        ), "Currently only support turn a non-fp8 tensor to an fp8 parameter"
+        assert data.device != torch.device(
+            "cpu"
+        ), "FP8Parameter only supports CUDA tensors"
         # TODO(xrsrke): if the tensor is on cpu, then bypass quantization
 
         with torch.no_grad():

@@ -30,7 +30,8 @@ def initial_sync(model: nn.Module, parallel_context: ParallelContext):
 
     # Synchronize across tied weights: basic assumption
     for (_, group_ranks), param in sorted(
-        get_tied_id_to_param(parameters=model.parameters(), root_module=model).items(), key=lambda x: x[0]
+        get_tied_id_to_param(parameters=model.parameters(), root_module=model).items(),
+        key=lambda x: x[0],
     ):
         group = parallel_context.world_ranks_to_pg[group_ranks]
         dist.all_reduce(param, op=dist.ReduceOp.AVG, group=group)

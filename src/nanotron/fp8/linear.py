@@ -22,7 +22,13 @@ class FP8LinearMeta(TypedDict):
 
 
 class FP8Linear(nn.Linear):
-    def __init__(self, in_features: int, out_features: int, bias: bool = True, device: Optional[torch.device] = None):
+    def __init__(
+        self,
+        in_features: int,
+        out_features: int,
+        bias: bool = True,
+        device: Optional[torch.device] = None,
+    ):
         super().__init__(in_features, out_features, bias, device)
         # TODO(xrsrke): add device, and 2 fp8 dtypes
         if self.weight.device != torch.device("cpu"):
@@ -37,20 +43,30 @@ class FP8Linear(nn.Linear):
             )
             fp8e5m2_scale = update_scaling_factor(
                 amax=torch.tensor(INITIAL_AMAX, dtype=torch.float32),
-                scaling_factor=torch.tensor(INITIAL_SCALING_FACTOR, dtype=torch.float32),
+                scaling_factor=torch.tensor(
+                    INITIAL_SCALING_FACTOR, dtype=torch.float32
+                ),
                 dtype=DTypes.FP8E5M2,
             )
             self.fp8_meta: FP8LinearMeta = {
                 # kfloat8_e4m3
-                "input_grad": FP8Meta(amax=1, dtype=DTypes.FP8E4M3, scale=fp8e4m3_scale),
-                "weight_grad": FP8Meta(amax=1, dtype=DTypes.FP8E4M3, scale=fp8e4m3_scale),
+                "input_grad": FP8Meta(
+                    amax=1, dtype=DTypes.FP8E4M3, scale=fp8e4m3_scale
+                ),
+                "weight_grad": FP8Meta(
+                    amax=1, dtype=DTypes.FP8E4M3, scale=fp8e4m3_scale
+                ),
                 # kfloat8_e5m2
-                "output_grad": FP8Meta(amax=1, dtype=DTypes.FP8E5M2, scale=fp8e5m2_scale),
+                "output_grad": FP8Meta(
+                    amax=1, dtype=DTypes.FP8E5M2, scale=fp8e5m2_scale
+                ),
             }
 
     def forward(self, input: Union[FP8Tensor, torch.Tensor]) -> torch.Tensor:
         # NOTE: only do fp8 kernel if both input and weight are on CUDA device
-        if input.device == torch.device("cpu") or self.weight.device == torch.device("cpu"):
+        if input.device == torch.device("cpu") or self.weight.device == torch.device(
+            "cpu"
+        ):
             return F.linear(input, self.weight, self.bias)
 
         # NOTE: just a phony tensor to make pytorch trigger the backward pass
@@ -70,7 +86,11 @@ class _FP8Matmul(torch.autograd.Function):
     @staticmethod
     @torch.no_grad()
     def forward(
-        ctx, input: FP8Tensor, weight: FP8Tensor, fp8_meta: FP8LinearMeta, phony: torch.Tensor
+        ctx,
+        input: FP8Tensor,
+        weight: FP8Tensor,
+        fp8_meta: FP8LinearMeta,
+        phony: torch.Tensor,
     ) -> torch.Tensor:
         if type(input) == torch.Tensor:
             input = FP8Tensor(input, dtype=DTypes.FP8E4M3)
@@ -80,14 +100,20 @@ class _FP8Matmul(torch.autograd.Function):
 
         # NOTE: pass FP8Tensor instead of FP8Parameter
         output = fp8_matmul_kernel(
-            mat_a=weight.data, transpose_a=True, mat_b=input, transpose_b=False, use_split_accumulator=False
+            mat_a=weight.data,
+            transpose_a=True,
+            mat_b=input,
+            transpose_b=False,
+            use_split_accumulator=False,
         )
 
         return output, phony
 
     @staticmethod
     @torch.no_grad()
-    def backward(ctx, grad_output: torch.Tensor, grad_phony: torch.Tensor) -> Tuple[torch.Tensor, None, None, None]:
+    def backward(
+        ctx, grad_output: torch.Tensor, grad_phony: torch.Tensor
+    ) -> Tuple[torch.Tensor, None, None, None]:
         """
         ∂L/∂X = ∂L/∂Y @ Wᵀ
         ∂L/∂W = Xᵀ @ ∂L/∂Y
@@ -102,10 +128,18 @@ class _FP8Matmul(torch.autograd.Function):
             grad_output = FP8Tensor(grad_output, dtype=DTypes.FP8E5M2)
 
         grad_input = fp8_matmul_kernel(
-            mat_a=grad_output, transpose_a=True, mat_b=weight, transpose_b=True, use_split_accumulator=True
+            mat_a=grad_output,
+            transpose_a=True,
+            mat_b=weight,
+            transpose_b=True,
+            use_split_accumulator=True,
         )
         grad_weight = fp8_matmul_kernel(
-            mat_a=input, transpose_a=False, mat_b=grad_output, transpose_b=False, use_split_accumulator=True
+            mat_a=input,
+            transpose_a=False,
+            mat_b=grad_output,
+            transpose_b=False,
+            use_split_accumulator=True,
         )
         weight.grad = grad_weight
 

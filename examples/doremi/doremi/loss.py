@@ -12,20 +12,27 @@ from .utils import masked_mean
 
 
 def compute_per_domain_loss(
-    losses: torch.Tensor, domain_idxs: torch.Tensor, doremi_context: DoReMiContext, parallel_context: ParallelContext
+    losses: torch.Tensor,
+    domain_idxs: torch.Tensor,
+    doremi_context: DoReMiContext,
+    parallel_context: ParallelContext,
 ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     dp_size = dist.get_world_size(parallel_context.dp_pg)
     dp_pg = parallel_context.dp_pg
 
     # NOTE: can't do allgather([tensor_list], [tensor]) if a tensor in tensor_list is not contiguous
     losses_dp = [
-        torch.empty_like(losses, device="cuda", memory_format=torch.contiguous_format) for _ in range(dp_size)
+        torch.empty_like(losses, device="cuda", memory_format=torch.contiguous_format)
+        for _ in range(dp_size)
     ]
     dist.all_gather(losses_dp, losses.contiguous(), group=dp_pg)
     losses_dp = torch.cat(losses_dp, dim=0)
 
     domain_ids_dp = [
-        torch.empty_like(domain_idxs, device="cuda", memory_format=torch.contiguous_format) for _ in range(dp_size)
+        torch.empty_like(
+            domain_idxs, device="cuda", memory_format=torch.contiguous_format
+        )
+        for _ in range(dp_size)
     ]
     dist.all_gather(domain_ids_dp, domain_idxs.contiguous(), group=dp_pg)
     domain_ids_dp = torch.cat(domain_ids_dp, dim=0)
@@ -54,12 +61,18 @@ def compute_per_domain_loss(
 
 
 class DomainLossForProxyTraining:
-    def __init__(self, doremi_context: DoReMiContext, parallel_context: ParallelContext):
+    def __init__(
+        self, doremi_context: DoReMiContext, parallel_context: ParallelContext
+    ):
         self.doremi_context = doremi_context
         self.parallel_context = parallel_context
 
-    def __call__(self, losses: torch.Tensor, ref_losses: torch.Tensor, domain_idxs: torch.Tensor):
-        assert losses.shape == ref_losses.shape, "losses and ref_losses must have the same shape"
+    def __call__(
+        self, losses: torch.Tensor, ref_losses: torch.Tensor, domain_idxs: torch.Tensor
+    ):
+        assert (
+            losses.shape == ref_losses.shape
+        ), "losses and ref_losses must have the same shape"
         assert (
             domain_idxs.shape[0] == losses.shape[0]
         ), "the batch size of domain_idxs must match the batch size of losses"
@@ -69,8 +82,10 @@ class DomainLossForProxyTraining:
         # the proxy model is performing better than the reference model
         # => clamp(lower loss - higher loss, 0) = clamp(negative, 0) = 0.
         excess_losses = (losses - ref_losses).clamp(min=0)
-        excess_losses_dp, normalized_domain_losses, samples_per_domain = compute_per_domain_loss(
-            excess_losses, domain_idxs, self.doremi_context, self.parallel_context
+        excess_losses_dp, normalized_domain_losses, samples_per_domain = (
+            compute_per_domain_loss(
+                excess_losses, domain_idxs, self.doremi_context, self.parallel_context
+            )
         )
 
         # NOTE: if a domain loss is zero, then the normalized domain loss is zero
@@ -79,18 +94,27 @@ class DomainLossForProxyTraining:
         domain_weights = self.doremi_context.domain_weights
         step_size = self.doremi_context.step_size
         smoothing_param = self.doremi_context.smoothing_param
-        log_new_train_domain_weights = torch.log(domain_weights) + step_size * normalized_domain_losses
+        log_new_train_domain_weights = (
+            torch.log(domain_weights) + step_size * normalized_domain_losses
+        )
         log_new_train_domain_weights = log_new_train_domain_weights - torch.logsumexp(
             log_new_train_domain_weights, dim=0
         )
-        train_domain_weights = (1 - smoothing_param) * torch.exp(log_new_train_domain_weights) + smoothing_param / len(
+        train_domain_weights = (1 - smoothing_param) * torch.exp(
             log_new_train_domain_weights
+        ) + smoothing_param / len(log_new_train_domain_weights)
+        return (
+            excess_losses_dp,
+            normalized_domain_losses,
+            train_domain_weights,
+            samples_per_domain,
         )
-        return excess_losses_dp, normalized_domain_losses, train_domain_weights, samples_per_domain
 
 
 class CrossEntropyWithPerDomainLoss(nn.Module):
-    def __init__(self, doremi_context: DoReMiContext, parallel_context: ParallelContext):
+    def __init__(
+        self, doremi_context: DoReMiContext, parallel_context: ParallelContext
+    ):
         super().__init__()
         self.doremi_context = doremi_context
         self.parallel_context = parallel_context
@@ -103,17 +127,26 @@ class CrossEntropyWithPerDomainLoss(nn.Module):
         domain_idxs: torch.Tensor,
     ) -> Dict[str, torch.Tensor]:
         per_token_loss = sharded_cross_entropy(
-            sharded_logits, label_ids, group=self.parallel_context.tp_pg, dtype=torch.float
+            sharded_logits,
+            label_ids,
+            group=self.parallel_context.tp_pg,
+            dtype=torch.float,
         )
         lm_loss = masked_mean(per_token_loss, label_mask, dtype=torch.float)
         _, domain_losses, samples_per_domain = compute_per_domain_loss(
             per_token_loss, domain_idxs, self.doremi_context, self.parallel_context
         )
-        return {"loss": lm_loss, "domain_losses": domain_losses, "samples_per_domain": samples_per_domain}
+        return {
+            "loss": lm_loss,
+            "domain_losses": domain_losses,
+            "samples_per_domain": samples_per_domain,
+        }
 
 
 class DoReMiLossForProxyTraining(nn.Module):
-    def __init__(self, doremi_context: DoReMiContext, parallel_context: ParallelContext):
+    def __init__(
+        self, doremi_context: DoReMiContext, parallel_context: ParallelContext
+    ):
         super().__init__()
         self.parallel_context = parallel_context
         self.doremi_loss = DomainLossForProxyTraining(doremi_context, parallel_context)
@@ -133,8 +166,8 @@ class DoReMiLossForProxyTraining(nn.Module):
             dtype=torch.float,
         )
         lm_loss = masked_mean(loss, label_mask, dtype=torch.float)
-        excess_losses, domain_losses, domain_weights, samples_per_domain = self.doremi_loss(
-            loss, ref_losses, domain_idxs
+        excess_losses, domain_losses, domain_weights, samples_per_domain = (
+            self.doremi_loss(loss, ref_losses, domain_idxs)
         )
 
         return {

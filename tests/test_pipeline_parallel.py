@@ -20,7 +20,9 @@ from nanotron.parallel.pipeline_parallel.p2p import P2P
 from nanotron.parallel.pipeline_parallel.tensor_pointer import TensorPointer
 
 
-@pytest.mark.skipif(available_gpus() < 2, reason="Testing build_and_set_rank requires at least 2 gpus")
+@pytest.mark.skipif(
+    available_gpus() < 2, reason="Testing build_and_set_rank requires at least 2 gpus"
+)
 @rerun_if_address_is_in_use()
 def test_build_and_set_rank():
     init_distributed(tp=1, dp=1, pp=2)(_test_build_and_set_rank)()
@@ -56,27 +58,41 @@ def _test_build_and_set_rank(parallel_context: ParallelContext):
     parallel_context.destroy()
 
 
-@pytest.mark.skipif(available_gpus() < 1, reason="Testing test_init_on_device_and_dtype requires at least 1 gpus")
+@pytest.mark.skipif(
+    available_gpus() < 1,
+    reason="Testing test_init_on_device_and_dtype requires at least 1 gpus",
+)
 def test_init_on_device_and_dtype():
     device = torch.device(type="cuda", index=0)
     with init_on_device_and_dtype(device=device, dtype=torch.bfloat16):
         model = nn.Linear(10, 10)
 
-    assert model.weight.dtype == torch.bfloat16, "Model weight wasn't initialised with the correct dtype"
-    assert model.weight.device == device, "Model weight wasn't initialised with the correct device"
+    assert (
+        model.weight.dtype == torch.bfloat16
+    ), "Model weight wasn't initialised with the correct dtype"
+    assert (
+        model.weight.device == device
+    ), "Model weight wasn't initialised with the correct device"
 
 
-@pytest.mark.skipif(available_gpus() < 2, reason="Testing AFAB requires at least 2 gpus")
+@pytest.mark.skipif(
+    available_gpus() < 2, reason="Testing AFAB requires at least 2 gpus"
+)
 @pytest.mark.parametrize(
-    "pipeline_engine", [AllForwardAllBackwardPipelineEngine(), OneForwardOneBackwardPipelineEngine()]
+    "pipeline_engine",
+    [AllForwardAllBackwardPipelineEngine(), OneForwardOneBackwardPipelineEngine()],
 )
 @pytest.mark.parametrize("pp", list(range(2, min(4, available_gpus()) + 1)))
 @rerun_if_address_is_in_use()
 def test_pipeline_engine(pipeline_engine: PipelineEngine, pp: int):
-    init_distributed(tp=1, dp=1, pp=pp)(_test_pipeline_engine)(pipeline_engine=pipeline_engine)
+    init_distributed(tp=1, dp=1, pp=pp)(_test_pipeline_engine)(
+        pipeline_engine=pipeline_engine
+    )
 
 
-def _test_pipeline_engine(parallel_context: ParallelContext, pipeline_engine: PipelineEngine):
+def _test_pipeline_engine(
+    parallel_context: ParallelContext, pipeline_engine: PipelineEngine
+):
     device = torch.device("cuda")
     p2p = P2P(parallel_context.pp_pg, device=device)
     reference_rank = 0
@@ -111,8 +127,12 @@ def _test_pipeline_engine(parallel_context: ParallelContext, pipeline_engine: Pi
                 reference_non_linear = reference_model.mlp[pp_rank]
                 if pp_rank == current_pp_rank:
                     # We already have the weights locally
-                    reference_non_linear.linear.pp_block.weight.data.copy_(non_linear.linear.pp_block.weight.data)
-                    reference_non_linear.linear.pp_block.bias.data.copy_(non_linear.linear.pp_block.bias.data)
+                    reference_non_linear.linear.pp_block.weight.data.copy_(
+                        non_linear.linear.pp_block.weight.data
+                    )
+                    reference_non_linear.linear.pp_block.bias.data.copy_(
+                        non_linear.linear.pp_block.bias.data
+                    )
                     continue
 
                 weight, bias = p2p.recv_tensors(num_tensors=2, from_rank=pp_rank)
@@ -120,19 +140,28 @@ def _test_pipeline_engine(parallel_context: ParallelContext, pipeline_engine: Pi
                 reference_non_linear.linear.pp_block.bias.data.copy_(bias.data)
     else:
         p2p.send_tensors(
-            [model.mlp[current_pp_rank].linear.pp_block.weight, model.mlp[current_pp_rank].linear.pp_block.bias],
+            [
+                model.mlp[current_pp_rank].linear.pp_block.weight,
+                model.mlp[current_pp_rank].linear.pp_block.bias,
+            ],
             to_rank=reference_rank,
         )
 
     # Get infinite dummy data iterator
-    data_iterator = dummy_infinite_data_loader(pp_pg=parallel_context.pp_pg)  # First rank receives data
+    data_iterator = dummy_infinite_data_loader(
+        pp_pg=parallel_context.pp_pg
+    )  # First rank receives data
 
     # Have at least as many microbatches as PP size.
     n_micro_batches_per_batch = parallel_context.pp_pg.size() + 5
 
     batch = [next(data_iterator) for _ in range(n_micro_batches_per_batch)]
     losses = pipeline_engine.train_batch_iter(
-        model, pg=parallel_context.pp_pg, batch=batch, nb_microbatches=n_micro_batches_per_batch, grad_accumulator=None
+        model,
+        pg=parallel_context.pp_pg,
+        batch=batch,
+        nb_microbatches=n_micro_batches_per_batch,
+        grad_accumulator=None,
     )
 
     # Equivalent on the reference model
@@ -157,7 +186,9 @@ def _test_pipeline_engine(parallel_context: ParallelContext, pipeline_engine: Pi
             assert isinstance(loss["loss"], TensorPointer)
             if not has_reference_model:
                 continue
-            _losses.append(p2p.recv_tensors(num_tensors=1, from_rank=loss["loss"].group_rank)[0])
+            _losses.append(
+                p2p.recv_tensors(num_tensors=1, from_rank=loss["loss"].group_rank)[0]
+            )
     if has_reference_model:
         losses = _losses
 
@@ -193,9 +224,17 @@ def _test_pipeline_engine(parallel_context: ParallelContext, pipeline_engine: Pi
 
             weight_grad, bias_grad = p2p.recv_tensors(num_tensors=2, from_rank=pp_rank)
             torch.testing.assert_close(
-                weight_grad, reference_non_linear.linear.pp_block.weight.grad, atol=1e-6, rtol=1e-7
+                weight_grad,
+                reference_non_linear.linear.pp_block.weight.grad,
+                atol=1e-6,
+                rtol=1e-7,
             )
-            torch.testing.assert_close(bias_grad, reference_non_linear.linear.pp_block.bias.grad, atol=1e-6, rtol=1e-7)
+            torch.testing.assert_close(
+                bias_grad,
+                reference_non_linear.linear.pp_block.bias.grad,
+                atol=1e-6,
+                rtol=1e-7,
+            )
     else:
         p2p.send_tensors(
             [
@@ -213,14 +252,17 @@ def _test_pipeline_engine(parallel_context: ParallelContext, pipeline_engine: Pi
     reason="Testing `test_pipeline_engine_with_tensor_that_does_not_require_grad` requires at least 2 gpus",
 )
 @pytest.mark.parametrize(
-    "pipeline_engine", [AllForwardAllBackwardPipelineEngine(), OneForwardOneBackwardPipelineEngine()]
+    "pipeline_engine",
+    [AllForwardAllBackwardPipelineEngine(), OneForwardOneBackwardPipelineEngine()],
 )
 @pytest.mark.parametrize("pp", list(range(2, min(4, available_gpus()) + 1)))
 @rerun_if_address_is_in_use()
-def test_pipeline_engine_with_tensor_that_does_not_require_grad(pipeline_engine: PipelineEngine, pp: int):
-    init_distributed(pp=pp, dp=1, tp=1)(_test_pipeline_engine_with_tensor_that_does_not_require_grad)(
-        pipeline_engine=pipeline_engine
-    )
+def test_pipeline_engine_with_tensor_that_does_not_require_grad(
+    pipeline_engine: PipelineEngine, pp: int
+):
+    init_distributed(pp=pp, dp=1, tp=1)(
+        _test_pipeline_engine_with_tensor_that_does_not_require_grad
+    )(pipeline_engine=pipeline_engine)
 
 
 def _test_pipeline_engine_with_tensor_that_does_not_require_grad(
@@ -281,9 +323,16 @@ def _test_pipeline_engine_with_tensor_that_does_not_require_grad(
             non_differentiable_tensor: Union[torch.Tensor, TensorPointer],
         ):
             for non_linear in self.mlp:
-                linear_output = non_linear.linear(x=differentiable_tensor, y=non_differentiable_tensor)
-                output = non_linear.activation(x=linear_output["output"], y=linear_output["y"])
-                differentiable_tensor, non_differentiable_tensor = output["output"], output["y"]
+                linear_output = non_linear.linear(
+                    x=differentiable_tensor, y=non_differentiable_tensor
+                )
+                output = non_linear.activation(
+                    x=linear_output["output"], y=linear_output["y"]
+                )
+                differentiable_tensor, non_differentiable_tensor = (
+                    output["output"],
+                    output["y"],
+                )
 
                 if isinstance(differentiable_tensor, torch.Tensor):
                     assert differentiable_tensor.requires_grad is True
@@ -327,23 +376,30 @@ def _test_pipeline_engine_with_tensor_that_does_not_require_grad(
     # synchronize weights
     if has_reference_model:
         with torch.inference_mode():
-            for (mlp_index, pp_rank) in mlp_index_pp_rank:
+            for mlp_index, pp_rank in mlp_index_pp_rank:
                 non_linear = model.mlp[mlp_index]
                 reference_non_linear = reference_model.mlp[mlp_index]
                 if pp_rank == current_pp_rank:
                     # We already have the weights locally
-                    reference_non_linear.linear.pp_block.weight.data.copy_(non_linear.linear.pp_block.weight.data)
-                    reference_non_linear.linear.pp_block.bias.data.copy_(non_linear.linear.pp_block.bias.data)
+                    reference_non_linear.linear.pp_block.weight.data.copy_(
+                        non_linear.linear.pp_block.weight.data
+                    )
+                    reference_non_linear.linear.pp_block.bias.data.copy_(
+                        non_linear.linear.pp_block.bias.data
+                    )
                     continue
 
                 weight, bias = p2p.recv_tensors(num_tensors=2, from_rank=pp_rank)
                 reference_non_linear.linear.pp_block.weight.data.copy_(weight.data)
                 reference_non_linear.linear.pp_block.bias.data.copy_(bias.data)
     else:
-        for (mlp_index, pp_rank) in mlp_index_pp_rank:
+        for mlp_index, pp_rank in mlp_index_pp_rank:
             if pp_rank == current_pp_rank:
                 p2p.send_tensors(
-                    [model.mlp[mlp_index].linear.pp_block.weight, model.mlp[mlp_index].linear.pp_block.bias],
+                    [
+                        model.mlp[mlp_index].linear.pp_block.weight,
+                        model.mlp[mlp_index].linear.pp_block.bias,
+                    ],
                     to_rank=reference_rank,
                 )
 
@@ -355,12 +411,16 @@ def _test_pipeline_engine_with_tensor_that_does_not_require_grad(
         # We assume the first linear is always built on the first rank.
         while True:
             yield {
-                "differentiable_tensor": torch.randn(micro_batch_size, 10, dtype=dtype, device="cuda")
-                if current_pp_rank == input_pp_rank
-                else TensorPointer(group_rank=input_pp_rank),
-                "non_differentiable_tensor": torch.randn(micro_batch_size, 10, dtype=dtype, device="cuda")
-                if current_pp_rank == input_pp_rank
-                else TensorPointer(group_rank=input_pp_rank),
+                "differentiable_tensor": (
+                    torch.randn(micro_batch_size, 10, dtype=dtype, device="cuda")
+                    if current_pp_rank == input_pp_rank
+                    else TensorPointer(group_rank=input_pp_rank)
+                ),
+                "non_differentiable_tensor": (
+                    torch.randn(micro_batch_size, 10, dtype=dtype, device="cuda")
+                    if current_pp_rank == input_pp_rank
+                    else TensorPointer(group_rank=input_pp_rank)
+                ),
             }
 
     data_iterator = dummy_infinite_data_loader_with_non_differentiable_tensor(
@@ -372,7 +432,11 @@ def _test_pipeline_engine_with_tensor_that_does_not_require_grad(
 
     batch = [next(data_iterator) for _ in range(n_micro_batches_per_batch)]
     losses = pipeline_engine.train_batch_iter(
-        model, pg=parallel_context.pp_pg, batch=batch, nb_microbatches=n_micro_batches_per_batch, grad_accumulator=None
+        model,
+        pg=parallel_context.pp_pg,
+        batch=batch,
+        nb_microbatches=n_micro_batches_per_batch,
+        grad_accumulator=None,
     )
     # Equivalent on the reference model
     if has_reference_model:
@@ -396,7 +460,9 @@ def _test_pipeline_engine_with_tensor_that_does_not_require_grad(
             assert isinstance(loss["loss"], TensorPointer)
             if not has_reference_model:
                 continue
-            _losses.append(p2p.recv_tensors(num_tensors=1, from_rank=loss["loss"].group_rank)[0])
+            _losses.append(
+                p2p.recv_tensors(num_tensors=1, from_rank=loss["loss"].group_rank)[0]
+            )
     if has_reference_model:
         losses = _losses
 
@@ -411,7 +477,7 @@ def _test_pipeline_engine_with_tensor_that_does_not_require_grad(
 
     # Check that gradient are the same as reference
     if has_reference_model:
-        for (mlp_index, pp_rank) in mlp_index_pp_rank:
+        for mlp_index, pp_rank in mlp_index_pp_rank:
             non_linear = model.mlp[mlp_index]
             reference_non_linear = reference_model.mlp[mlp_index]
             if pp_rank == current_pp_rank:
@@ -432,14 +498,25 @@ def _test_pipeline_engine_with_tensor_that_does_not_require_grad(
 
             weight_grad, bias_grad = p2p.recv_tensors(num_tensors=2, from_rank=pp_rank)
             torch.testing.assert_close(
-                weight_grad, reference_non_linear.linear.pp_block.weight.grad, atol=1e-6, rtol=1e-7
+                weight_grad,
+                reference_non_linear.linear.pp_block.weight.grad,
+                atol=1e-6,
+                rtol=1e-7,
             )
-            torch.testing.assert_close(bias_grad, reference_non_linear.linear.pp_block.bias.grad, atol=1e-6, rtol=1e-7)
+            torch.testing.assert_close(
+                bias_grad,
+                reference_non_linear.linear.pp_block.bias.grad,
+                atol=1e-6,
+                rtol=1e-7,
+            )
     else:
-        for (mlp_index, pp_rank) in mlp_index_pp_rank:
+        for mlp_index, pp_rank in mlp_index_pp_rank:
             if pp_rank == current_pp_rank:
                 p2p.send_tensors(
-                    [model.mlp[mlp_index].linear.pp_block.weight.grad, model.mlp[mlp_index].linear.pp_block.bias.grad],
+                    [
+                        model.mlp[mlp_index].linear.pp_block.weight.grad,
+                        model.mlp[mlp_index].linear.pp_block.bias.grad,
+                    ],
                     to_rank=reference_rank,
                 )
 
@@ -501,9 +578,16 @@ def _test_pipeline_forward_without_engine(parallel_context: ParallelContext):
             non_differentiable_tensor: Union[torch.Tensor, TensorPointer],
         ):
             for non_linear in self.mlp:
-                differentiable_tensor = non_linear.linear(input=differentiable_tensor)["output"]
-                output = non_linear.activation(x=differentiable_tensor, y=non_differentiable_tensor)
-                differentiable_tensor, non_differentiable_tensor = output["output"], output["y"]
+                differentiable_tensor = non_linear.linear(input=differentiable_tensor)[
+                    "output"
+                ]
+                output = non_linear.activation(
+                    x=differentiable_tensor, y=non_differentiable_tensor
+                )
+                differentiable_tensor, non_differentiable_tensor = (
+                    output["output"],
+                    output["y"],
+                )
             differentiable_tensor = self.loss(x=differentiable_tensor)["output"]
             return differentiable_tensor
 
@@ -541,8 +625,12 @@ def _test_pipeline_forward_without_engine(parallel_context: ParallelContext):
                 reference_non_linear = reference_model.mlp[pp_rank]
                 if pp_rank == current_pp_rank:
                     # We already have the weights locally
-                    reference_non_linear.linear.pp_block.weight.data.copy_(non_linear.linear.pp_block.weight.data)
-                    reference_non_linear.linear.pp_block.bias.data.copy_(non_linear.linear.pp_block.bias.data)
+                    reference_non_linear.linear.pp_block.weight.data.copy_(
+                        non_linear.linear.pp_block.weight.data
+                    )
+                    reference_non_linear.linear.pp_block.bias.data.copy_(
+                        non_linear.linear.pp_block.bias.data
+                    )
                     continue
 
                 weight, bias = p2p.recv_tensors(num_tensors=2, from_rank=pp_rank)
@@ -550,7 +638,10 @@ def _test_pipeline_forward_without_engine(parallel_context: ParallelContext):
                 reference_non_linear.linear.pp_block.bias.data.copy_(bias.data)
     else:
         p2p.send_tensors(
-            [model.mlp[current_pp_rank].linear.pp_block.weight, model.mlp[current_pp_rank].linear.pp_block.bias],
+            [
+                model.mlp[current_pp_rank].linear.pp_block.weight,
+                model.mlp[current_pp_rank].linear.pp_block.bias,
+            ],
             to_rank=reference_rank,
         )
 
@@ -562,12 +653,16 @@ def _test_pipeline_forward_without_engine(parallel_context: ParallelContext):
         # We assume the first linear is always built on the first rank.
         while True:
             yield {
-                "differentiable_tensor": torch.randn(micro_batch_size, 10, dtype=dtype, device="cuda")
-                if current_pp_rank == input_pp_rank
-                else TensorPointer(group_rank=input_pp_rank),
-                "non_differentiable_tensor": torch.randn(micro_batch_size, 10, dtype=dtype, device="cuda")
-                if current_pp_rank == input_pp_rank
-                else TensorPointer(group_rank=input_pp_rank),
+                "differentiable_tensor": (
+                    torch.randn(micro_batch_size, 10, dtype=dtype, device="cuda")
+                    if current_pp_rank == input_pp_rank
+                    else TensorPointer(group_rank=input_pp_rank)
+                ),
+                "non_differentiable_tensor": (
+                    torch.randn(micro_batch_size, 10, dtype=dtype, device="cuda")
+                    if current_pp_rank == input_pp_rank
+                    else TensorPointer(group_rank=input_pp_rank)
+                ),
             }
 
     data_iterator = dummy_infinite_data_loader_with_non_differentiable_tensor(
@@ -606,7 +701,9 @@ def _test_pipeline_forward_without_engine(parallel_context: ParallelContext):
             assert isinstance(loss, TensorPointer)
             if not has_reference_model:
                 continue
-            _losses.append(p2p.recv_tensors(num_tensors=1, from_rank=loss.group_rank)[0])
+            _losses.append(
+                p2p.recv_tensors(num_tensors=1, from_rank=loss.group_rank)[0]
+            )
     if has_reference_model:
         losses = _losses
 
@@ -618,17 +715,25 @@ def _test_pipeline_forward_without_engine(parallel_context: ParallelContext):
     parallel_context.destroy()
 
 
-@pytest.mark.skipif(available_gpus() < 4, reason="Testing `test_pipeline_engine_diamond` requires at least 4 gpus")
+@pytest.mark.skipif(
+    available_gpus() < 4,
+    reason="Testing `test_pipeline_engine_diamond` requires at least 4 gpus",
+)
 @pytest.mark.parametrize(
-    "pipeline_engine", [AllForwardAllBackwardPipelineEngine(), OneForwardOneBackwardPipelineEngine()]
+    "pipeline_engine",
+    [AllForwardAllBackwardPipelineEngine(), OneForwardOneBackwardPipelineEngine()],
 )
 @rerun_if_address_is_in_use()
 def test_pipeline_engine_diamond(pipeline_engine: PipelineEngine):
-    init_distributed(pp=4, dp=1, tp=1)(_test_pipeline_engine_diamond)(pipeline_engine=pipeline_engine)
+    init_distributed(pp=4, dp=1, tp=1)(_test_pipeline_engine_diamond)(
+        pipeline_engine=pipeline_engine
+    )
     pass
 
 
-def _test_pipeline_engine_diamond(parallel_context: ParallelContext, pipeline_engine: PipelineEngine):
+def _test_pipeline_engine_diamond(
+    parallel_context: ParallelContext, pipeline_engine: PipelineEngine
+):
     class DiamondModel(nn.Module):
         def __init__(self, p2p: P2P):
             super().__init__()
@@ -692,7 +797,11 @@ def _test_pipeline_engine_diamond(parallel_context: ParallelContext, pipeline_en
                     "linear": PipelineBlock(
                         p2p=p2p,
                         module_builder=nn.Bilinear,
-                        module_kwargs={"in1_features": 10, "in2_features": 10, "out_features": 10},
+                        module_kwargs={
+                            "in1_features": 10,
+                            "in2_features": 10,
+                            "out_features": 10,
+                        },
                         module_input_keys={"input1", "input2"},
                         module_output_keys={"output"},
                     ),
@@ -715,10 +824,18 @@ def _test_pipeline_engine_diamond(parallel_context: ParallelContext, pipeline_en
             )
 
         def forward(self, x):
-            x = self.dense_bottom.activation(input=self.dense_bottom.linear(input=x)["output"])["output"]
-            y = self.dense_left.activation(input=self.dense_left.linear(input=x)["output"])["output"]
-            z = self.dense_right.activation(input=self.dense_right.linear(input=x)["output"])["output"]
-            out = self.dense_top.activation(input=self.dense_top.linear(input1=y, input2=z)["output"])["output"]
+            x = self.dense_bottom.activation(
+                input=self.dense_bottom.linear(input=x)["output"]
+            )["output"]
+            y = self.dense_left.activation(
+                input=self.dense_left.linear(input=x)["output"]
+            )["output"]
+            z = self.dense_right.activation(
+                input=self.dense_right.linear(input=x)["output"]
+            )["output"]
+            out = self.dense_top.activation(
+                input=self.dense_top.linear(input1=y, input2=z)["output"]
+            )["output"]
             return self.loss(x=out)["output"]
 
     device = torch.device("cuda")
@@ -757,7 +874,9 @@ def _test_pipeline_engine_diamond(parallel_context: ParallelContext, pipeline_en
     if has_reference_model:
         with torch.inference_mode():
             for pp_rank, module_name in enumerate(pp_rank_to_dense_name):
-                reference_non_linear = reference_model.get_submodule(module_name).linear.pp_block
+                reference_non_linear = reference_model.get_submodule(
+                    module_name
+                ).linear.pp_block
                 if pp_rank == current_pp_rank:
                     # We already have the weights locally
                     non_linear = model.get_submodule(module_name).linear.pp_block
@@ -769,7 +888,9 @@ def _test_pipeline_engine_diamond(parallel_context: ParallelContext, pipeline_en
                 reference_non_linear.weight.data.copy_(weight.data)
                 reference_non_linear.bias.data.copy_(bias.data)
     else:
-        non_linear = model.get_submodule(pp_rank_to_dense_name[current_pp_rank]).linear.pp_block
+        non_linear = model.get_submodule(
+            pp_rank_to_dense_name[current_pp_rank]
+        ).linear.pp_block
         p2p.send_tensors(
             [non_linear.weight, non_linear.bias],
             to_rank=reference_rank,
@@ -783,9 +904,11 @@ def _test_pipeline_engine_diamond(parallel_context: ParallelContext, pipeline_en
         # We assume the first linear is always built on the first rank.
         while True:
             yield {
-                "x": torch.randn(micro_batch_size, 10, dtype=dtype, device="cuda")
-                if current_pp_rank == input_pp_rank
-                else TensorPointer(group_rank=input_pp_rank),
+                "x": (
+                    torch.randn(micro_batch_size, 10, dtype=dtype, device="cuda")
+                    if current_pp_rank == input_pp_rank
+                    else TensorPointer(group_rank=input_pp_rank)
+                ),
             }
 
     data_iterator = dummy_infinite_data_loader_with_non_differentiable_tensor(
@@ -797,7 +920,11 @@ def _test_pipeline_engine_diamond(parallel_context: ParallelContext, pipeline_en
 
     batch = [next(data_iterator) for _ in range(n_micro_batches_per_batch)]
     losses = pipeline_engine.train_batch_iter(
-        model, pg=parallel_context.pp_pg, batch=batch, nb_microbatches=n_micro_batches_per_batch, grad_accumulator=None
+        model,
+        pg=parallel_context.pp_pg,
+        batch=batch,
+        nb_microbatches=n_micro_batches_per_batch,
+        grad_accumulator=None,
     )
 
     # Equivalent on the reference model
@@ -822,7 +949,9 @@ def _test_pipeline_engine_diamond(parallel_context: ParallelContext, pipeline_en
             assert isinstance(loss["loss"], TensorPointer)
             if not has_reference_model:
                 continue
-            _losses.append(p2p.recv_tensors(num_tensors=1, from_rank=loss["loss"].group_rank)[0])
+            _losses.append(
+                p2p.recv_tensors(num_tensors=1, from_rank=loss["loss"].group_rank)[0]
+            )
     if has_reference_model:
         losses = _losses
 
@@ -838,7 +967,9 @@ def _test_pipeline_engine_diamond(parallel_context: ParallelContext, pipeline_en
     # Check that gradient are the same as reference
     if has_reference_model:
         for pp_rank, module_name in enumerate(pp_rank_to_dense_name):
-            reference_non_linear = reference_model.get_submodule(module_name).linear.pp_block
+            reference_non_linear = reference_model.get_submodule(
+                module_name
+            ).linear.pp_block
             if pp_rank == current_pp_rank:
                 # We already have the weights locally
                 non_linear = model.get_submodule(module_name).linear.pp_block
@@ -857,10 +988,16 @@ def _test_pipeline_engine_diamond(parallel_context: ParallelContext, pipeline_en
                 continue
 
             weight_grad, bias_grad = p2p.recv_tensors(num_tensors=2, from_rank=pp_rank)
-            torch.testing.assert_close(weight_grad, reference_non_linear.weight.grad, atol=1e-6, rtol=1e-7)
-            torch.testing.assert_close(bias_grad, reference_non_linear.bias.grad, atol=1e-6, rtol=1e-7)
+            torch.testing.assert_close(
+                weight_grad, reference_non_linear.weight.grad, atol=1e-6, rtol=1e-7
+            )
+            torch.testing.assert_close(
+                bias_grad, reference_non_linear.bias.grad, atol=1e-6, rtol=1e-7
+            )
     else:
-        non_linear = model.get_submodule(pp_rank_to_dense_name[current_pp_rank]).linear.pp_block
+        non_linear = model.get_submodule(
+            pp_rank_to_dense_name[current_pp_rank]
+        ).linear.pp_block
         p2p.send_tensors(
             [non_linear.weight.grad, non_linear.bias.grad],
             to_rank=reference_rank,

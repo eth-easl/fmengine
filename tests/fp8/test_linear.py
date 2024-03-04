@@ -30,7 +30,9 @@ def test_fp8_linear_forward_pass(is_bias):
 @pytest.mark.parametrize("input_requires_grad", [True, False])
 @pytest.mark.parametrize("device", ["cuda:0", "cpu"])
 def test_fp8_linear_backward_pass(input_requires_grad, device):
-    input = torch.randn(16, 16, device=device, dtype=torch.float32, requires_grad=input_requires_grad)
+    input = torch.randn(
+        16, 16, device=device, dtype=torch.float32, requires_grad=input_requires_grad
+    )
     ref_input = input.detach().clone().requires_grad_(True)
     ref_linear = nn.Linear(16, 16, device=device, dtype=torch.float32)
     fp8_linear = FP8Linear(16, 16, device=device)
@@ -38,7 +40,9 @@ def test_fp8_linear_backward_pass(input_requires_grad, device):
     if device == "cpu":
         fp8_linear.weight.data = ref_linear.weight.detach().clone()
     else:
-        fp8_linear.weight.data = FP8Tensor(ref_linear.weight.detach().clone(), dtype=DTypes.FP8E4M3)
+        fp8_linear.weight.data = FP8Tensor(
+            ref_linear.weight.detach().clone(), dtype=DTypes.FP8E4M3
+        )
     fp8_linear.bias.data = ref_linear.bias.detach().clone()
 
     ref_linear(ref_input).sum().backward()
@@ -72,7 +76,10 @@ def test_fp8_model_bwd():
     input = torch.randn(HIDEEN_SIZE, HIDEEN_SIZE, device="cuda", requires_grad=True)
 
     model = nn.Sequential(
-        *[nn.Sequential(FP8Linear(HIDEEN_SIZE, HIDEEN_SIZE, device="cuda"), nn.ReLU()) for _ in range(N_LAYERS)]
+        *[
+            nn.Sequential(FP8Linear(HIDEEN_SIZE, HIDEEN_SIZE, device="cuda"), nn.ReLU())
+            for _ in range(N_LAYERS)
+        ]
     )
     optim = Adam(model.parameters(), lr=1e-3)
 

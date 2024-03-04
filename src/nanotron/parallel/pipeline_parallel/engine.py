@@ -68,7 +68,10 @@ class PipelineEngine(ABC):
         return context
 
     def backward(
-        self, context: ContextManagers, state: PipelineTrainBatchState, grad_accumulator: Optional[GradientAccumulator]
+        self,
+        context: ContextManagers,
+        state: PipelineTrainBatchState,
+        grad_accumulator: Optional[GradientAccumulator],
     ):
         # Increment the number of backwards
         state.nb_backwards += 1
@@ -110,7 +113,9 @@ class PipelineEngine(ABC):
         context_list = []
         if is_ddp:
             if grad_accumulator is not None and nb_backwards < self.nb_microbatches - 1:
-                context_list.append(grad_accumulator.no_sync())  # Prevents grad accumulator from syncing
+                context_list.append(
+                    grad_accumulator.no_sync()
+                )  # Prevents grad accumulator from syncing
             if nb_backwards == self.nb_microbatches - 1:
                 # Triggers DDP to sync gradients in the next backward pass
                 context_list.append(ddp_trigger_sync_in_bwd(model_ddp=model))
@@ -146,7 +151,9 @@ class PipelineEngine(ABC):
             # All forward
             for micro_batch in batch:
                 context = self._get_fwd_context(model=model)
-                output = self.forward(context=context, state=state, micro_batch=micro_batch, model=model)
+                output = self.forward(
+                    context=context, state=state, micro_batch=micro_batch, model=model
+                )
                 # TODO @thomasw21: Somehow this needs to be done somewhere else to support interleaving. Somewhere right after a "stage"
                 for _ in range(len(state.microbatches_activations_to_send)):
                     send_activation = state.microbatches_activations_to_send.popleft()
@@ -187,7 +194,9 @@ class AllForwardAllBackwardPipelineEngine(PipelineEngine):
             # All forward
             for micro_batch in batch:
                 context = self._get_fwd_context(model=model)
-                output = self.forward(context=context, state=state, micro_batch=micro_batch, model=model)
+                output = self.forward(
+                    context=context, state=state, micro_batch=micro_batch, model=model
+                )
                 # TODO @thomasw21: Somehow this needs to be done somewhere else to support interleaving. Somewhere right after a "stage"
                 for _ in range(len(state.microbatches_activations_to_send)):
                     send_activation = state.microbatches_activations_to_send.popleft()
@@ -210,7 +219,9 @@ class AllForwardAllBackwardPipelineEngine(PipelineEngine):
                     nb_backwards=state.nb_backwards,
                     grad_accumulator=grad_accumulator,
                 )
-                self.backward(context=context, state=state, grad_accumulator=grad_accumulator)
+                self.backward(
+                    context=context, state=state, grad_accumulator=grad_accumulator
+                )
 
                 for _ in range(len(state.microbatches_grads_to_send)):
                     send_grads = state.microbatches_grads_to_send.popleft()
@@ -252,7 +263,9 @@ class OneForwardOneBackwardPipelineEngine(PipelineEngine):
             for _ in range(pg.size() - current_pp_rank - 1):
                 micro_batch = next(batch)
                 context = self._get_fwd_context(model=model)
-                output = self.forward(context=context, state=state, micro_batch=micro_batch, model=model)
+                output = self.forward(
+                    context=context, state=state, micro_batch=micro_batch, model=model
+                )
 
                 # TODO @thomasw21: Somehow this needs to be done somewhere else to support interleaving. Somewhere right after a "stage"
                 for _ in range(len(state.microbatches_activations_to_send)):
@@ -278,7 +291,9 @@ class OneForwardOneBackwardPipelineEngine(PipelineEngine):
 
             for micro_batch in batch:
                 context = self._get_fwd_context(model=model)
-                output = self.forward(context=context, state=state, micro_batch=micro_batch, model=model)
+                output = self.forward(
+                    context=context, state=state, micro_batch=micro_batch, model=model
+                )
 
                 # We make `output` a dict
                 if not isinstance(output, dict):
@@ -295,10 +310,15 @@ class OneForwardOneBackwardPipelineEngine(PipelineEngine):
                     nb_backwards=state.nb_backwards,
                     grad_accumulator=grad_accumulator,
                 )
-                self.backward(context=context, state=state, grad_accumulator=grad_accumulator)
+                self.backward(
+                    context=context, state=state, grad_accumulator=grad_accumulator
+                )
 
             # Check figure in paper: The remain blocks are all backward and there is only `pg.size() - current_pp_rank - 1` blocks left
-            assert len(state.microbatches_activations_requiring_backward) == pg.size() - current_pp_rank - 1
+            assert (
+                len(state.microbatches_activations_requiring_backward)
+                == pg.size() - current_pp_rank - 1
+            )
             # No more activation to send/recv
             assert (
                 len(state.microbatches_activations_to_send) == 0
@@ -319,7 +339,9 @@ class OneForwardOneBackwardPipelineEngine(PipelineEngine):
                     nb_backwards=state.nb_backwards,
                     grad_accumulator=grad_accumulator,
                 )
-                self.backward(context=context, state=state, grad_accumulator=grad_accumulator)
+                self.backward(
+                    context=context, state=state, grad_accumulator=grad_accumulator
+                )
 
                 # TODO @thomasw21: Somehow this needs to be done somewhere else to support interleaving. Somewhere right after a "stage"
                 for _ in range(len(state.microbatches_grads_to_send)):

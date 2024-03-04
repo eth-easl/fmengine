@@ -77,14 +77,20 @@ class SendTensorWithoutGradientToPipelineBuffer(torch.autograd.Function):
         return None, None, None, None, None
 
 
-def send_to_pipeline_state_buffer(tensor: torch.Tensor, to_rank: int, p2p: P2P, pipeline_state: PipelineBatchState):
+def send_to_pipeline_state_buffer(
+    tensor: torch.Tensor, to_rank: int, p2p: P2P, pipeline_state: PipelineBatchState
+):
     # This is used in order to know where to backward from.
     if tensor.requires_grad:
         result = SendTensorToPipelineBuffer.apply(tensor, to_rank, p2p, pipeline_state)
     else:
         # Trick that backward mechanism to just send the tensor.
-        dummy_input = torch.empty(1, dtype=torch.float, requires_grad=True, device="cpu")
-        result = SendTensorWithoutGradientToPipelineBuffer.apply(dummy_input, tensor, to_rank, p2p, pipeline_state)
+        dummy_input = torch.empty(
+            1, dtype=torch.float, requires_grad=True, device="cpu"
+        )
+        result = SendTensorWithoutGradientToPipelineBuffer.apply(
+            dummy_input, tensor, to_rank, p2p, pipeline_state
+        )
 
     pipeline_state.register_activation_requiring_backward(result)
 
@@ -93,7 +99,13 @@ class RecvTensorFromPipelineBuffer(torch.autograd.Function):
     """Make receiving tensors differentiable"""
 
     @staticmethod
-    def forward(ctx, activation: torch.Tensor, from_rank: int, p2p: P2P, pipeline_state: PipelineBatchState):
+    def forward(
+        ctx,
+        activation: torch.Tensor,
+        from_rank: int,
+        p2p: P2P,
+        pipeline_state: PipelineBatchState,
+    ):
         ctx.pipeline_state = pipeline_state
         ctx.p2p = p2p
         ctx.from_rank = from_rank
@@ -112,9 +124,13 @@ class RecvTensorFromPipelineBuffer(torch.autograd.Function):
         return None, None, None, None
 
 
-def recv_from_pipeline_state_buffer(from_rank: int, p2p: P2P, pipeline_state: PipelineBatchState):
+def recv_from_pipeline_state_buffer(
+    from_rank: int, p2p: P2P, pipeline_state: PipelineBatchState
+):
     pipeline_state.register_recv_activation(from_rank=from_rank, p2p=p2p)
     if len(pipeline_state.activations_buffer) == 0:
         pipeline_state.run_communication()
     activation = pipeline_state.activations_buffer.popleft()
-    return RecvTensorFromPipelineBuffer.apply(activation, from_rank, p2p, pipeline_state)
+    return RecvTensorFromPipelineBuffer.apply(
+        activation, from_rank, p2p, pipeline_state
+    )

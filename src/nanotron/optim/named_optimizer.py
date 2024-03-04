@@ -10,7 +10,9 @@ class NamedOptimizer(InheritFromOtherOptimizer):
 
     def __init__(
         self,
-        named_params_or_groups: Iterable[Union[Tuple[str, torch.Tensor], Dict[str, Any]]],
+        named_params_or_groups: Iterable[
+            Union[Tuple[str, torch.Tensor], Dict[str, Any]]
+        ],
         optimizer_builder: Callable[[Iterable[Dict[str, Any]]], torch.optim.Optimizer],
     ):
         named_param_groups = list(named_params_or_groups)
@@ -24,11 +26,19 @@ class NamedOptimizer(InheritFromOtherOptimizer):
             # Don't need to check that param_groups are overlapping since the optimizer will do it for me.
             #  https://github.com/pytorch/pytorch/blob/88b3810c94b45f5982df616e2bc4c471d173f491/torch/optim/optimizer.py#L473
             id_to_name.update(
-                {id(param): name for name, param in named_param_group["named_params"] if id(param) not in id_to_name}
+                {
+                    id(param): name
+                    for name, param in named_param_group["named_params"]
+                    if id(param) not in id_to_name
+                }
             )
             params.append(
                 {
-                    **{k: v for k, v in named_param_group.items() if k != "named_params"},
+                    **{
+                        k: v
+                        for k, v in named_param_group.items()
+                        if k != "named_params"
+                    },
                     "params": [param for _, param in named_param_group["named_params"]],
                 }
             )
@@ -50,9 +60,13 @@ class NamedOptimizer(InheritFromOtherOptimizer):
 
         assert "names" not in optim_state_dict
 
-        state_id_to_name = {id(state): self.id_to_name[id(param)] for param, state in self.optimizer.state.items()}
+        state_id_to_name = {
+            id(state): self.id_to_name[id(param)]
+            for param, state in self.optimizer.state.items()
+        }
         optim_state_dict["names"] = {
-            index: state_id_to_name[id(state)] for index, state in optim_state_dict["state"].items()
+            index: state_id_to_name[id(state)]
+            for index, state in optim_state_dict["state"].items()
         }
         return optim_state_dict
 

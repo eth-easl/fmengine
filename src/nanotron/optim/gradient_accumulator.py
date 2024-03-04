@@ -19,47 +19,42 @@ class GradientAccumulator(ABC):
     fp32_grads_allreduce_handle: Optional[torch.futures.Future]
 
     @abstractmethod
-    def __init__(self, named_parameters: Iterator[Tuple[str, NanotronParameter]]):
-        ...
+    def __init__(self, named_parameters: Iterator[Tuple[str, NanotronParameter]]): ...
 
     @abstractmethod
-    def backward(self, loss: torch.Tensor):
-        ...
+    def backward(self, loss: torch.Tensor): ...
 
     @abstractmethod
-    def step(self):
-        ...
+    def step(self): ...
 
     @abstractmethod
-    def sync_gradients_across_dp(self, dp_pg: dist.ProcessGroup, reduce_op: dist.ReduceOp, reduce_scatter: bool):
-        ...
+    def sync_gradients_across_dp(
+        self, dp_pg: dist.ProcessGroup, reduce_op: dist.ReduceOp, reduce_scatter: bool
+    ): ...
 
     @abstractmethod
-    def zero_grad(self):
-        ...
+    def zero_grad(self): ...
 
     @abstractmethod
-    def get_parameter_for_optimizer(self, name: str) -> NanotronParameter:
-        ...
+    def get_parameter_for_optimizer(self, name: str) -> NanotronParameter: ...
 
     @abstractmethod
-    def get_grad_buffer(self, name: str) -> torch.Tensor:
-        ...
+    def get_grad_buffer(self, name: str) -> torch.Tensor: ...
 
     @abstractmethod
-    def state_dict(self) -> Dict[str, torch.Tensor]:
-        ...
+    def state_dict(self) -> Dict[str, torch.Tensor]: ...
 
     @abstractmethod
-    def load_state_dict(self, state_dict: torch.Tensor):
-        ...
+    def load_state_dict(self, state_dict: torch.Tensor): ...
 
 
 class FP32GradientAccumulator(GradientAccumulator):
     def __init__(
         self,
         named_parameters: Iterator[Tuple[str, NanotronParameter]],
-        grad_buckets_named_params: Optional[Iterator[Tuple[str, NanotronParameter]]] = None,
+        grad_buckets_named_params: Optional[
+            Iterator[Tuple[str, NanotronParameter]]
+        ] = None,
     ):
         """Create a gradient accumulator that will accumulate gradients in fp32.
 
@@ -75,8 +70,8 @@ class FP32GradientAccumulator(GradientAccumulator):
             grad_buckets_named_params = named_parameters
 
         # Initialize grad bucket
-        self.fp32_grad_buffers, self._contiguous_fp32_grad_buffer = self.build_grad_buffers(
-            named_parameters=grad_buckets_named_params
+        self.fp32_grad_buffers, self._contiguous_fp32_grad_buffer = (
+            self.build_grad_buffers(named_parameters=grad_buckets_named_params)
         )
 
         # Assign big buffer for weights + grad in fp32
@@ -119,13 +114,19 @@ class FP32GradientAccumulator(GradientAccumulator):
         # We need the last allreduce handle to make sure it finishes before the optimizer step
         self.fp32_grads_allreduce_handle: Optional[torch.futures.Future] = None
 
-    def assign_param_offsets(self, param_name_to_offsets: Dict[str, Dict[int, Tuple[int, int]]], dp_rank: int):
+    def assign_param_offsets(
+        self, param_name_to_offsets: Dict[str, Dict[int, Tuple[int, int]]], dp_rank: int
+    ):
         """To use only when you use with ZeRODistributedOptimizer"""
         self.param_name_to_offsets = {
-            name: elt[dp_rank] for name, elt in param_name_to_offsets.items() if dp_rank in elt
+            name: elt[dp_rank]
+            for name, elt in param_name_to_offsets.items()
+            if dp_rank in elt
         }
 
-    def sync_gradients_across_dp(self, dp_pg: dist.ProcessGroup, reduce_op: dist.ReduceOp, reduce_scatter: bool):
+    def sync_gradients_across_dp(
+        self, dp_pg: dist.ProcessGroup, reduce_op: dist.ReduceOp, reduce_scatter: bool
+    ):
         if dp_pg.size() == 1:
             # They are already synced
             return
@@ -135,24 +136,38 @@ class FP32GradientAccumulator(GradientAccumulator):
             # However when the optimizer state are sharded, you really just need to scatter to ranks that are going to run the optimizer state.
             # Effectively you replace a `all_reduce` with a `reduce_scatter` which should save an `all_gather` when using RING algorithm.
             assert hasattr(self, "param_name_to_offsets")
-            named_offsets = sorted(self.param_name_to_offsets.items(), key=lambda x: x[0])
-            flat_grad_buffers = [self.fp32_grad_buffers[name]["fp32_grad"].view(-1) for name, _ in named_offsets]
+            named_offsets = sorted(
+                self.param_name_to_offsets.items(), key=lambda x: x[0]
+            )
+            flat_grad_buffers = [
+                self.fp32_grad_buffers[name]["fp32_grad"].view(-1)
+                for name, _ in named_offsets
+            ]
             dist.reduce_scatter_coalesced(
                 output_tensor_list=[
                     flat_grad_buffer[start_offset:end_offset]
-                    for (_, (start_offset, end_offset)), flat_grad_buffer in zip(named_offsets, flat_grad_buffers)
+                    for (_, (start_offset, end_offset)), flat_grad_buffer in zip(
+                        named_offsets, flat_grad_buffers
+                    )
                 ],
                 input_tensor_lists=[
                     torch.split(
                         flat_grad_buffer,
-                        split_size_or_sections=len(self.fp32_grad_buffers[name]["fp32_grad"].view(-1)) // dp_pg.size(),
+                        split_size_or_sections=len(
+                            self.fp32_grad_buffers[name]["fp32_grad"].view(-1)
+                        )
+                        // dp_pg.size(),
                     )
-                    for (name, _), flat_grad_buffer in zip(named_offsets, flat_grad_buffers)
+                    for (name, _), flat_grad_buffer in zip(
+                        named_offsets, flat_grad_buffers
+                    )
                 ],
                 group=dp_pg,
             )
         else:
-            dist.all_reduce(self._contiguous_fp32_grad_buffer, op=reduce_op, group=dp_pg)
+            dist.all_reduce(
+                self._contiguous_fp32_grad_buffer, op=reduce_op, group=dp_pg
+            )
 
     @staticmethod
     def build_grad_buffers(
@@ -166,11 +181,15 @@ class FP32GradientAccumulator(GradientAccumulator):
         Note:
             In ZeRO-1, we need to accumulate grads for all parameters, because we need to allreduce all parameters' grads across DP at each sync step.
         """
-        named_parameters = [(name, param) for name, param in named_parameters if param.requires_grad]
+        named_parameters = [
+            (name, param) for name, param in named_parameters if param.requires_grad
+        ]
 
         needed_buffer_size = sum(param.numel() for _, param in named_parameters)
         # important to have grads zeroed initially (see `self._accumulate_grad`)
-        contiguous_buffer_f32_gradients = torch.zeros(needed_buffer_size, dtype=torch.float, device="cuda")
+        contiguous_buffer_f32_gradients = torch.zeros(
+            needed_buffer_size, dtype=torch.float, device="cuda"
+        )
         untyped_storage = get_untyped_storage(contiguous_buffer_f32_gradients)
         element_size = contiguous_buffer_f32_gradients.element_size()
 
@@ -325,7 +344,9 @@ def get_fp32_accum_hook(
     """
     # s = torch.cuda.Stream()
 
-    def fp32_accum_hook(state: FP32GradBucketManager, bucket: GradBucket) -> torch.futures.Future[torch.Tensor]:
+    def fp32_accum_hook(
+        state: FP32GradBucketManager, bucket: GradBucket
+    ) -> torch.futures.Future[torch.Tensor]:
         # nonlocal s
         # DDP groups grads in GradBuckets. This hook is called throughout the bwd pass, once each bucket is ready to overlap communication with computation.
         # See https://pytorch.org/docs/stable/ddp_comm_hooks.html#what-does-a-communication-hook-operate-on for more details.
@@ -349,18 +370,31 @@ def get_fp32_accum_hook(
         if reduce_scatter:
             assert hasattr(accumulator, "param_name_to_offsets")
             grad_buffer_tensor_list = [
-                accumulator.get_grad_buffer(param_id_to_name[id(param)]).view(-1) for param in bucket.parameters()
+                accumulator.get_grad_buffer(param_id_to_name[id(param)]).view(-1)
+                for param in bucket.parameters()
             ]
             device = grad_buffer_tensor_list[0].device
             dtype = grad_buffer_tensor_list[0].dtype
             output_tensor_list = [
-                grad_buffer[slice(*accumulator.param_name_to_offsets[param_id_to_name[id(param)]])]
-                if param_id_to_name[id(param)] in accumulator.param_name_to_offsets
-                else torch.empty(0, dtype=dtype, device=device)
-                for grad_buffer, param in zip(grad_buffer_tensor_list, bucket.parameters())
+                (
+                    grad_buffer[
+                        slice(
+                            *accumulator.param_name_to_offsets[
+                                param_id_to_name[id(param)]
+                            ]
+                        )
+                    ]
+                    if param_id_to_name[id(param)] in accumulator.param_name_to_offsets
+                    else torch.empty(0, dtype=dtype, device=device)
+                )
+                for grad_buffer, param in zip(
+                    grad_buffer_tensor_list, bucket.parameters()
+                )
             ]
             input_tensor_lists = [
-                torch.split(grad_buffer, split_size_or_sections=len(grad_buffer) // dp_pg.size())
+                torch.split(
+                    grad_buffer, split_size_or_sections=len(grad_buffer) // dp_pg.size()
+                )
                 for grad_buffer in grad_buffer_tensor_list
             ]
             dist.reduce_scatter_coalesced(
@@ -372,7 +406,8 @@ def get_fp32_accum_hook(
             )
         else:
             grad_buffer_tensor_list = [
-                accumulator.get_grad_buffer(param_id_to_name[id(param)]).view(-1) for param in bucket.parameters()
+                accumulator.get_grad_buffer(param_id_to_name[id(param)]).view(-1)
+                for param in bucket.parameters()
             ]
             accumulator.fp32_grads_allreduce_handle = dist.all_reduce_coalesced(
                 grad_buffer_tensor_list, group=dp_pg, async_op=True, op=reduce_op

@@ -55,36 +55,30 @@ class PipelineBatchState(ABC):
     activations_buffer = collections.deque()
 
     @abstractmethod
-    def register_activation_requiring_backward(self, activation: torch.Tensor):
-        ...
+    def register_activation_requiring_backward(self, activation: torch.Tensor): ...
 
     @abstractmethod
-    def register_send_activation(self, activation: torch.Tensor, to_rank: int, p2p: P2P):
-        ...
+    def register_send_activation(
+        self, activation: torch.Tensor, to_rank: int, p2p: P2P
+    ): ...
 
     @abstractmethod
-    def register_recv_activation(self, from_rank: int, p2p: P2P):
-        ...
+    def register_recv_activation(self, from_rank: int, p2p: P2P): ...
 
     @abstractmethod
-    def register_send_grad(self, grad: torch.Tensor, to_rank: int, p2p: P2P):
-        ...
+    def register_send_grad(self, grad: torch.Tensor, to_rank: int, p2p: P2P): ...
 
     @abstractmethod
-    def register_recv_grad(self, from_rank: int, p2p: P2P):
-        ...
+    def register_recv_grad(self, from_rank: int, p2p: P2P): ...
 
     @abstractmethod
-    def run_communication(self, send_only_activation: bool = False):
-        ...
+    def run_communication(self, send_only_activation: bool = False): ...
 
     @abstractmethod
-    def new_micro_batch_forward(self):
-        ...
+    def new_micro_batch_forward(self): ...
 
     @abstractmethod
-    def pop_last_activations_requiring_backward(self) -> List[torch.Tensor]:
-        ...
+    def pop_last_activations_requiring_backward(self) -> List[torch.Tensor]: ...
 
 
 @dataclasses.dataclass
@@ -106,17 +100,25 @@ class PipelineTrainBatchState(PipelineBatchState):
         # Register the activation to last microbatch
         self.microbatches_activations_requiring_backward[-1].append(activation)
 
-    def register_send_activation(self, activation: torch.Tensor, to_rank: int, p2p: P2P):
+    def register_send_activation(
+        self, activation: torch.Tensor, to_rank: int, p2p: P2P
+    ):
         # TODO @thomasw21: We assume that each rank has a single contiguous list of blocks. This also means that we only send activations from higher ranks
-        self.microbatches_activations_to_send.append(SendActivation(activation=activation, to_rank=to_rank, p2p=p2p))
+        self.microbatches_activations_to_send.append(
+            SendActivation(activation=activation, to_rank=to_rank, p2p=p2p)
+        )
 
     def register_recv_activation(self, from_rank: int, p2p: P2P):
         # TODO @thomasw21: We assume that each rank has a single contiguous list of blocks. This also means that we only recv activations from lower ranks
-        self.microbatches_activations_to_recv.append(RecvActivation(from_rank=from_rank, p2p=p2p))
+        self.microbatches_activations_to_recv.append(
+            RecvActivation(from_rank=from_rank, p2p=p2p)
+        )
 
     def register_send_grad(self, grad: torch.Tensor, to_rank: int, p2p: P2P):
         # TODO @thomasw21: We assume that each rank has a single contiguous list of blocks. This also means that we only send gradients to lower ranks
-        self.microbatches_grads_to_send.append(SendGrad(grad=grad, to_rank=to_rank, p2p=p2p))
+        self.microbatches_grads_to_send.append(
+            SendGrad(grad=grad, to_rank=to_rank, p2p=p2p)
+        )
 
     def register_recv_grad(self, from_rank: int, p2p: P2P):
         # TODO @thomasw21: We assume that each rank has a single contiguous list of blocks. This also means that we only recv gradients from higher ranks
@@ -163,7 +165,10 @@ class PipelineTrainBatchState(PipelineBatchState):
         # Pop one recv gradient
         if len(self.microbatches_grads_to_recv) > 0:
             # Send activation until `activation_send_requires_grad` is True
-            while len(self.microbatches_activations_to_send) > 0 and not activation_send_requires_grad:
+            while (
+                len(self.microbatches_activations_to_send) > 0
+                and not activation_send_requires_grad
+            ):
                 send_activation = self.microbatches_activations_to_send.popleft()
                 # Execute
                 activation_send_requires_grad = send_activation.activation.requires_grad
@@ -207,25 +212,41 @@ class PipelineEvalBatchState(PipelineBatchState):
     def register_activation_requiring_backward(self, activation: torch.Tensor):
         pass
 
-    def register_send_activation(self, activation: torch.Tensor, to_rank: int, p2p: P2P):
-        self.microbatches_activations_to_send.append(SendActivation(activation=activation, to_rank=to_rank, p2p=p2p))
+    def register_send_activation(
+        self, activation: torch.Tensor, to_rank: int, p2p: P2P
+    ):
+        self.microbatches_activations_to_send.append(
+            SendActivation(activation=activation, to_rank=to_rank, p2p=p2p)
+        )
 
         # There's a cross communication
-        if len(self.microbatches_activations_to_recv) > 0 and len(self.microbatches_activations_to_recv) > 0:
+        if (
+            len(self.microbatches_activations_to_recv) > 0
+            and len(self.microbatches_activations_to_recv) > 0
+        ):
             self.run_communication()
 
     def register_recv_activation(self, from_rank: int, p2p: P2P):
-        self.microbatches_activations_to_recv.append(RecvActivation(from_rank=from_rank, p2p=p2p))
+        self.microbatches_activations_to_recv.append(
+            RecvActivation(from_rank=from_rank, p2p=p2p)
+        )
 
         # There's a cross communication
-        if len(self.microbatches_activations_to_recv) > 0 and len(self.microbatches_activations_to_recv) > 0:
+        if (
+            len(self.microbatches_activations_to_recv) > 0
+            and len(self.microbatches_activations_to_recv) > 0
+        ):
             self.run_communication()
 
     def register_send_grad(self, grad: torch.Tensor, to_rank: int, p2p: P2P):
-        raise NotImplementedError("You can't register a send grad in pipeline eval mode")
+        raise NotImplementedError(
+            "You can't register a send grad in pipeline eval mode"
+        )
 
     def register_recv_grad(self, from_rank: int, p2p: P2P):
-        raise NotImplementedError("You can't register a recv grad in pipeline eval mode")
+        raise NotImplementedError(
+            "You can't register a recv grad in pipeline eval mode"
+        )
 
     def new_micro_batch_forward(self):
         pass
@@ -252,7 +273,9 @@ class PipelineEvalBatchState(PipelineBatchState):
 
         if send_activation is None:
             if recv_activation is None:
-                raise ValueError("Why the hell do we communicate when there's nothing to communicate?")
+                raise ValueError(
+                    "Why the hell do we communicate when there's nothing to communicate?"
+                )
             self.activations_buffer.append(recv_activation())
         else:
             if recv_activation is None:

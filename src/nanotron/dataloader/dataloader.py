@@ -32,7 +32,9 @@ try:
     from transformers import PreTrainedTokenizerBase
     from transformers.trainer_pt_utils import DistributedSamplerWithLoop
 except ImportError:
-    warnings.warn("Datasets and/or Transformers not installed, you'll be unable to use the dataloader.")
+    warnings.warn(
+        "Datasets and/or Transformers not installed, you'll be unable to use the dataloader."
+    )
 
 
 logger = logging.get_logger(__name__)
@@ -45,7 +47,11 @@ def sanity_check_dataloader(
 ) -> Iterator[Dict[str, Union[torch.Tensor, TensorPointer]]]:
     for batch in dataloader:
         micro_batch = {
-            k: v if isinstance(v, TensorPointer) else v.to("cuda", memory_format=torch.contiguous_format)
+            k: (
+                v
+                if isinstance(v, TensorPointer)
+                else v.to("cuda", memory_format=torch.contiguous_format)
+            )
             for k, v in batch.items()
         }
 
@@ -59,9 +65,13 @@ def sanity_check_dataloader(
                     # It's fine if mask is the same across DP
                     continue
 
-                with assert_fail_except_rank_with(AssertionError, rank_exception=0, pg=parallel_context.dp_pg):
+                with assert_fail_except_rank_with(
+                    AssertionError, rank_exception=0, pg=parallel_context.dp_pg
+                ):
                     assert_tensor_synced_across_pg(
-                        tensor=value, pg=parallel_context.dp_pg, msg=lambda err: f"{key} {err}"
+                        tensor=value,
+                        pg=parallel_context.dp_pg,
+                        msg=lambda err: f"{key} {err}",
                     )
 
             # SANITY CHECK: Check input are synchronized throughout TP
@@ -119,13 +129,17 @@ def get_datasets(
                 split=split,
             )
     else:
-        raise ValueError(f"hf_dataset_or_datasets must be a dict or string but is {type(hf_dataset_or_datasets)}")
+        raise ValueError(
+            f"hf_dataset_or_datasets must be a dict or string but is {type(hf_dataset_or_datasets)}"
+        )
 
     return raw_datasets
 
 
 # Adapted from h4/src/h4/data/loading.py
-def _get_dataset_mix(dataset_dict: dict, splits: List[str] = None, seed=42) -> "DatasetDict":
+def _get_dataset_mix(
+    dataset_dict: dict, splits: List[str] = None, seed=42
+) -> "DatasetDict":
     """
     Helper function to load dataset mix from dict configuration.
 
@@ -140,7 +154,9 @@ def _get_dataset_mix(dataset_dict: dict, splits: List[str] = None, seed=42) -> "
     fracs = []
     for ds, frac in dataset_dict.items():
         if frac < 0:
-            raise ValueError(f"Dataset fraction for dataset {ds} is negative. (= {frac})")
+            raise ValueError(
+                f"Dataset fraction for dataset {ds} is negative. (= {frac})"
+            )
 
         fracs.append(frac)
         for split in splits:
@@ -159,7 +175,9 @@ def _get_dataset_mix(dataset_dict: dict, splits: List[str] = None, seed=42) -> "
                     )
                 )
             else:
-                raise ValueError(f"Split type {split} not recognized as one of test or train.")
+                raise ValueError(
+                    f"Split type {split} not recognized as one of test or train."
+                )
 
     if len(raw_train_datasets) > 0:
         train_subsets = []
@@ -170,7 +188,9 @@ def _get_dataset_mix(dataset_dict: dict, splits: List[str] = None, seed=42) -> "
 
     # No subsampling for test datasets to enable fair comparison across models
     if len(raw_test_datasets) > 0:
-        raw_datasets["test"] = concatenate_datasets(raw_test_datasets).shuffle(seed=seed)
+        raw_datasets["test"] = concatenate_datasets(raw_test_datasets).shuffle(
+            seed=seed
+        )
 
     if len(raw_datasets) == 0:
         raise ValueError(
@@ -189,52 +209,64 @@ def dummy_infinite_data_generator(
     seed: int,
     parallel_context: ParallelContext,
 ):
-    def data_generator() -> Generator[Dict[str, Union[torch.Tensor, TensorPointer]], None, None]:
+    def data_generator() -> (
+        Generator[Dict[str, Union[torch.Tensor, TensorPointer]], None, None]
+    ):
         # Random generator
         generator = torch.Generator(device="cuda")
         # Make sure that TP are synced always
         generator.manual_seed(
-            seed * (1 + dist.get_rank(parallel_context.dp_pg)) * (1 + dist.get_rank(parallel_context.pp_pg))
+            seed
+            * (1 + dist.get_rank(parallel_context.dp_pg))
+            * (1 + dist.get_rank(parallel_context.pp_pg))
         )
 
         while True:
             yield {
-                "input_ids": torch.randint(
-                    0,
-                    vocab_size,
-                    (micro_batch_size, sequence_length),
-                    dtype=torch.long,
-                    device="cuda",
-                    generator=generator,
-                )
-                if dist.get_rank(parallel_context.pp_pg) == input_pp_rank
-                else TensorPointer(group_rank=input_pp_rank),
-                "input_mask": torch.ones(
-                    micro_batch_size,
-                    sequence_length,
-                    dtype=torch.bool,
-                    device="cuda",
-                )
-                if dist.get_rank(parallel_context.pp_pg) == input_pp_rank
-                else TensorPointer(group_rank=input_pp_rank),
-                "label_ids": torch.randint(
-                    0,
-                    vocab_size,
-                    (micro_batch_size, sequence_length),
-                    dtype=torch.long,
-                    device="cuda",
-                    generator=generator,
-                )
-                if dist.get_rank(parallel_context.pp_pg) == output_pp_rank
-                else TensorPointer(group_rank=output_pp_rank),
-                "label_mask": torch.ones(
-                    micro_batch_size,
-                    sequence_length,
-                    dtype=torch.bool,
-                    device="cuda",
-                )
-                if dist.get_rank(parallel_context.pp_pg) == output_pp_rank
-                else TensorPointer(group_rank=output_pp_rank),
+                "input_ids": (
+                    torch.randint(
+                        0,
+                        vocab_size,
+                        (micro_batch_size, sequence_length),
+                        dtype=torch.long,
+                        device="cuda",
+                        generator=generator,
+                    )
+                    if dist.get_rank(parallel_context.pp_pg) == input_pp_rank
+                    else TensorPointer(group_rank=input_pp_rank)
+                ),
+                "input_mask": (
+                    torch.ones(
+                        micro_batch_size,
+                        sequence_length,
+                        dtype=torch.bool,
+                        device="cuda",
+                    )
+                    if dist.get_rank(parallel_context.pp_pg) == input_pp_rank
+                    else TensorPointer(group_rank=input_pp_rank)
+                ),
+                "label_ids": (
+                    torch.randint(
+                        0,
+                        vocab_size,
+                        (micro_batch_size, sequence_length),
+                        dtype=torch.long,
+                        device="cuda",
+                        generator=generator,
+                    )
+                    if dist.get_rank(parallel_context.pp_pg) == output_pp_rank
+                    else TensorPointer(group_rank=output_pp_rank)
+                ),
+                "label_mask": (
+                    torch.ones(
+                        micro_batch_size,
+                        sequence_length,
+                        dtype=torch.bool,
+                        device="cuda",
+                    )
+                    if dist.get_rank(parallel_context.pp_pg) == output_pp_rank
+                    else TensorPointer(group_rank=output_pp_rank)
+                ),
             }
 
     return data_generator
@@ -266,11 +298,17 @@ class SkipBatchSampler(BatchSampler):
 
 
 def set_tensor_pointers(
-    input_dict: Dict[str, Union[torch.Tensor, TensorPointer]], group: dist.ProcessGroup, group_rank: int
+    input_dict: Dict[str, Union[torch.Tensor, TensorPointer]],
+    group: dist.ProcessGroup,
+    group_rank: int,
 ) -> Dict[str, Union[torch.Tensor, TensorPointer]]:
     """Make sure only the group_rank rank has the data, others have TensorPointers."""
     return {
-        k: v if dist.get_rank(group) == group_rank else TensorPointer(group_rank=group_rank)
+        k: (
+            v
+            if dist.get_rank(group) == group_rank
+            else TensorPointer(group_rank=group_rank)
+        )
         for k, v in input_dict.items()
     }
 
@@ -287,7 +325,9 @@ def clm_process(
     """Concatenate all texts from raw_dataset and generate chunks of `sequence_length + 1`, where chunks overlap by a single token."""
     # Adapted from https://github.com/huggingface/transformers/blob/47e1676255e5dd86b9541f734cd4f4bdcbb50f4a/examples/pytorch/language-modeling/run_clm.py#L391-L439
 
-    def group_texts(examples: Dict[str, List[np.ndarray]]) -> Dict[str, List[np.ndarray]]:
+    def group_texts(
+        examples: Dict[str, List[np.ndarray]]
+    ) -> Dict[str, List[np.ndarray]]:
         # Concatenate all texts.
         concatenated_examples = {k: np.concatenate(v) for k, v in examples.items()}
         total_length = len(concatenated_examples[next(iter(examples.keys()))])
@@ -298,22 +338,34 @@ def clm_process(
         # Split by chunks of sequence_length.
         result = {
             k: [
-                t[i : i + sequence_length + 1] for i in range(0, total_length - (sequence_length + 1), sequence_length)
+                t[i : i + sequence_length + 1]
+                for i in range(0, total_length - (sequence_length + 1), sequence_length)
             ]
             for k, t in concatenated_examples.items()
         }
         return result
 
     def _tokenize_and_group_texts(texts: List[str]) -> Dict[str, List[np.ndarray]]:
-        tokenized_batch = tokenizer.batch_encode_plus(texts, return_attention_mask=False, return_token_type_ids=False)
-        tokenized_batch = {k: [np.array(tokenized_texts) for tokenized_texts in v] for k, v in tokenized_batch.items()}
+        tokenized_batch = tokenizer.batch_encode_plus(
+            texts, return_attention_mask=False, return_token_type_ids=False
+        )
+        tokenized_batch = {
+            k: [np.array(tokenized_texts) for tokenized_texts in v]
+            for k, v in tokenized_batch.items()
+        }
         return group_texts(tokenized_batch)
 
     train_dataset = raw_dataset.map(
         _tokenize_and_group_texts,
         input_columns=text_column_name,
         remove_columns=raw_dataset.column_names,
-        features=Features({"input_ids": Sequence(feature=Value(dtype="int64"), length=sequence_length + 1)}),
+        features=Features(
+            {
+                "input_ids": Sequence(
+                    feature=Value(dtype="int64"), length=sequence_length + 1
+                )
+            }
+        ),
         batched=True,
         num_proc=dataset_processing_num_proc_per_process,
         load_from_cache_file=not dataset_overwrite_cache,
@@ -338,7 +390,9 @@ class DataCollatorForCLM:
     output_pp_rank: int
     parallel_context: ParallelContext
 
-    def __call__(self, examples: List[Dict[str, List[np.ndarray]]]) -> Dict[str, Union[torch.Tensor, TensorPointer]]:
+    def __call__(
+        self, examples: List[Dict[str, List[np.ndarray]]]
+    ) -> Dict[str, Union[torch.Tensor, TensorPointer]]:
         # Process the case when current rank doesn't require data. We return `TensorPointer` that points to ranks having the data.
         current_pp_rank = dist.get_rank(self.parallel_context.pp_pg)
         if current_pp_rank not in [
@@ -357,7 +411,9 @@ class DataCollatorForCLM:
         assert all(list(example.keys()) == ["input_ids"] for example in examples)
 
         # TODO @nouamanetazi: Is it better to have examples as np.array or torch.Tensor?
-        input_ids = np.vstack([examples[i]["input_ids"] for i in range(len(examples))])  # (b, s)
+        input_ids = np.vstack(
+            [examples[i]["input_ids"] for i in range(len(examples))]
+        )  # (b, s)
         batch_size, expanded_input_length = input_ids.shape
 
         result: Dict[str, Union[np.ndarray, TensorPointer]] = {}
@@ -374,26 +430,39 @@ class DataCollatorForCLM:
         # Process inputs: last token is the label
         if current_pp_rank == self.input_pp_rank:
             result["input_ids"] = input_ids[:, :-1]
-            result["input_mask"] = np.ones((batch_size, self.sequence_length), dtype=np.bool_)
+            result["input_mask"] = np.ones(
+                (batch_size, self.sequence_length), dtype=np.bool_
+            )
 
         # Process labels: shift them to the left
         if current_pp_rank == self.output_pp_rank:
             result["label_ids"] = input_ids[:, 1:]
-            result["label_mask"] = np.ones((batch_size, self.sequence_length), dtype=np.bool_)
+            result["label_mask"] = np.ones(
+                (batch_size, self.sequence_length), dtype=np.bool_
+            )
 
-        if isinstance(result["input_ids"], torch.Tensor) and result["input_ids"].shape[-1] != self.sequence_length:
+        if (
+            isinstance(result["input_ids"], torch.Tensor)
+            and result["input_ids"].shape[-1] != self.sequence_length
+        ):
             raise ValueError(
                 f"`labels` are incorrectly preprocessed. `labels` length is {result['input_ids'].shape[-1]}, but should be"
                 f" {self.sequence_length}."
             )
-        if isinstance(result["label_ids"], torch.Tensor) and result["label_ids"].shape[-1] != self.sequence_length:
+        if (
+            isinstance(result["label_ids"], torch.Tensor)
+            and result["label_ids"].shape[-1] != self.sequence_length
+        ):
             raise ValueError(
                 f"`labels` are incorrectly preprocessed. `labels` length is {result['label_ids'].shape[-1]}, but should be"
                 f" {self.sequence_length}."
             )
 
         # Cast np.array to torch.Tensor
-        result = {k: v if isinstance(v, TensorPointer) else torch.from_numpy(v) for k, v in result.items()}
+        result = {
+            k: v if isinstance(v, TensorPointer) else torch.from_numpy(v)
+            for k, v in result.items()
+        }
         return result
 
 
@@ -426,11 +495,17 @@ def _get_train_sampler(
         )
     else:
         sampler = DistributedSampler(
-            train_dataset, num_replicas=dl_ranks_size, rank=dl_rank, seed=seed, drop_last=drop_last
+            train_dataset,
+            num_replicas=dl_ranks_size,
+            rank=dl_rank,
+            seed=seed,
+            drop_last=drop_last,
         )
 
     if consumed_train_samples > 0:
-        sampler = SkipBatchSampler(sampler, skip_batches=consumed_train_samples, dp_size=dl_ranks_size)
+        sampler = SkipBatchSampler(
+            sampler, skip_batches=consumed_train_samples, dp_size=dl_ranks_size
+        )
 
     return sampler
 
@@ -451,14 +526,18 @@ def get_train_dataloader(
     use_loop_to_round_batch_size: bool = False,
 ) -> DataLoader:
     if not isinstance(train_dataset, datasets.Dataset):
-        raise ValueError(f"training requires a datasets.Dataset, but got {type(train_dataset)}")
+        raise ValueError(
+            f"training requires a datasets.Dataset, but got {type(train_dataset)}"
+        )
 
     # Case of ranks requiring data
     if dist.get_rank(parallel_context.pp_pg) in [
         input_pp_rank,
         output_pp_rank,
     ]:
-        train_dataset = train_dataset.with_format(type="numpy", columns=["input_ids"], output_all_columns=True)
+        train_dataset = train_dataset.with_format(
+            type="numpy", columns=["input_ids"], output_all_columns=True
+        )
 
     # Case of ranks not requiring data. We give them an infinite dummy dataloader
     else:

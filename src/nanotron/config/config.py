@@ -312,9 +312,13 @@ class Config:
         if self.profiler is not None and self.profiler.profiler_export_path is not None:
             assert self.tokens.train_steps < 10
 
-        if self.optimizer is not None and self.optimizer.learning_rate_scheduler.lr_decay_steps is None:
+        if (
+            self.optimizer is not None
+            and self.optimizer.learning_rate_scheduler.lr_decay_steps is None
+        ):
             self.optimizer.learning_rate_scheduler.lr_decay_steps = (
-                self.tokens.train_steps - self.optimizer.learning_rate_scheduler.lr_warmup_steps
+                self.tokens.train_steps
+                - self.optimizer.learning_rate_scheduler.lr_warmup_steps
             )
 
         # # if lighteval, we need tokenizer to be defined
@@ -323,7 +327,11 @@ class Config:
 
     @property
     def global_batch_size(self):
-        return self.tokens.micro_batch_size * self.tokens.batch_accumulation_per_replica * self.parallelism.dp
+        return (
+            self.tokens.micro_batch_size
+            * self.tokens.batch_accumulation_per_replica
+            * self.parallelism.dp
+        )
 
     def save_as_yaml(self, file_path: str):
         config_dict = serialize(self)
@@ -339,7 +347,10 @@ class Config:
 
 
 def get_config_from_dict(
-    config_dict: dict, config_class: Type = Config, skip_unused_config_keys: bool = False, skip_null_keys: bool = False
+    config_dict: dict,
+    config_class: Type = Config,
+    skip_unused_config_keys: bool = False,
+    skip_null_keys: bool = False,
 ):
     """Get a config object from a dictionary
 
@@ -352,12 +363,18 @@ def get_config_from_dict(
     if skip_unused_config_keys:
         logger.warning("skip_unused_config_keys set")
         config_dict = {
-            field.name: config_dict[field.name] for field in fields(config_class) if field.name in config_dict
+            field.name: config_dict[field.name]
+            for field in fields(config_class)
+            if field.name in config_dict
         }
     if skip_null_keys:
         logger.warning("Skip_null_keys set")
         config_dict = {
-            k: {kk: vv for kk, vv in v.items() if vv is not None} if isinstance(v, dict) else v
+            k: (
+                {kk: vv for kk, vv in v.items() if vv is not None}
+                if isinstance(v, dict)
+                else v
+            )
             for k, v in config_dict.items()
             if v is not None
         }

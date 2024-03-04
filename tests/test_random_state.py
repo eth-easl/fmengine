@@ -12,7 +12,10 @@ from nanotron.random import (
 )
 
 
-@pytest.mark.skipif(available_gpus() < 2, reason="Testing test_random_state_sync requires at least 2 gpus")
+@pytest.mark.skipif(
+    available_gpus() < 2,
+    reason="Testing test_random_state_sync requires at least 2 gpus",
+)
 @pytest.mark.parametrize("tp,dp,pp", [(2, 1, 1), (1, 2, 1), (1, 1, 2)])
 @rerun_if_address_is_in_use()
 def test_random_state_sync(tp: int, dp: int, pp: int):
@@ -24,7 +27,15 @@ def _test_random_state_sync(parallel_context: ParallelContext):
     current_random_state = get_current_random_state()
     reference_rank = 0
     pg = next(
-        (pg for pg in [parallel_context.tp_pg, parallel_context.dp_pg, parallel_context.pp_pg] if pg.size() == 2)
+        (
+            pg
+            for pg in [
+                parallel_context.tp_pg,
+                parallel_context.dp_pg,
+                parallel_context.pp_pg,
+            ]
+            if pg.size() == 2
+        )
     )
 
     # Check that they are not equal across process group

@@ -27,12 +27,16 @@ class ZeroDistributedOptimizer(InheritFromOtherOptimizer):
 
     def __init__(
         self,
-        named_params_or_groups: Iterable[Union[Tuple[str, NanotronParameter], Dict[str, Any]]],
+        named_params_or_groups: Iterable[
+            Union[Tuple[str, NanotronParameter], Dict[str, Any]]
+        ],
         optimizer_builder: Callable[[Iterable[Dict[str, Any]]], BaseOptimizer],
         dp_pg: ProcessGroup,
     ):
         named_params_or_groups = list(named_params_or_groups)
-        if len(named_params_or_groups) == 0 or isinstance(named_params_or_groups[0], dict):
+        if len(named_params_or_groups) == 0 or isinstance(
+            named_params_or_groups[0], dict
+        ):
             # case where named_params_or_groups is Iterable[Dict[str, Any]]
             for d in named_params_or_groups:
                 assert (
@@ -43,9 +47,15 @@ class ZeroDistributedOptimizer(InheritFromOtherOptimizer):
             named_params_or_groups = [
                 {
                     "named_params": [
-                        (name, param) for name, param in named_param_group["named_params"] if param.requires_grad
+                        (name, param)
+                        for name, param in named_param_group["named_params"]
+                        if param.requires_grad
                     ],
-                    **{k: v for k, v in named_param_group.items() if k != "named_params"},
+                    **{
+                        k: v
+                        for k, v in named_param_group.items()
+                        if k != "named_params"
+                    },
                 }
                 for named_param_group in named_params_or_groups
             ]
@@ -54,7 +64,11 @@ class ZeroDistributedOptimizer(InheritFromOtherOptimizer):
         else:
             # case where named_params_or_groups is Iterable[Tuple[str, NanotronParameter]]
             # keep only named_params_or_groups that require grads
-            named_params_or_groups = [(name, param) for name, param in named_params_or_groups if param.requires_grad]
+            named_params_or_groups = [
+                (name, param)
+                for name, param in named_params_or_groups
+                if param.requires_grad
+            ]
             self.zero_named_param_groups = [{"named_params": named_params_or_groups}]
 
         self.dp_pg = dp_pg  # DP process group
@@ -72,8 +86,12 @@ class ZeroDistributedOptimizer(InheritFromOtherOptimizer):
                         name,
                         get_sliced_tensor(
                             param=param,
-                            start_offset=self.param_name_to_dp_rank_offsets[name][current_dp_rank][0],
-                            end_offset=self.param_name_to_dp_rank_offsets[name][current_dp_rank][1],
+                            start_offset=self.param_name_to_dp_rank_offsets[name][
+                                current_dp_rank
+                            ][0],
+                            end_offset=self.param_name_to_dp_rank_offsets[name][
+                                current_dp_rank
+                            ][1],
                         ),
                     )
                     for name, param in param_group["named_params"]
@@ -100,7 +118,8 @@ class ZeroDistributedOptimizer(InheritFromOtherOptimizer):
 
         # calculate param_size (model) + param_size (grads) + 2*param_size/DP_if_zero1 (optim_states)
         expected_allocated = sum(
-            param.numel() * param.element_size() * 2 + param.numel() * param.element_size() * 2 / self.dp_pg.size()
+            param.numel() * param.element_size() * 2
+            + param.numel() * param.element_size() * 2 / self.dp_pg.size()
             for named_param_group in self.zero_named_param_groups
             for _, param in named_param_group["named_params"]
         )
@@ -121,7 +140,8 @@ class ZeroDistributedOptimizer(InheritFromOtherOptimizer):
 
     def zero_grad(self):
         """Copied from `torch.optim.optimizer.zero_grad` with the only change of using `self.param_groups` instead of `self.optimizer.param_groups`
-        because we want to zero out the gradients of all model params (not just the params in the current rank)"""
+        because we want to zero out the gradients of all model params (not just the params in the current rank)
+        """
         super().zero_grad()
 
         # TODO @thomasw21: This is a call to torch internal API, we need to fix this
@@ -189,12 +209,19 @@ class ZeroDistributedOptimizer(InheritFromOtherOptimizer):
             param_name_to_dp_rank_offsets[name] = {
                 dp_rank: (start_offsets[dp_rank], end_offsets[dp_rank])
                 for dp_rank in range(self.dp_pg.size())
-                if start_offsets[dp_rank] < end_offsets[dp_rank]  # Only if the slice is not empty.
+                if start_offsets[dp_rank]
+                < end_offsets[dp_rank]  # Only if the slice is not empty.
             }
 
-        log_rank("[ZeRO sharding] Size of optimizer params per rank:", logger=logger, level=logging.INFO, rank=0)
+        log_rank(
+            "[ZeRO sharding] Size of optimizer params per rank:",
+            logger=logger,
+            level=logging.INFO,
+            rank=0,
+        )
         all_numel = sum(
-            param_name_to_dp_rank_offsets[name][dp_rank][1] - param_name_to_dp_rank_offsets[name][dp_rank][0]
+            param_name_to_dp_rank_offsets[name][dp_rank][1]
+            - param_name_to_dp_rank_offsets[name][dp_rank][0]
             for name, param in named_params
             for dp_rank in range(self.dp_pg.size())
             if dp_rank in param_name_to_dp_rank_offsets[name]
@@ -234,17 +261,27 @@ class ZeroDistributedOptimizer(InheritFromOtherOptimizer):
         dist.all_gather_coalesced(
             output_tensor_lists=[
                 [
-                    tensor[slice(*self.param_name_to_dp_rank_offsets[name][dp_rank])]
-                    if dp_rank in self.param_name_to_dp_rank_offsets[name]
-                    else torch.empty(0, dtype=tensor.dtype, device=tensor.device)
+                    (
+                        tensor[
+                            slice(*self.param_name_to_dp_rank_offsets[name][dp_rank])
+                        ]
+                        if dp_rank in self.param_name_to_dp_rank_offsets[name]
+                        else torch.empty(0, dtype=tensor.dtype, device=tensor.device)
+                    )
                     for dp_rank in range(self.dp_pg.size())
                 ]
                 for name, tensor in all_named_tensors_to_gather
             ],
             input_tensor_list=[
-                tensor[slice(*self.param_name_to_dp_rank_offsets[name][current_dp_rank])]
-                if current_dp_rank in self.param_name_to_dp_rank_offsets[name]
-                else torch.empty(0, dtype=tensor.dtype, device=tensor.device)
+                (
+                    tensor[
+                        slice(
+                            *self.param_name_to_dp_rank_offsets[name][current_dp_rank]
+                        )
+                    ]
+                    if current_dp_rank in self.param_name_to_dp_rank_offsets[name]
+                    else torch.empty(0, dtype=tensor.dtype, device=tensor.device)
+                )
                 for name, tensor in all_named_tensors_to_gather
             ],
             group=self.dp_pg,
@@ -268,7 +305,9 @@ class SlicedFlatTensor(torch.Tensor):
 
     @staticmethod
     def __new__(cls, data, start_offset, end_offset):
-        sliced_tensor = cls.get_sliced_flat_tensor(data=data, start_offset=start_offset, end_offset=end_offset)
+        sliced_tensor = cls.get_sliced_flat_tensor(
+            data=data, start_offset=start_offset, end_offset=end_offset
+        )
 
         result = torch.Tensor._make_wrapper_subclass(  # type: ignore[attr-defined]
             cls,
@@ -302,7 +341,9 @@ class SlicedFlatTensor(torch.Tensor):
             # Never re-wrap
             return e
 
-        return tree_map(never_wrap, func(*tree_map(unwrap, args), **tree_map(unwrap, kwargs)))
+        return tree_map(
+            never_wrap, func(*tree_map(unwrap, args), **tree_map(unwrap, kwargs))
+        )
 
     def _get_grad(self):
         if self.orig_data.grad is None:
@@ -339,14 +380,18 @@ class SlicedFlatTensor(torch.Tensor):
 
 def get_sliced_tensor(param: NanotronParameter, start_offset: int, end_offset: int):
     # This allows us to create a leaf tensor, despite sharing the underlying storage
-    result = SlicedFlatTensor(data=param, start_offset=start_offset, end_offset=end_offset)
+    result = SlicedFlatTensor(
+        data=param, start_offset=start_offset, end_offset=end_offset
+    )
     return result
 
 
 def find_optim_index_from_param_name(
     param_name: str,
     # NOTE: (pp_rank, dp_rank, tp_rank) or (pp_rank, tp_rank)
-    ckp_sharded_optim_states: Union[Tuple[Tuple[int, int, int], torch.Tensor], Tuple[Tuple[int, int], torch.Tensor]],
+    ckp_sharded_optim_states: Union[
+        Tuple[Tuple[int, int, int], torch.Tensor], Tuple[Tuple[int, int], torch.Tensor]
+    ],
     is_zero1: bool,
     pp_rank=0,
 ) -> int:
@@ -355,12 +400,18 @@ def find_optim_index_from_param_name(
     # so we take the first shard (except optionally the pp dimension)
     if is_zero1 is True:
         # NOTE: (pp_rank, dp_rank, tp_rank)
-        OPTIM_STATE_INDEX_TO_PARAM_NAME = ckp_sharded_optim_states[(pp_rank, 0, 0)]["names"]
+        OPTIM_STATE_INDEX_TO_PARAM_NAME = ckp_sharded_optim_states[(pp_rank, 0, 0)][
+            "names"
+        ]
     else:
         # NOTE: (pp_rank, tp_rank)
-        OPTIM_STATE_INDEX_TO_PARAM_NAME = ckp_sharded_optim_states[(pp_rank, 0)]["names"]
+        OPTIM_STATE_INDEX_TO_PARAM_NAME = ckp_sharded_optim_states[(pp_rank, 0)][
+            "names"
+        ]
 
-    return next((k for k, v in OPTIM_STATE_INDEX_TO_PARAM_NAME.items() if v == param_name), None)
+    return next(
+        (k for k, v in OPTIM_STATE_INDEX_TO_PARAM_NAME.items() if v == param_name), None
+    )
 
 
 def extract_parallel_ranks_from_shard_path(
@@ -397,7 +448,9 @@ def merge_dp_shard_in_zero1_optimizer(
     shard_paths: List[Path],
     parallel_context: ParallelContext,
     map_location: Optional[str] = None,
-) -> Dict[Tuple[int, int], Dict[str, torch.Tensor]]:  # (pp_rank, tp_rank): param_name -> optim_state
+) -> Dict[
+    Tuple[int, int], Dict[str, torch.Tensor]
+]:  # (pp_rank, tp_rank): param_name -> optim_state
     assert (
         optimizer_config["configs"]["param_name_to_dp_rank_offsets"] is not None
     ), "param_name_to_dp_rank_offsets is required"
@@ -407,10 +460,16 @@ def merge_dp_shard_in_zero1_optimizer(
 
     ckp_sharded_optim_states = {}
     for shard_path in shard_paths:
-        pp_rank, dp_rank, tp_rank = extract_parallel_ranks_from_shard_path(shard_path, is_zero1=True)
-        ckp_sharded_optim_states[(pp_rank, dp_rank, tp_rank)] = torch.load(shard_path, map_location=map_location)
+        pp_rank, dp_rank, tp_rank = extract_parallel_ranks_from_shard_path(
+            shard_path, is_zero1=True
+        )
+        ckp_sharded_optim_states[(pp_rank, dp_rank, tp_rank)] = torch.load(
+            shard_path, map_location=map_location
+        )
 
-    param_name_to_dp_rank_offsets = optimizer_config["configs"]["param_name_to_dp_rank_offsets"]
+    param_name_to_dp_rank_offsets = optimizer_config["configs"][
+        "param_name_to_dp_rank_offsets"
+    ]
     optimizer_state_names = ckp_sharded_optim_states[(0, 0, 0)]["state"][0].keys()
 
     def get_numel_of_unsharded_dp_param(param_name):
@@ -424,7 +483,11 @@ def merge_dp_shard_in_zero1_optimizer(
     param_names = sorted(model.state_dict().keys(), key=lambda x: x)
     ckp_merged_dp_shards_optim_states = {}
     for pp_rank, tp_rank in tqdm(
-        list(itertools.product(range(int(checkpoint_pp_size)), range(int(checkpoint_tp_size)))),
+        list(
+            itertools.product(
+                range(int(checkpoint_pp_size)), range(int(checkpoint_tp_size))
+            )
+        ),
         disable=dist.get_rank(parallel_context.world_pg) != 0,
         desc="Merging ZeRO-1's shards across data parallel dimension",
     ):
@@ -451,27 +514,38 @@ def merge_dp_shard_in_zero1_optimizer(
             for state_name in optimizer_state_names:
                 unsharded_dp_buffer = torch.zeros(unshard_dp_size, device="cuda")
                 # NOTE: now merge all the params across data parallel dimension
-                for dp_rank, ckp_optim_state in filtered_ckp_sharded_optim_states.items():
+                for (
+                    dp_rank,
+                    ckp_optim_state,
+                ) in filtered_ckp_sharded_optim_states.items():
                     # NOTE: extract the optimizer state of the current parameter
                     ckp_optim_state = ckp_optim_state["state"][optim_state_index]
                     ckp_offset = param_name_to_dp_rank_offsets[param_name][str(dp_rank)]
-                    assign_shard_to_buffer(unsharded_dp_buffer, ckp_offset, ckp_optim_state[state_name])
+                    assign_shard_to_buffer(
+                        unsharded_dp_buffer, ckp_offset, ckp_optim_state[state_name]
+                    )
 
                 # NOTE: in optimizer states, the "state" use an index to represent the parameter
                 # not the parameter name
-                merged_dp_shards_optim_states["state"][optim_state_index][state_name] = unsharded_dp_buffer
+                merged_dp_shards_optim_states["state"][optim_state_index][
+                    state_name
+                ] = unsharded_dp_buffer
                 # NOTE: each dp shard has the same step
-                merged_dp_shards_optim_states["state"][optim_state_index]["step"] = ckp_optim_state["step"]
+                merged_dp_shards_optim_states["state"][optim_state_index]["step"] = (
+                    ckp_optim_state["step"]
+                )
 
-        ckp_merged_dp_shards_optim_states[(pp_rank, tp_rank)] = merged_dp_shards_optim_states
+        ckp_merged_dp_shards_optim_states[(pp_rank, tp_rank)] = (
+            merged_dp_shards_optim_states
+        )
         # NOTE: each dp shard has the same names, and param_groups since it's the same tp shard
         # the 0 in (pp_rank, 0, tp_rank) is the dp_rank
-        ckp_merged_dp_shards_optim_states[(pp_rank, tp_rank)]["names"] = ckp_sharded_optim_states[
-            (pp_rank, 0, tp_rank)
-        ]["names"]
-        ckp_merged_dp_shards_optim_states[(pp_rank, tp_rank)]["param_groups"] = ckp_sharded_optim_states[
-            (pp_rank, 0, tp_rank)
-        ]["param_groups"]
+        ckp_merged_dp_shards_optim_states[(pp_rank, tp_rank)]["names"] = (
+            ckp_sharded_optim_states[(pp_rank, 0, tp_rank)]["names"]
+        )
+        ckp_merged_dp_shards_optim_states[(pp_rank, tp_rank)]["param_groups"] = (
+            ckp_sharded_optim_states[(pp_rank, 0, tp_rank)]["param_groups"]
+        )
 
     assert len(ckp_merged_dp_shards_optim_states) == int(checkpoint_pp_size) * int(
         checkpoint_tp_size
@@ -479,10 +553,15 @@ def merge_dp_shard_in_zero1_optimizer(
 
     # NOTE: sanity check, make sure each merged checkpoint
     # has the same dict key as the original checkpoint
-    for (pp_rank, tp_rank), ckp_optim_state in ckp_merged_dp_shards_optim_states.items():
+    for (
+        pp_rank,
+        tp_rank,
+    ), ckp_optim_state in ckp_merged_dp_shards_optim_states.items():
         # NOTE: we remove the gradient_accumulator key from sanity check
         # because we don't merge gradient_accumulator states
-        missing_keys = set(ckp_optim_state.keys()) - set(ckp_sharded_optim_states[(pp_rank, 0, tp_rank)].keys())
+        missing_keys = set(ckp_optim_state.keys()) - set(
+            ckp_sharded_optim_states[(pp_rank, 0, tp_rank)].keys()
+        )
         assert (
             len(missing_keys - {"gradient_accumulator"}) == 0
         ), "Expected the merged dp shards to have the same keys as the original dp shards, but merged dp shard misses: {}".format(

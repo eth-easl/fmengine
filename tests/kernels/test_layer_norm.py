@@ -34,5 +34,9 @@ def test_fused_layer_norm(hidden_size):
     ref_outputs.sum().backward()
 
     # NOTE: same as above
-    torch.testing.assert_close(fused_layer_norm.weight.grad, layer_norm.weight.grad, rtol=1e-3, atol=1e-2)
-    torch.testing.assert_close(fused_layer_norm.bias.grad, layer_norm.bias.grad, rtol=1e-3, atol=1e-2)
+    torch.testing.assert_close(
+        fused_layer_norm.weight.grad, layer_norm.weight.grad, rtol=1e-3, atol=1e-2
+    )
+    torch.testing.assert_close(
+        fused_layer_norm.bias.grad, layer_norm.bias.grad, rtol=1e-3, atol=1e-2
+    )

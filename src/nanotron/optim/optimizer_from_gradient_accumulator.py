@@ -12,8 +12,12 @@ from nanotron.parallel.parameters import NanotronParameter
 class OptimizerFromGradientAccumulator(InheritFromOtherOptimizer):
     def __init__(
         self,
-        gradient_accumulator_builder: Callable[[Iterable[Tuple[str, NanotronParameter]]], GradientAccumulator],
-        named_params_or_groups: Iterable[Union[Tuple[str, torch.Tensor], Dict[str, Any]]],
+        gradient_accumulator_builder: Callable[
+            [Iterable[Tuple[str, NanotronParameter]]], GradientAccumulator
+        ],
+        named_params_or_groups: Iterable[
+            Union[Tuple[str, torch.Tensor], Dict[str, Any]]
+        ],
         optimizer_builder: Callable[[Iterable[Dict[str, Any]]], BaseOptimizer],
     ):
         named_param_groups = list(named_params_or_groups)
@@ -24,7 +28,9 @@ class OptimizerFromGradientAccumulator(InheritFromOtherOptimizer):
         for named_param_group in named_param_groups:
             for name, param in named_param_group["named_params"]:
                 if name in name_to_param:
-                    raise ValueError(f"Duplicate key. {name} is already in `name_to_param`")
+                    raise ValueError(
+                        f"Duplicate key. {name} is already in `name_to_param`"
+                    )
                 else:
                     name_to_param[name] = param
 

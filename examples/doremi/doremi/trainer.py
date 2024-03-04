@@ -42,7 +42,9 @@ class DoReMiTrainer(DistributedTrainer):
         config_class: Type[Config] = Config,
     ):
         # NOTE: save the initial domain_weights
-        config: DoReMiConfig = get_config_from_file(config_or_config_file, config_class=config_class)
+        config: DoReMiConfig = get_config_from_file(
+            config_or_config_file, config_class=config_class
+        )
         self.doremi_context = DoReMiContext(
             domain_weights,
             config.doremi.domain_names,
@@ -56,7 +58,9 @@ class DoReMiTrainer(DistributedTrainer):
     def _init_model_instance(self) -> Union[NanotronModel, DistributedDataParallel]:
         # NOTE: after initializing parallel context, now we can move domain weights to
         # the GPU corresponding to the current rank
-        self.doremi_context.domain_weights = self.doremi_context.domain_weights.to("cuda")
+        self.doremi_context.domain_weights = self.doremi_context.domain_weights.to(
+            "cuda"
+        )
 
         # NOTE: SANITY CHECKS: make sure all ranks have the same domain weights
         assert_tensor_synced_across_pg(
@@ -66,7 +70,9 @@ class DoReMiTrainer(DistributedTrainer):
         )
 
         log_rank(
-            f"[DoReMi] Initial domain weights: {self.doremi_context.domain_weights}", logger=logger, level=logging.INFO
+            f"[DoReMi] Initial domain weights: {self.doremi_context.domain_weights}",
+            logger=logger,
+            level=logging.INFO,
         )
 
         model = self._init_model(
@@ -78,7 +84,11 @@ class DoReMiTrainer(DistributedTrainer):
             ),
         )
 
-        log_rank("[DoReMi] Initializing reference model for DoReMi training", logger=logger, level=logging.INFO)
+        log_rank(
+            "[DoReMi] Initializing reference model for DoReMi training",
+            logger=logger,
+            level=logging.INFO,
+        )
 
         self.ref_model = self._init_model(
             model_builder=lambda: LLaMaForInference(
@@ -119,10 +129,16 @@ class DoReMiTrainer(DistributedTrainer):
         samples_per_domain = outputs[0]["samples_per_domain"].tolist()
 
         handle_weight = dist.all_reduce(
-            domain_weights, group=self.parallel_context.dp_pg, async_op=True, op=dist.ReduceOp.AVG
+            domain_weights,
+            group=self.parallel_context.dp_pg,
+            async_op=True,
+            op=dist.ReduceOp.AVG,
         )
         handle_loss = dist.all_reduce(
-            domain_losses, group=self.parallel_context.dp_pg, async_op=True, op=dist.ReduceOp.AVG
+            domain_losses,
+            group=self.parallel_context.dp_pg,
+            async_op=True,
+            op=dist.ReduceOp.AVG,
         )
 
         super().train_step_logs(outputs, loss_avg)
@@ -149,7 +165,9 @@ class DoReMiTrainer(DistributedTrainer):
         if dist.get_rank(self.parallel_context.world_pg) == 0:
             if self.iteration_step % self.config.checkpoints.checkpoint_interval == 0:
                 checkpoints_path = self.config.checkpoints.checkpoints_path
-                checkpoint_path = checkpoints_path / f"doremi_domain_weights_{self.iteration_step}.pt"
+                checkpoint_path = (
+                    checkpoints_path / f"doremi_domain_weights_{self.iteration_step}.pt"
+                )
                 torch.save(self.doremi_context.domain_weight_history, checkpoint_path)
 
             if wandb is not None:
@@ -178,11 +196,15 @@ class DoReMiTrainer(DistributedTrainer):
 
 
 class ReferenceTrainer(DistributedTrainer):
-    def __init__(self, domain_weights: torch.Tensor, domain_keys: List[str], *args, **kwargs):
+    def __init__(
+        self, domain_weights: torch.Tensor, domain_keys: List[str], *args, **kwargs
+    ):
         self.doremi_context = DoReMiContext(domain_weights, domain_keys, is_proxy=False)
         self.valid_dataloader = None
         super().__init__(*args, **kwargs)
-        self.doremi_context.domain_weights = self.doremi_context.domain_weights.to("cuda")
+        self.doremi_context.domain_weights = self.doremi_context.domain_weights.to(
+            "cuda"
+        )
 
         # NOTE: SANITY CHECKS: make sure all ranks have the same domain weights
         assert_tensor_synced_across_pg(
@@ -192,7 +214,9 @@ class ReferenceTrainer(DistributedTrainer):
         )
 
         log_rank(
-            f"[DoReMi] Initial domain weights: {self.doremi_context.domain_weights}", logger=logger, level=logging.INFO
+            f"[DoReMi] Initial domain weights: {self.doremi_context.domain_weights}",
+            logger=logger,
+            level=logging.INFO,
         )
 
     def _init_model_instance(self) -> Union[NanotronModel, DistributedDataParallel]:
@@ -232,7 +256,8 @@ class ReferenceTrainer(DistributedTrainer):
 
         if dist.get_rank(self.parallel_context.world_pg) == 0 and wandb is not None:
             loss_logs = {
-                f"loss_domain_{self.doremi_context.get_domain_name(i)}": loss for i, loss in enumerate(domain_losses)
+                f"loss_domain_{self.doremi_context.get_domain_name(i)}": loss
+                for i, loss in enumerate(domain_losses)
             }
 
             samples_per_domain_logs = {

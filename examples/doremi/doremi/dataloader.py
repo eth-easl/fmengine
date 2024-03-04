@@ -22,7 +22,9 @@ from .doremi_context import DoReMiContext
 try:
     from datasets import Dataset, concatenate_datasets, load_from_disk
 except ImportError:
-    warnings.warn("Datasets and/or Transformers not installed, you'll be unable to use the dataloader.")
+    warnings.warn(
+        "Datasets and/or Transformers not installed, you'll be unable to use the dataloader."
+    )
 
 
 logger = logging.get_logger(__name__)
@@ -70,7 +72,9 @@ class DataCollatorForCLM:
     parallel_context: ParallelContext
     doremi_context: DoReMiContext
 
-    def __call__(self, examples: List[Dict[str, List[np.ndarray]]]) -> Dict[str, Union[torch.Tensor, TensorPointer]]:
+    def __call__(
+        self, examples: List[Dict[str, List[np.ndarray]]]
+    ) -> Dict[str, Union[torch.Tensor, TensorPointer]]:
         # Process the case when current rank doesn't require data. We return `TensorPointer` that points to ranks having the data.
         current_pp_rank = dist.get_rank(self.parallel_context.pp_pg)
         if current_pp_rank not in [
@@ -85,9 +89,13 @@ class DataCollatorForCLM:
                 "label_mask": TensorPointer(self.output_pp_rank),
             }
 
-        assert all(list(example.keys()) == ["input_ids", "domain_ids"] for example in examples)
+        assert all(
+            list(example.keys()) == ["input_ids", "domain_ids"] for example in examples
+        )
 
-        input_ids = np.vstack([examples[i]["input_ids"] for i in range(len(examples))])  # (b, s)
+        input_ids = np.vstack(
+            [examples[i]["input_ids"] for i in range(len(examples))]
+        )  # (b, s)
         batch_size, expanded_input_length = input_ids.shape
 
         result: Dict[str, Union[np.ndarray, TensorPointer]] = {}
@@ -104,28 +112,43 @@ class DataCollatorForCLM:
         # Process inputs: last token is the label
         if current_pp_rank == self.input_pp_rank:
             result["input_ids"] = input_ids[:, :-1]
-            result["input_mask"] = np.ones((batch_size, self.sequence_length), dtype=np.bool_)
+            result["input_mask"] = np.ones(
+                (batch_size, self.sequence_length), dtype=np.bool_
+            )
 
         # Process labels: shift them to the left
         if current_pp_rank == self.output_pp_rank:
             result["label_ids"] = input_ids[:, 1:]
-            result["label_mask"] = np.ones((batch_size, self.sequence_length), dtype=np.bool_)
+            result["label_mask"] = np.ones(
+                (batch_size, self.sequence_length), dtype=np.bool_
+            )
 
-        result["domain_idxs"] = np.vstack([examples[i]["domain_ids"] for i in range(len(examples))])
+        result["domain_idxs"] = np.vstack(
+            [examples[i]["domain_ids"] for i in range(len(examples))]
+        )
 
-        if isinstance(result["input_ids"], torch.Tensor) and result["input_ids"].shape[-1] != self.sequence_length:
+        if (
+            isinstance(result["input_ids"], torch.Tensor)
+            and result["input_ids"].shape[-1] != self.sequence_length
+        ):
             raise ValueError(
                 f"`labels` are incorrectly preprocessed. `labels` length is {result['input_ids'].shape[-1]}, but should be"
                 f" {self.sequence_length}."
             )
-        if isinstance(result["label_ids"], torch.Tensor) and result["label_ids"].shape[-1] != self.sequence_length:
+        if (
+            isinstance(result["label_ids"], torch.Tensor)
+            and result["label_ids"].shape[-1] != self.sequence_length
+        ):
             raise ValueError(
                 f"`labels` are incorrectly preprocessed. `labels` length is {result['label_ids'].shape[-1]}, but should be"
                 f" {self.sequence_length}."
             )
 
         # Cast np.array to torch.Tensor
-        result = {k: v if isinstance(v, TensorPointer) else torch.from_numpy(v) for k, v in result.items()}
+        result = {
+            k: v if isinstance(v, TensorPointer) else torch.from_numpy(v)
+            for k, v in result.items()
+        }
         return result
 
 
@@ -147,7 +170,13 @@ class DistributedSamplerForDoReMi(DistributedSampler):
             doremi_context.domain_weights
         ), "The number of datasets must equal to the number of domain weights"
 
-        super().__init__(datasets, num_replicas=num_replicas, rank=rank, shuffle=shuffle, drop_last=drop_last)
+        super().__init__(
+            datasets,
+            num_replicas=num_replicas,
+            rank=rank,
+            shuffle=shuffle,
+            drop_last=drop_last,
+        )
 
         self.datasets = datasets
         self.batch_size = batch_size
@@ -164,7 +193,9 @@ class DistributedSamplerForDoReMi(DistributedSampler):
         self.global_batch_size = batch_size * self.num_replicas * num_microbatches
         # NOTE: Reset the seed of the generator for consistent randomness across epochs
         self.generator = torch.Generator(device="cpu").manual_seed(
-            seed * (1 + dist.get_rank(self.parallel_context.dp_pg)) * (1 + dist.get_rank(self.parallel_context.pp_pg))
+            seed
+            * (1 + dist.get_rank(self.parallel_context.dp_pg))
+            * (1 + dist.get_rank(self.parallel_context.pp_pg))
         )
 
         self.reset()
@@ -177,7 +208,9 @@ class DistributedSamplerForDoReMi(DistributedSampler):
         return self
 
     def _recompute_domain_batch_sizes(self, domain_weights):
-        domain_batch_sizes = [round(self.global_batch_size * weight.item()) for weight in domain_weights]
+        domain_batch_sizes = [
+            round(self.global_batch_size * weight.item()) for weight in domain_weights
+        ]
 
         # NOTE: in some cases, the weight of a domain is too small
         # resulting in a domain with 0 samples per global batch
@@ -192,7 +225,9 @@ class DistributedSamplerForDoReMi(DistributedSampler):
                 target_total_size=self.global_batch_size,
             )
 
-        assert all(x > 0 for x in domain_batch_sizes), "There is a domain with 0 samples per global batch"
+        assert all(
+            x > 0 for x in domain_batch_sizes
+        ), "There is a domain with 0 samples per global batch"
         return domain_batch_sizes
 
     def __next__(self):
@@ -247,7 +282,9 @@ class DistributedSamplerForDoReMi(DistributedSampler):
         self.domain_batch_sizes = self._recompute_domain_batch_sizes(
             domain_weights=self.doremi_context.domain_weights,
         )
-        for domain_index, (idxs, domain_batch_size) in enumerate(zip(self.domain_indices, self.domain_batch_sizes)):
+        for domain_index, (idxs, domain_batch_size) in enumerate(
+            zip(self.domain_indices, self.domain_batch_sizes)
+        ):
             start_idx = self.domain_counters[domain_index]
             end_idx = start_idx + domain_batch_size
 
@@ -258,7 +295,9 @@ class DistributedSamplerForDoReMi(DistributedSampler):
             global_batch_idxs = idxs[start_idx:end_idx]
             self.batch.extend(global_batch_idxs)
 
-    def _round_up_domain_batch_sizes(self, domain_batch_sizes: List[int], target_total_size: int) -> List[int]:
+    def _round_up_domain_batch_sizes(
+        self, domain_batch_sizes: List[int], target_total_size: int
+    ) -> List[int]:
         """
         NOTE: Makes sum(domain_batch_sizes) == batch_size
         """
@@ -268,9 +307,15 @@ class DistributedSamplerForDoReMi(DistributedSampler):
 
             # NOTE: Randomly select a domain to increase/decrase a sample
             # to match the target_total_size
-            eligible_indices = torch.nonzero(torch.tensor(domain_batch_sizes) > 1).view(-1)
+            eligible_indices = torch.nonzero(torch.tensor(domain_batch_sizes) > 1).view(
+                -1
+            )
             random_index = torch.randint(
-                low=0, high=len(eligible_indices), size=(1,), generator=self.generator, device="cpu"
+                low=0,
+                high=len(eligible_indices),
+                size=(1,),
+                generator=self.generator,
+                device="cpu",
             ).item()
             selected_domain = eligible_indices[random_index].item()
 
@@ -298,7 +343,9 @@ class DistributedSamplerForDoReMi(DistributedSampler):
             global_indices = local_indices + self.offsets[i]
             domain_indices.append(global_indices)
 
-        self.num_samples_per_global_step = self.batch_size * self.num_microbatches * self.num_replicas
+        self.num_samples_per_global_step = (
+            self.batch_size * self.num_microbatches * self.num_replicas
+        )
         self.domain_indices = domain_indices
         self.expected_total_samples = sum([len(d) for d in domain_indices])
 
@@ -316,7 +363,10 @@ def get_dataloader(trainer: DistributedTrainer, datasets) -> DataLoader:
     doremi_context = trainer.doremi_context
     parallel_context = trainer.parallel_context
 
-    datasets = [d.with_format(type="numpy", columns=["input_ids"], output_all_columns=True) for d in datasets]
+    datasets = [
+        d.with_format(type="numpy", columns=["input_ids"], output_all_columns=True)
+        for d in datasets
+    ]
 
     # TODO(xrsrke): decouple trainer from dataloader
     # TODO(xrsrke): decouple data collating from data loading
@@ -349,7 +399,9 @@ def get_dataloader(trainer: DistributedTrainer, datasets) -> DataLoader:
         collate_fn=data_collator,
         num_workers=trainer.config.data.num_loading_workers,
         pin_memory=True,
-        worker_init_fn=get_dataloader_worker_init(dp_rank=dist.get_rank(parallel_context.dp_pg)),
+        worker_init_fn=get_dataloader_worker_init(
+            dp_rank=dist.get_rank(parallel_context.dp_pg)
+        ),
     )
 
     def _data_generator(dataloader):
@@ -358,7 +410,9 @@ def get_dataloader(trainer: DistributedTrainer, datasets) -> DataLoader:
                 batch = {k: v.to("cuda") for k, v in batch.items()}
                 # NOTE: because the inference model don't take `domain_idxs`
                 # as input we need to remove it from the batch
-                batch_for_inference = {k: v for k, v in batch.items() if k != "domain_idxs"}
+                batch_for_inference = {
+                    k: v for k, v in batch.items() if k != "domain_idxs"
+                }
 
                 ref_losses = trainer.ref_model(**batch_for_inference)["losses"]
                 batch["ref_losses"] = ref_losses
@@ -366,7 +420,9 @@ def get_dataloader(trainer: DistributedTrainer, datasets) -> DataLoader:
 
         return inner
 
-    dataloader = _data_generator(dataloader) if doremi_context.is_proxy is True else dataloader
+    dataloader = (
+        _data_generator(dataloader) if doremi_context.is_proxy is True else dataloader
+    )
 
     # NOTE: we need to call the dataloader to generate reference losses
     # if the model is a proxy model

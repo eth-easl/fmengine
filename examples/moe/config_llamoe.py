@@ -1,4 +1,5 @@
 """ Example python script to generate a YAML config file which can be used to run a training with nanotron. Refer to "examples" section in the `/README.md` for more information."""
+
 import os
 from dataclasses import dataclass
 from typing import Optional
@@ -34,7 +35,9 @@ class LlaMoEConfig:
     hidden_size: int = 4096
     initializer_range: float = 0.02
     intermediate_size: int = 11008
-    is_llamoe_config: bool = True  # We use this help differentiate models in yaml/python conversion
+    is_llamoe_config: bool = (
+        True  # We use this help differentiate models in yaml/python conversion
+    )
     max_position_embeddings: int = 2048
     num_attention_heads: int = 32
     num_hidden_layers: int = 32
@@ -90,7 +93,11 @@ print(f"Model has {num_params} parameters")
 SEED = 42
 
 learning_rate = LRSchedulerArgs(
-    learning_rate=3e-4, lr_warmup_steps=100, lr_warmup_style="linear", lr_decay_style="cosine", min_decay_lr=1e-5
+    learning_rate=3e-4,
+    lr_warmup_steps=100,
+    lr_warmup_style="linear",
+    lr_decay_style="cosine",
+    min_decay_lr=1e-5,
 )
 
 optimizer = OptimizerArgs(
@@ -119,7 +126,12 @@ assert (
     model_config.moe_num_experts % parallelism.expert_parallel_size == 0
 ), "Number of experts must be divisible by expert_parallel_size"
 
-tokens = TokensArgs(sequence_length=256, train_steps=1918, micro_batch_size=256, batch_accumulation_per_replica=2)
+tokens = TokensArgs(
+    sequence_length=256,
+    train_steps=1918,
+    micro_batch_size=256,
+    batch_accumulation_per_replica=2,
+)
 
 data = DataArgs(
     seed=SEED,
@@ -139,7 +151,9 @@ os.makedirs(checkpoints_path, exist_ok=True)
 
 config = Config(
     general=GeneralArgs(project="moe", run="llamoe", seed=SEED),
-    checkpoints=CheckpointsArgs(checkpoints_path=checkpoints_path, checkpoint_interval=100000),
+    checkpoints=CheckpointsArgs(
+        checkpoints_path=checkpoints_path, checkpoint_interval=100000
+    ),
     parallelism=parallelism,
     model=ModelArgs(init_method=RandomInit(std=0.025), model_config=model_config),
     tokenizer=TokenizerArgs("meta-llama/Llama-2-7b-hf"),

@@ -21,7 +21,9 @@ class Store(collections.defaultdict):
 
 class AttachableStore:
     def _attach_store(self, store: Store):
-        assert not hasattr(self, "_store"), "You can't assign a store when there's already one attached"
+        assert not hasattr(
+            self, "_store"
+        ), "You can't assign a store when there's already one attached"
         self._store = store
 
     def _detach_store(self):

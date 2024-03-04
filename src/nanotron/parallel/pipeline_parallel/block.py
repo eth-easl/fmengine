@@ -30,7 +30,9 @@ class PipelineBlock(nn.Module):
     def __init__(
         self,
         p2p: P2P,
-        module_builder: Callable[..., Callable[..., Union[torch.Tensor, Dict[str, torch.Tensor]]]],
+        module_builder: Callable[
+            ..., Callable[..., Union[torch.Tensor, Dict[str, torch.Tensor]]]
+        ],
         module_kwargs: Dict[str, Any],
         module_input_keys: Set[str],
         module_output_keys: Set[str],
@@ -73,7 +75,9 @@ class PipelineBlock(nn.Module):
             kwargs.keys()
         ), f"Expected {self.module_input_keys}, got {set(kwargs.keys())}"
 
-        sorted_kwargs = sorted(kwargs.items(), key=get_sort_key(dist.get_rank(self.p2p.pg)))
+        sorted_kwargs = sorted(
+            kwargs.items(), key=get_sort_key(dist.get_rank(self.p2p.pg))
+        )
 
         # Is the current rank is not the one running the compute
         if dist.get_rank(self.p2p.pg) != self.rank:
@@ -106,7 +110,9 @@ class PipelineBlock(nn.Module):
             batch_send_recv.flush()
             # Return that the outputs are all in the rank responsible for computing block
             # TODO @thomasw21: Figure out a way to build dummy_input in a generic sense, and remove the necessity to have Dict[str, torch.Tensor] as output
-            return {k: TensorPointer(group_rank=self.rank) for k in self.module_output_keys}
+            return {
+                k: TensorPointer(group_rank=self.rank) for k in self.module_output_keys
+            }
 
         # Recv activations from other devices to local rank
         new_kwargs: Dict[str, torch.Tensor] = {}
@@ -120,8 +126,12 @@ class PipelineBlock(nn.Module):
 
                 # In case of interleaved 1f1b, if this is the second model chunk, then we need to send the previous activations before receiving the current activations
                 if isinstance(self.pipeline_state, PipelineTrainBatchState):
-                    for _ in range(len(self.pipeline_state.microbatches_activations_to_send)):
-                        send_activation = self.pipeline_state.microbatches_activations_to_send.popleft()
+                    for _ in range(
+                        len(self.pipeline_state.microbatches_activations_to_send)
+                    ):
+                        send_activation = (
+                            self.pipeline_state.microbatches_activations_to_send.popleft()
+                        )
                         # Execute
                         send_activation()
 
@@ -158,7 +168,9 @@ class PipelineBlock(nn.Module):
             assert len(self.module_output_keys) == 1
             output = {next(iter(self.module_output_keys)): output}
 
-        assert isinstance(output, dict), "Modules within a Pipeline Block have to return a Dict[str, torch.Tensor]"
+        assert isinstance(
+            output, dict
+        ), "Modules within a Pipeline Block have to return a Dict[str, torch.Tensor]"
         assert self.module_output_keys == set(
             output.keys()
         ), f"Expected {self.module_output_keys}, got {set(output.keys())}"
@@ -168,7 +180,9 @@ class PipelineBlock(nn.Module):
 
 def get_min_max_rank(module: torch.nn.Module) -> Tuple[int, int]:
     """Finds min and max PP ranks of the underlying PipelineBlocks"""
-    ranks = [module.rank for module in module.modules() if isinstance(module, PipelineBlock)]
+    ranks = [
+        module.rank for module in module.modules() if isinstance(module, PipelineBlock)
+    ]
     return min(ranks), max(ranks)
 
 

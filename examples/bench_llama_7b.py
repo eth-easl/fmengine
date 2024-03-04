@@ -39,7 +39,11 @@ print(f"Model has {num_params} parameters")
 seed = 42
 
 learning_rate = LRSchedulerArgs(
-    learning_rate=3e-4, lr_warmup_steps=2, lr_warmup_style="linear", lr_decay_style="cosine", min_decay_lr=1e-5
+    learning_rate=3e-4,
+    lr_warmup_steps=2,
+    lr_warmup_style="linear",
+    lr_decay_style="cosine",
+    min_decay_lr=1e-5,
 )
 
 optimizer = OptimizerArgs(
@@ -63,16 +67,25 @@ parallelism = ParallelismArgs(
     tp_linear_async_communication=True,
 )
 
-tokens = TokensArgs(sequence_length=8192, train_steps=5, micro_batch_size=1, batch_accumulation_per_replica=8)
+tokens = TokensArgs(
+    sequence_length=8192,
+    train_steps=5,
+    micro_batch_size=1,
+    batch_accumulation_per_replica=8,
+)
 
-dataset = PretrainDatasetsArgs(hf_dataset_or_datasets="stas/openwebtext-10k", text_column_name="text")
+dataset = PretrainDatasetsArgs(
+    hf_dataset_or_datasets="stas/openwebtext-10k", text_column_name="text"
+)
 
 checkpoints_path = os.path.dirname(os.path.dirname(__file__)) + "/checkpoints"
 os.makedirs(checkpoints_path, exist_ok=True)
 
 config = Config(
     general=GeneralArgs(project="bench", run="llama", seed=seed),
-    checkpoints=CheckpointsArgs(checkpoints_path=checkpoints_path, checkpoint_interval=1000),
+    checkpoints=CheckpointsArgs(
+        checkpoints_path=checkpoints_path, checkpoint_interval=1000
+    ),
     parallelism=parallelism,
     model=ModelArgs(init_method=RandomInit(std=0.025), model_config=model_config),
     tokenizer=TokenizerArgs("meta-llama/Llama-2-7b-hf"),
@@ -92,4 +105,6 @@ if __name__ == "__main__":
     # Launch training
     os.system("export CUDA_DEVICE_MAX_CONNECTIONS=1")
     gpus = config.parallelism.dp * config.parallelism.pp * config.parallelism.tp
-    os.system(f"torchrun --nproc_per_node={gpus} run_train.py --config-file {dir}/config_llama.yaml")
+    os.system(
+        f"torchrun --nproc_per_node={gpus} run_train.py --config-file {dir}/config_llama.yaml"
+    )

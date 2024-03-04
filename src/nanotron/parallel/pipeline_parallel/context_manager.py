@@ -7,7 +7,9 @@ from nanotron.parallel.pipeline_parallel.state import PipelineBatchState
 
 
 @contextmanager
-def attach_pipeline_state_to_model(model: torch_nn.Module, pipeline_state: PipelineBatchState):
+def attach_pipeline_state_to_model(
+    model: torch_nn.Module, pipeline_state: PipelineBatchState
+):
     """Attach the pipeline state to all the PipelineBlocks within `model`"""
     old_pipeline_states = []
 
@@ -17,7 +19,9 @@ def attach_pipeline_state_to_model(model: torch_nn.Module, pipeline_state: Pipel
             continue
 
         old_pipeline_state = module.pipeline_state
-        assert old_pipeline_state is None, "We never replace an old pipeline engine, we just set one when there's none"
+        assert (
+            old_pipeline_state is None
+        ), "We never replace an old pipeline engine, we just set one when there's none"
 
         old_pipeline_states.append((old_pipeline_state, module))
 

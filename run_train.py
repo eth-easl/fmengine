@@ -7,6 +7,7 @@ export CUDA_DEVICE_MAX_CONNECTIONS=1 # important for some distributed operations
 torchrun --nproc_per_node=8 run_train.py --config-file examples/config_tiny_llama.yaml
 ```
 """
+
 import argparse
 import os
 
@@ -42,7 +43,9 @@ def get_dataloader(trainer: DistributedTrainer):
 
     # Case 1: Dummy data generator
     if trainer.config.data.dataset is None:
-        log_rank("Using dummy data generator", logger=logger, level=logging.INFO, rank=0)
+        log_rank(
+            "Using dummy data generator", logger=logger, level=logging.INFO, rank=0
+        )
         dataloader = dummy_infinite_data_generator(
             micro_batch_size=trainer.micro_batch_size,
             sequence_length=trainer.sequence_length,
@@ -114,19 +117,28 @@ def get_dataloader(trainer: DistributedTrainer):
                 f"Try train_steps<={len(dataloader.dataset) // trainer.global_batch_size + trainer.start_iteration_step}"
             )
     else:
-        raise ValueError(f"Unhandled case of `self.config.data.dataset`. Got: {trainer.config.data.dataset}")
+        raise ValueError(
+            f"Unhandled case of `self.config.data.dataset`. Got: {trainer.config.data.dataset}"
+        )
 
     return dataloader
 
 
 def get_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--config-file", type=str, required=True, help="Path to the YAML or python config file")
+    parser.add_argument(
+        "--config-file",
+        type=str,
+        required=True,
+        help="Path to the YAML or python config file",
+    )
     return parser.parse_args()
 
 
 if __name__ == "__main__":
-    os.environ["CUDA_DEVICE_MAX_CONNECTIONS"] = "1"  # important for some distributed operations
+    os.environ["CUDA_DEVICE_MAX_CONNECTIONS"] = (
+        "1"  # important for some distributed operations
+    )
     os.environ["OMP_NUM_THREADS"] = "16"
     args = get_args()
     config_file = args.config_file

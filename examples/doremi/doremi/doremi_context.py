@@ -28,7 +28,9 @@ class DoReMiContext:
         return self.domain_keys[domain_idx]
 
     def __post_init__(self):
-        assert self.domain_weights.dim() == 1, "The domain_weights tensor must be 1-dimensional"
+        assert (
+            self.domain_weights.dim() == 1
+        ), "The domain_weights tensor must be 1-dimensional"
         assert torch.allclose(
             self.domain_weights.sum(dim=-1), torch.tensor(1.0), rtol=0.1
         ), "Domain weights must sum up to 1."
@@ -39,5 +41,7 @@ class DoReMiContext:
 
     def add_weight_with_history(self, domain_weights: torch.Tensor, step: int):
         assert step >= 0, "Step must be a positive integer"
-        self.domain_weight_history.append(WeightHistory(step=step, weight=domain_weights.cpu()))
+        self.domain_weight_history.append(
+            WeightHistory(step=step, weight=domain_weights.cpu())
+        )
         self.domain_weights = domain_weights
