@@ -130,15 +130,25 @@ class MistralConfig:
     initializer_range: float = 0.02
     intermediate_size: int = 14336
     max_position_embeddings: int = 32768
+    is_mistral_config: bool = True
     num_attention_heads: int = 32
     num_hidden_layers: int = 32
     num_key_value_heads: int = 8
+    pad_token_id: Optional[int] = None
+    pretraining_tp: int = 1
     rms_norm_eps: float = 1e-05
     rope_theta: float = 10000.0
     sliding_window: int = 4096
     tie_word_embeddings: bool = False
     use_cache: bool = True
-    vocab_size: 32000
+    vocab_size: int = 32000
+
+    def __post_init__(self):
+        # for backward compatibility
+        if self.num_key_value_heads is None:
+            self.num_key_value_heads = self.num_attention_heads
+        # sliding window is now symmetrical, and we use (-sw/2, sw/2) instead of (0, sw)
+        self.sliding_window = int(self.sliding_window / 2)
 
 
 NanotronConfigs = Union[LlamaConfig, Starcoder2Config, MistralConfig]

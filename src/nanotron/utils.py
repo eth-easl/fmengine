@@ -5,13 +5,13 @@ import os
 import random
 import socket
 from contextlib import ExitStack, contextmanager
-from typing import Callable, ContextManager, List, Optional
+from typing import Callable, ContextManager, List, Optional, Union
 
 import torch
 from packaging import version
 from torch import nn
 from torch.utils.checkpoint import checkpoint
-
+from datasets import Dataset, IterableDataset
 from nanotron import distributed as dist
 
 
@@ -170,3 +170,10 @@ def find_free_port(min_port: int = 2000, max_port: int = 65000) -> int:
                 return port
         except OSError:
             continue
+
+
+def has_length(dataset: Union[Dataset, IterableDataset]):
+    try:
+        return len(dataset) is not None
+    except TypeError:
+        return False

@@ -163,3 +163,4 @@ cython_debug/
 
 checkpoints/
 .local/
+wandb/

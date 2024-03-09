@@ -1,5 +1,4 @@
 import dataclasses
-import warnings
 from typing import Dict, Generator, Iterator, List, Optional, Union
 
 import numpy as np
@@ -8,7 +7,6 @@ from torch.utils.data import BatchSampler, DataLoader
 from torch.utils.data.distributed import DistributedSampler
 
 from nanotron import distributed as dist
-from nanotron import logging
 from nanotron.config import Config
 from nanotron.parallel import ParallelContext
 from nanotron.parallel.pipeline_parallel.tensor_pointer import TensorPointer
@@ -17,28 +15,21 @@ from nanotron.sanity_checks import (
     assert_fail_except_rank_with,
     assert_tensor_synced_across_pg,
 )
-
-try:
-    import datasets
-    from datasets import (
-        Dataset,
-        DatasetDict,
-        Features,
-        Sequence,
-        Value,
-        concatenate_datasets,
-        load_dataset,
-    )
-    from transformers import PreTrainedTokenizerBase
-    from transformers.trainer_pt_utils import DistributedSamplerWithLoop
-except ImportError:
-    warnings.warn(
-        "Datasets and/or Transformers not installed, you'll be unable to use the dataloader."
-    )
-
+from nanotron import logging
+from nanotron.logging import log_rank
+from nanotron.utils import has_length
+import datasets
+from datasets import (
+    Dataset,
+    DatasetDict,
+    concatenate_datasets,
+    load_dataset,
+    IterableDataset,
+)
+from transformers import PreTrainedTokenizerBase
+from transformers.trainer_pt_utils import DistributedSamplerWithLoop
 
 logger = logging.get_logger(__name__)
-
 
 def sanity_check_dataloader(
     dataloader: Iterator[Dict[str, Union[torch.Tensor, TensorPointer]]],
@@ -95,7 +86,9 @@ def sanity_check_dataloader(
 # Adapted from h4/src/h4/data/loading.py
 def get_datasets(
     hf_dataset_or_datasets: Union[dict, str],
+    hf_dataset_config_name: str,
     splits: Optional[Union[List[str], str]] = ["train", "test"],
+    stream: Optional[bool] = False,
 ) -> "DatasetDict":
     """
     Function to load dataset directly from DataArguments.
@@ -119,6 +112,7 @@ def get_datasets(
         #     - 'dataset2': 0.3
         #     - 'dataset3': 0.2
         raw_datasets = _get_dataset_mix(hf_dataset_or_datasets, splits=splits)
+
     elif isinstance(hf_dataset_or_datasets, str):
         # e.g. Dataset = "HuggingFaceH4/testing_alpaca_small"
         # Note this returns things other than just train/test, which may not be intended
@@ -126,7 +120,9 @@ def get_datasets(
         for split in splits:
             raw_datasets[split] = load_dataset(
                 hf_dataset_or_datasets,
+                hf_dataset_config_name,
                 split=split,
+                streaming=stream
             )
     else:
         raise ValueError(
@@ -157,7 +153,6 @@ def _get_dataset_mix(
             raise ValueError(
                 f"Dataset fraction for dataset {ds} is negative. (= {frac})"
             )
-
         fracs.append(frac)
         for split in splits:
             if "train" in split:
@@ -325,51 +320,44 @@ def clm_process(
     """Concatenate all texts from raw_dataset and generate chunks of `sequence_length + 1`, where chunks overlap by a single token."""
     # Adapted from https://github.com/huggingface/transformers/blob/47e1676255e5dd86b9541f734cd4f4bdcbb50f4a/examples/pytorch/language-modeling/run_clm.py#L391-L439
 
-    def group_texts(
+    def _group_texts(
         examples: Dict[str, List[np.ndarray]]
     ) -> Dict[str, List[np.ndarray]]:
         # Concatenate all texts.
-        concatenated_examples = {k: np.concatenate(v) for k, v in examples.items()}
-        total_length = len(concatenated_examples[next(iter(examples.keys()))])
+        concatenated_examples = {k: np.concatenate(v, axis=None) for k, v in examples.items()}
+        total_length = len(concatenated_examples['input_ids'])
         # WARNING: We drop the small remainder, we could add padding if the model supported it instead of this drop, you can
         # customize this part to your needs.
         if total_length >= sequence_length + 1:
             total_length = ((total_length - 1) // sequence_length) * sequence_length + 1
         # Split by chunks of sequence_length.
         result = {
-            k: [
-                t[i : i + sequence_length + 1]
+            "input_ids": [
+                concatenated_examples["input_ids"][i : i + sequence_length + 1]
                 for i in range(0, total_length - (sequence_length + 1), sequence_length)
             ]
-            for k, t in concatenated_examples.items()
         }
+        for k, v in result.items():
+            print(f"key: {k}, len: {len(v)}, shape: {v[0].shape}")
         return result
 
-    def _tokenize_and_group_texts(texts: List[str]) -> Dict[str, List[np.ndarray]]:
-        tokenized_batch = tokenizer.batch_encode_plus(
-            texts, return_attention_mask=False, return_token_type_ids=False
+    def _tokenize_texts(texts: List[str]) -> Dict[str, List[np.ndarray]]:
+        tokenized_batch = tokenizer.encode(
+            texts,
+            return_attention_mask=False,
+            return_token_type_ids=False,
+            truncation=True,
         )
-        tokenized_batch = {
-            k: [np.array(tokenized_texts) for tokenized_texts in v]
-            for k, v in tokenized_batch.items()
-        }
-        return group_texts(tokenized_batch)
+        return {"input_ids": tokenized_batch}
 
     train_dataset = raw_dataset.map(
-        _tokenize_and_group_texts,
+        _tokenize_texts,
         input_columns=text_column_name,
-        remove_columns=raw_dataset.column_names,
-        features=Features(
-            {
-                "input_ids": Sequence(
-                    feature=Value(dtype="int64"), length=sequence_length + 1
-                )
-            }
-        ),
+    )
+    train_dataset = train_dataset.remove_columns(["text", "meta"])
+    train_dataset = train_dataset.map(
+        _group_texts,
         batched=True,
-        num_proc=dataset_processing_num_proc_per_process,
-        load_from_cache_file=not dataset_overwrite_cache,
-        desc=f"Grouping texts in chunks of {sequence_length+1}",
     )
     return train_dataset
 
@@ -478,9 +466,10 @@ def _get_train_sampler(
     drop_last: Optional[bool] = True,
 ) -> Optional[torch.utils.data.Sampler]:
     """returns sampler that restricts data loading to a subset of the dataset proper to the DP rank"""
-
     # Build the sampler.
     # TODO @nouamanetazi: Support group_by_length: https://github.com/huggingface/transformers/blob/47e1676255e5dd86b9541f734cd4f4bdcbb50f4a/src/transformers/trainer.py#L783-L810
+    if not has_length(train_dataset):
+        return None
 
     if use_loop_to_round_batch_size:
         assert micro_batch_size is not None
@@ -509,10 +498,9 @@ def _get_train_sampler(
 
     return sampler
 
-
 # Adapted from https://github.com/huggingface/transformers/blob/47e1676255e5dd86b9541f734cd4f4bdcbb50f4a/src/transformers/trainer.py#L837
 def get_train_dataloader(
-    train_dataset: "Dataset",
+    train_dataset: Union["Dataset", "IterableDataset"],
     sequence_length: int,
     parallel_context: ParallelContext,
     input_pp_rank: int,
@@ -525,20 +513,23 @@ def get_train_dataloader(
     dataloader_pin_memory: bool = True,
     use_loop_to_round_batch_size: bool = False,
 ) -> DataLoader:
-    if not isinstance(train_dataset, datasets.Dataset):
+    if not isinstance(train_dataset, datasets.Dataset) and not isinstance(
+        train_dataset, IterableDataset
+    ):
         raise ValueError(
             f"training requires a datasets.Dataset, but got {type(train_dataset)}"
         )
-
     # Case of ranks requiring data
     if dist.get_rank(parallel_context.pp_pg) in [
         input_pp_rank,
         output_pp_rank,
     ]:
-        train_dataset = train_dataset.with_format(
-            type="numpy", columns=["input_ids"], output_all_columns=True
-        )
-
+        if isinstance(train_dataset, datasets.Dataset):
+            train_dataset = train_dataset.with_format(
+                type="numpy", columns=["input_ids"], output_all_columns=True
+            )
+        else:
+           pass
     # Case of ranks not requiring data. We give them an infinite dummy dataloader
     else:
         #
@@ -580,7 +571,6 @@ def get_train_dataloader(
         drop_last=dataloader_drop_last,
         consumed_train_samples=consumed_train_samples,
     )
-
     return DataLoader(
         train_dataset,
         batch_size=micro_batch_size,

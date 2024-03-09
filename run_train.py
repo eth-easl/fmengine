@@ -70,18 +70,19 @@ def get_dataloader(trainer: DistributedTrainer):
         # We need to the 1st device to process dataset and cache it, then other devices load from cache
         with main_rank_first(trainer.parallel_context.world_pg):
             # TODO @nouamanetazi: this may timeout before 1st device finishes processing dataset. Can we have a ctxmanager to modify timeout?
-            # TODO: generalise to include  for validation/test splits
+            # TODO: generalise to include for validation/test splits
 
             # We load the raw dataset
             raw_dataset = get_datasets(
                 hf_dataset_or_datasets=trainer.config.data.dataset.hf_dataset_or_datasets,
+                hf_dataset_config_name=trainer.config.data.dataset.hf_dataset_config_name,
                 splits=trainer.config.data.dataset.hf_dataset_splits,
-            )["train"]
+                stream=True,
+            )['train']
 
             tokenizer = AutoTokenizer.from_pretrained(tokenizer_path)
             tokenizer.pad_token = tokenizer.eos_token
             tokenizer.padding_side = "left"
-
             # We apply the Causal Language Modeling preprocessing
             train_dataset = clm_process(
                 raw_dataset=raw_dataset,
@@ -91,7 +92,6 @@ def get_dataloader(trainer: DistributedTrainer):
                 dataset_overwrite_cache=trainer.config.data.dataset.dataset_overwrite_cache,
                 sequence_length=trainer.sequence_length,
             )
-
             # We load the processed dataset on the ranks requiring it
             dataloader = get_train_dataloader(
                 train_dataset=train_dataset,
@@ -106,16 +106,16 @@ def get_dataloader(trainer: DistributedTrainer):
                 dataloader_drop_last=True,
             )
             # Check if we have enough samples for train_steps
-            total_tokens_dataset = len(dataloader.dataset) * trainer.sequence_length
-            num_tokens_needed_for_training = (
-                (trainer.config.tokens.train_steps - trainer.start_iteration_step)
-                * trainer.global_batch_size
-                * trainer.sequence_length
-            )
-            assert num_tokens_needed_for_training <= total_tokens_dataset, (
-                f"Dataset is too small for steps ({total_tokens_dataset} < {num_tokens_needed_for_training}), "
-                f"Try train_steps<={len(dataloader.dataset) // trainer.global_batch_size + trainer.start_iteration_step}"
-            )
+            # total_tokens_dataset = len(dataloader.dataset) * trainer.sequence_length
+            # num_tokens_needed_for_training = (
+            #     (trainer.config.tokens.train_steps - trainer.start_iteration_step)
+            #     * trainer.global_batch_size
+            #     * trainer.sequence_length
+            # )
+            # assert num_tokens_needed_for_training <= total_tokens_dataset, (
+            #     f"Dataset is too small for steps ({total_tokens_dataset} < {num_tokens_needed_for_training}), "
+            #     f"Try train_steps<={len(dataloader.dataset) // trainer.global_batch_size + trainer.start_iteration_step}"
+            # )
     else:
         raise ValueError(
             f"Unhandled case of `self.config.data.dataset`. Got: {trainer.config.data.dataset}"
@@ -139,7 +139,6 @@ if __name__ == "__main__":
     os.environ["CUDA_DEVICE_MAX_CONNECTIONS"] = (
         "1"  # important for some distributed operations
     )
-    os.environ["OMP_NUM_THREADS"] = "16"
     args = get_args()
     config_file = args.config_file
 
