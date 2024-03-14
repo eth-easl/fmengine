@@ -196,7 +196,6 @@ def save(
             for name, tensor in optim_state.items():
                 # FIXME @thomasw21: Some data is actually on `cpu`, just for this test we most it to `cuda`
                 tensor = tensor.to("cuda")
-
                 if current_rank == reference_rank:
                     reference_tensor = tensor
                 else:

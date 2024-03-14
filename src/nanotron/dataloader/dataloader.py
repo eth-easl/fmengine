@@ -324,6 +324,7 @@ class DDPIterableDataloader(DataLoader):
     def __iter__(self):
         for index, batch in enumerate(super().__iter__()):
             if index % self.dp_size == self.dp_rank:
+                log_rank(f"Rank {self.dp_rank} yielding batch {batch}", logger,level=logging.INFO, rank=self.dp_rank)
                 yield batch
 
 def set_tensor_pointers(
@@ -371,8 +372,6 @@ def clm_process(
                 for i in range(0, total_length - (sequence_length + 1), sequence_length)
             ]
         }
-        for k, v in result.items():
-            print(f"key: {k}, len: {len(v)}, shape: {v[0].shape}")
         return result
 
     def _tokenize_texts(texts: List[str]) -> Dict[str, List[np.ndarray]]:
@@ -566,7 +565,7 @@ def get_train_dataloader(
                 type="numpy", columns=["input_ids"], output_all_columns=True
             )
         else:
-           pass
+           train_dataset = train_dataset.with_format(type="torch")
     # Case of ranks not requiring data. We give them an infinite dummy dataloader
     else:
         #
