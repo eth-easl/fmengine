@@ -291,6 +291,40 @@ class SkipBatchSampler(BatchSampler):
     def __len__(self):
         return len(self.batch_sampler) - self.skip_batches
 
+class SkipDataLoader(DataLoader):
+    """
+    Subclass of a PyTorch `DataLoader` that will skip the first batches.
+
+    Args:
+        dataset (`torch.utils.data.dataset.Dataset`):
+            The dataset to use to build this datalaoder.
+        skip_batches (`int`, *optional*, defaults to 0):
+            The number of batches to skip at the beginning.
+        kwargs:
+            All other keyword arguments to pass to the regular `DataLoader` initialization.
+    """
+
+    def __init__(self, dataset, skip_batches=0, dp_size:int=1, **kwargs):
+        super().__init__(dataset, **kwargs)
+        self.skip_batches = skip_batches // dp_size
+
+    def __iter__(self):
+        for index, batch in enumerate(super().__iter__()):
+            if index >= self.skip_batches:
+                yield batch
+                
+class DDPIterableDataloader(DataLoader):
+    """
+    """
+    def __init__(self, dataset, dp_rank:int=1, dp_size:int=1, **kwargs):
+        super().__init__(dataset, **kwargs)
+        self.dp_rank = dp_rank
+        self.dp_size = dp_size
+    
+    def __iter__(self):
+        for index, batch in enumerate(super().__iter__()):
+            if index % self.dp_size == self.dp_rank:
+                yield batch
 
 def set_tensor_pointers(
     input_dict: Dict[str, Union[torch.Tensor, TensorPointer]],
@@ -474,7 +508,6 @@ def _get_train_sampler(
     # TODO @nouamanetazi: Support group_by_length: https://github.com/huggingface/transformers/blob/47e1676255e5dd86b9541f734cd4f4bdcbb50f4a/src/transformers/trainer.py#L783-L810
     if not has_length(train_dataset):
         return None
-
     if use_loop_to_round_batch_size:
         assert micro_batch_size is not None
         # loops at the end back to the beginning of the shuffled samples to make each process have a round multiple of batch_size samples.
@@ -575,18 +608,34 @@ def get_train_dataloader(
         drop_last=dataloader_drop_last,
         consumed_train_samples=consumed_train_samples,
     )
-    return DataLoader(
-        train_dataset,
-        batch_size=micro_batch_size,
-        sampler=train_sampler,
-        collate_fn=data_collator,
-        drop_last=dataloader_drop_last,  # we also drop_last in `clm_process()`
-        num_workers=dataloader_num_workers,
-        pin_memory=dataloader_pin_memory,
-        worker_init_fn=get_dataloader_worker_init(dp_rank=dp_rank),
-        # TODO @thomasw21: I'm not sure but this doesn't seem to work at all.
-        # pin_memory_device="cuda",
-    )
+    if isinstance(train_dataset, IterableDataset):
+        return DDPIterableDataloader(
+            train_dataset,
+            batch_size=micro_batch_size,
+            dp_rank=dp_rank,
+            dp_size=dp_ranks_size,
+            sampler=train_sampler,
+            collate_fn=data_collator,
+            drop_last=dataloader_drop_last,  # we also drop_last in `clm_process()`
+            num_workers=dataloader_num_workers,
+            pin_memory=dataloader_pin_memory,
+            worker_init_fn=get_dataloader_worker_init(dp_rank=dp_rank),
+            # TODO @thomasw21: I'm not sure but this doesn't seem to work at all.
+            # pin_memory_device="cuda",
+        )
+    else:
+        return DataLoader(
+            train_dataset,
+            batch_size=micro_batch_size,
+            sampler=train_sampler,
+            collate_fn=data_collator,
+            drop_last=dataloader_drop_last,  # we also drop_last in `clm_process()`
+            num_workers=dataloader_num_workers,
+            pin_memory=dataloader_pin_memory,
+            worker_init_fn=get_dataloader_worker_init(dp_rank=dp_rank),
+            # TODO @thomasw21: I'm not sure but this doesn't seem to work at all.
+            # pin_memory_device="cuda",
+        )
 
 
 def get_dataloader_worker_init(dp_rank: int):
