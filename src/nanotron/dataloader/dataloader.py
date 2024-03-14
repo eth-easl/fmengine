@@ -354,7 +354,11 @@ def clm_process(
         _tokenize_texts,
         input_columns=text_column_name,
     )
-    train_dataset = train_dataset.remove_columns(["text", "meta"])
+    train_dataset = train_dataset._resolve_features()
+    # input_ids are all we need
+    to_remove_columns = [x for x in train_dataset.column_names if x != "input_ids"]
+    
+    train_dataset = train_dataset.remove_columns(to_remove_columns)
     train_dataset = train_dataset.map(
         _group_texts,
         batched=True,
