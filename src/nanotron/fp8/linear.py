@@ -2,7 +2,6 @@ from typing import Optional, Tuple, TypedDict, Union
 
 import torch
 import torch.nn.functional as F
-import transformer_engine as te  # noqa
 from torch import nn
 
 from nanotron.fp8.constants import INITIAL_AMAX, INITIAL_SCALING_FACTOR
@@ -11,8 +10,18 @@ from nanotron.fp8.kernel import fp8_matmul_kernel
 from nanotron.fp8.meta import FP8Meta
 from nanotron.fp8.parameter import FP8Parameter
 from nanotron.fp8.tensor import FP8Tensor, update_scaling_factor
+from nanotron.logging import log_rank
+from nanotron import logging
 
-
+te_available = False
+try:
+    import transformer_engine as te  # noqa
+    te_available = True
+    Linear = te.Linear
+except ImportError:
+    log_rank("Transformer Engine is not available", logging.INFO, rank=0)
+    Linear = nn.Linear
+    
 class FP8LinearMeta(TypedDict):
     """FP8 metadata for FP8Linear."""
 
@@ -21,7 +30,7 @@ class FP8LinearMeta(TypedDict):
     output_grad: FP8Meta
 
 
-class FP8Linear(nn.Linear):
+class FP8Linear(Linear):
     def __init__(
         self,
         in_features: int,
