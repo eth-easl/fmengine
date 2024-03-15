@@ -194,7 +194,7 @@ class ModelArgs:
 @dataclass
 class TokenizerArgs:
     """Arguments related to the tokenizer"""
-
+    tokenizer_type: Optional[str] = "hf"
     tokenizer_name_or_path: Optional[str] = None
     tokenizer_revision: Optional[str] = None
     tokenizer_max_length: Optional[int] = None

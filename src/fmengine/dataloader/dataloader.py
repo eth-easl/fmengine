@@ -28,7 +28,7 @@ from datasets import (
 )
 from transformers import PreTrainedTokenizerBase
 from transformers.trainer_pt_utils import DistributedSamplerWithLoop
-
+import tiktoken
 logger = logging.get_logger(__name__)
 
 def sanity_check_dataloader(
@@ -375,12 +375,18 @@ def clm_process(
         return result
 
     def _tokenize_texts(texts: List[str]) -> Dict[str, List[np.ndarray]]:
-        tokenized_batch = tokenizer.encode(
-            texts,
-            return_attention_mask=False,
-            return_token_type_ids=False,
-            truncation=True,
-        )
+        if isinstance(tokenizer, PreTrainedTokenizerBase):
+            tokenized_batch = tokenizer.encode(
+                texts,
+                return_attention_mask=False,
+                return_token_type_ids=False,
+                truncation=True,
+            )
+            print(tokenized_batch)
+        elif isinstance(tokenizer, tiktoken.core.Encoding):
+            tokenized_batch = tokenizer.encode_batch(texts)
+            # flatten the list of lists
+            tokenized_batch = [item for sublist in tokenized_batch for item in sublist]
         return {"input_ids": tokenized_batch}
 
     train_dataset = raw_dataset.map(
