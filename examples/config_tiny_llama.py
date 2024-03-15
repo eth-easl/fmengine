@@ -2,7 +2,7 @@
 
 import os
 
-from nanotron.config import (
+from fmengine.config import (
     CheckpointsArgs,
     Config,
     DataArgs,
@@ -18,7 +18,7 @@ from nanotron.config import (
     TokenizerArgs,
     TokensArgs,
 )
-from nanotron.logging import human_format
+from fmengine.logging import human_format
 
 model_config = LlamaConfig(
     # Config for a tiny model model with 1.62M parameters

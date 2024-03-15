@@ -11,26 +11,22 @@ torchrun --nproc_per_node=8 run_train.py --config-file examples/config_tiny_llam
 import argparse
 import os
 
-from nanotron import logging
-from nanotron.config import PretrainDatasetsArgs
-from nanotron.dataloader.dataloader import (
+from fmengine import logging
+from fmengine.config import PretrainDatasetsArgs
+from fmengine.dataloader.dataloader import (
     clm_process,
     dummy_infinite_data_generator,
     get_datasets,
     get_train_dataloader,
 )
-from nanotron.logging import log_rank
-from nanotron.parallel.pipeline_parallel.utils import get_input_output_pp_ranks
-from nanotron.trainer import DistributedTrainer
-from nanotron.utils import main_rank_first
-
-try:
-    from huggingface_hub import __version__ as hf_hub_version
-    from transformers import AutoTokenizer
-    from transformers import __version__ as tf_version
-except ImportError:
-    hf_hub_version = None
-    tf_version = None
+from fmengine.logging import log_rank
+from fmengine.parallel.pipeline_parallel.utils import get_input_output_pp_ranks
+from fmengine.trainer import DistributedTrainer
+from fmengine.utils import main_rank_first
+from fmengine.tokenizer import get_tokenizer
+from huggingface_hub import __version__ as hf_hub_version
+from transformers import AutoTokenizer
+from transformers import __version__ as tf_version
 
 logger = logging.get_logger(__name__)
 
@@ -80,9 +76,7 @@ def get_dataloader(trainer: DistributedTrainer):
                 stream=True,
             )['train']
 
-            tokenizer = AutoTokenizer.from_pretrained(tokenizer_path)
-            tokenizer.pad_token = tokenizer.eos_token
-            tokenizer.padding_side = "left"
+            tokenizer = get_tokenizer(trainer.config)
             # We apply the Causal Language Modeling preprocessing
             train_dataset = clm_process(
                 raw_dataset=raw_dataset,

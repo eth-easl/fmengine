@@ -9,7 +9,7 @@ from helpers.utils import (
 )
 from torch.distributed import ProcessGroup
 
-from nanotron.parallel import ParallelContext
+from fmengine.parallel import ParallelContext
 
 
 def _test_init_parallel_context(parallel_context: ParallelContext):

@@ -7,35 +7,35 @@ from helpers.exception import assert_fail_except_rank_with, timeout_after
 from helpers.utils import available_gpus, init_distributed, rerun_if_address_is_in_use
 from torch import nn
 
-import nanotron.distributed as dist
-from nanotron.models import init_on_device_and_dtype
-from nanotron.optim import ZeroDistributedOptimizer
-from nanotron.optim.gradient_accumulator import (
+import fmengine.distributed as dist
+from fmengine.models import init_on_device_and_dtype
+from fmengine.optim import ZeroDistributedOptimizer
+from fmengine.optim.gradient_accumulator import (
     FP32GradBucketManager,
     FP32GradientAccumulator,
     get_fp32_accum_hook,
 )
-from nanotron.optim.named_optimizer import NamedOptimizer
-from nanotron.optim.optimizer_from_gradient_accumulator import (
+from fmengine.optim.named_optimizer import NamedOptimizer
+from fmengine.optim.optimizer_from_gradient_accumulator import (
     OptimizerFromGradientAccumulator,
 )
-from nanotron.parallel import ParallelContext
-from nanotron.parallel.parameters import NanotronParameter, sanity_check
-from nanotron.parallel.pipeline_parallel.engine import (
+from fmengine.parallel import ParallelContext
+from fmengine.parallel.parameters import NanotronParameter, sanity_check
+from fmengine.parallel.pipeline_parallel.engine import (
     AllForwardAllBackwardPipelineEngine,
     OneForwardOneBackwardPipelineEngine,
     PipelineEngine,
 )
-from nanotron.parallel.pipeline_parallel.p2p import P2P
-from nanotron.parallel.pipeline_parallel.utils import get_pp_rank_of
-from nanotron.parallel.tied_parameters import (
+from fmengine.parallel.pipeline_parallel.p2p import P2P
+from fmengine.parallel.pipeline_parallel.utils import get_pp_rank_of
+from fmengine.parallel.tied_parameters import (
     get_tied_id_to_param,
     sync_tied_weights_gradients,
     tie_parameters,
 )
-from nanotron.parallel.utils import initial_sync
-from nanotron.sanity_checks import assert_tensor_synced_across_pg
-from nanotron.utils import ContextManagers
+from fmengine.parallel.utils import initial_sync
+from fmengine.sanity_checks import assert_tensor_synced_across_pg
+from fmengine.utils import ContextManagers
 
 
 @pytest.mark.parametrize("half_precision", [torch.float16, torch.bfloat16])

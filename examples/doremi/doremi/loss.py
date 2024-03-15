@@ -4,8 +4,8 @@ import torch
 import torch.distributed as dist
 from torch import nn
 
-from nanotron.parallel import ParallelContext
-from nanotron.parallel.tensor_parallel.functional import sharded_cross_entropy
+from fmengine.parallel import ParallelContext
+from fmengine.parallel.tensor_parallel.functional import sharded_cross_entropy
 
 from .doremi_context import DoReMiContext
 from .utils import masked_mean

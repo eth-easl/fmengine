@@ -5,11 +5,11 @@ import torch
 from helpers.utils import available_gpus, init_distributed, rerun_if_address_is_in_use
 from torch import nn as torch_nn
 
-from nanotron import distributed as dist
-from nanotron.distributed import get_global_rank
-from nanotron.parallel import ParallelContext
-from nanotron.parallel.tensor_parallel.enum import TensorParallelLinearMode
-from nanotron.parallel.tensor_parallel.nn import (
+from fmengine import distributed as dist
+from fmengine.distributed import get_global_rank
+from fmengine.parallel import ParallelContext
+from fmengine.parallel.tensor_parallel.enum import TensorParallelLinearMode
+from fmengine.parallel.tensor_parallel.nn import (
     TensorParallelColumnLinear,
     TensorParallelEmbedding,
     TensorParallelRowLinear,

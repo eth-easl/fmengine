@@ -6,9 +6,9 @@ import torch
 import transformer_engine as te  # noqa
 import transformer_engine_extensions as tex
 
-from nanotron.fp8 import DTypes, FP8Tensor
-from nanotron.fp8.meta import FP8Meta
-from nanotron.fp8.tensor import convert_tensor_from_fp8
+from fmengine.fp8 import DTypes, FP8Tensor
+from fmengine.fp8.meta import FP8Meta
+from fmengine.fp8.tensor import convert_tensor_from_fp8
 
 
 @pytest.mark.parametrize("size", [4, 8, 16, 64])

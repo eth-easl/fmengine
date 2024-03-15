@@ -5,7 +5,7 @@ from typing import List, Optional, Union
 import torch
 import yaml
 
-from nanotron.config import (
+from fmengine.config import (
     CheckpointsArgs,
     DataArgs,
     GeneralArgs,
@@ -18,7 +18,7 @@ from nanotron.config import (
     TokensArgs,
     get_config_from_file,
 )
-from nanotron.config.utils_config import serialize
+from fmengine.config.utils_config import serialize
 
 
 @dataclass

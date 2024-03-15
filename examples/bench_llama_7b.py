@@ -4,7 +4,7 @@ Benchmarking script for the Llama-2-7b model
 
 import os
 
-from nanotron.config import (
+from fmengine.config import (
     CheckpointsArgs,
     Config,
     DataArgs,
@@ -20,7 +20,7 @@ from nanotron.config import (
     TokenizerArgs,
     TokensArgs,
 )
-from nanotron.logging import human_format
+from fmengine.logging import human_format
 
 # Config for a llama model with 6.74M parameters
 model_config = LlamaConfig()

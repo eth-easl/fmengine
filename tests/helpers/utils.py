@@ -8,7 +8,7 @@ import torch.cuda
 import torch.multiprocessing as mp
 from packaging import version
 
-from nanotron.parallel import ParallelContext
+from fmengine.parallel import ParallelContext
 
 
 def available_gpus():
@@ -288,7 +288,7 @@ def global_wrapper(rank, func, tp, pp, dp, port, kwargs):
 def init_distributed(tp: int, dp: int, pp: int):
     def _init_distributed(func):
         def wrapper(**kwargs):
-            from nanotron.utils import find_free_port
+            from fmengine.utils import find_free_port
 
             world_size = tp * pp * dp
             port = find_free_port()

@@ -9,7 +9,7 @@ import torch
 import torch.nn.functional as F
 from config_llamoe import LlaMoEConfig
 
-from nanotron.parallel.tensor_parallel.enum import TensorParallelLinearMode
+from fmengine.parallel.tensor_parallel.enum import TensorParallelLinearMode
 
 try:
     import megablocks.ops as ops
@@ -22,9 +22,9 @@ from megablocks.layers import weight_parallel as wp
 from megablocks.layers.activation_fn import act_fn
 from torch import nn
 
-from nanotron import distributed as dist
-from nanotron import logging
-from nanotron.config import ParallelismArgs
+from fmengine import distributed as dist
+from fmengine import logging
+from fmengine.config import ParallelismArgs
 
 logger = logging.get_logger(__name__)
 
