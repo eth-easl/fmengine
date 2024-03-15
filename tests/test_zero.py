@@ -9,20 +9,20 @@ from helpers.utils import available_gpus, init_distributed, rerun_if_address_is_
 from torch import nn as torch_nn
 from torch.nn.parallel import DistributedDataParallel
 
-from nanotron import distributed as dist
-from nanotron.optim import NamedOptimizer, ZeroDistributedOptimizer
-from nanotron.optim.zero import SlicedFlatTensor
-from nanotron.parallel import ParallelContext
-from nanotron.parallel.data_parallel.utils import sync_gradients_across_dp
-from nanotron.parallel.parameters import NanotronParameter
-from nanotron.parallel.pipeline_parallel.engine import (
+from fmengine import distributed as dist
+from fmengine.optim import NamedOptimizer, ZeroDistributedOptimizer
+from fmengine.optim.zero import SlicedFlatTensor
+from fmengine.parallel import ParallelContext
+from fmengine.parallel.data_parallel.utils import sync_gradients_across_dp
+from fmengine.parallel.parameters import NanotronParameter
+from fmengine.parallel.pipeline_parallel.engine import (
     AllForwardAllBackwardPipelineEngine,
 )
-from nanotron.parallel.pipeline_parallel.tensor_pointer import TensorPointer
-from nanotron.parallel.tensor_parallel import nn
-from nanotron.parallel.tensor_parallel.enum import TensorParallelLinearMode
-from nanotron.parallel.tied_parameters import sync_tied_weights_gradients
-from nanotron.random import (
+from fmengine.parallel.pipeline_parallel.tensor_pointer import TensorPointer
+from fmengine.parallel.tensor_parallel import nn
+from fmengine.parallel.tensor_parallel.enum import TensorParallelLinearMode
+from fmengine.parallel.tied_parameters import sync_tied_weights_gradients
+from fmengine.random import (
     RandomStates,
     branch_random_state,
     get_current_random_state,

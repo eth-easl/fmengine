@@ -3,9 +3,9 @@ import torch
 from torch.utils.data import DataLoader
 from utils import create_dummy_dataset, set_system_path
 
-from nanotron import distributed as dist
-from nanotron.parallel import ParallelContext
-from nanotron.sanity_checks import assert_tensor_synced_across_pg
+from fmengine import distributed as dist
+from fmengine.parallel import ParallelContext
+from fmengine.sanity_checks import assert_tensor_synced_across_pg
 
 set_system_path()
 

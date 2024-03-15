@@ -1,7 +1,7 @@
 import torch
 
-from nanotron import distributed as dist
-from nanotron.distributed import ProcessGroup, get_global_rank
+from fmengine import distributed as dist
+from fmengine.distributed import ProcessGroup, get_global_rank
 
 
 def assert_tensor_equal_over_group(

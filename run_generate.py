@@ -14,37 +14,37 @@ from pathlib import Path
 
 import torch
 
-from nanotron import distributed as dist
-from nanotron import logging
-from nanotron.config import (
+from fmengine import distributed as dist
+from fmengine import logging
+from fmengine.config import (
     GenerationArgs,
     LoggingArgs,
     ParallelismArgs,
     get_config_from_file,
 )
-from nanotron.generation.decode import (
+from fmengine.generation.decode import (
     GenerationInput,
     TokenizerConfig,
     decode_text,
     decode_tokenized,
 )
-from nanotron.logging import log_rank, set_logger_verbosity_format
-from nanotron.models import build_model
-from nanotron.parallel import ParallelContext
-from nanotron.parallel.parameters import sanity_check
-from nanotron.parallel.pipeline_parallel.engine import (
+from fmengine.logging import log_rank, set_logger_verbosity_format
+from fmengine.models import build_model
+from fmengine.parallel import ParallelContext
+from fmengine.parallel.parameters import sanity_check
+from fmengine.parallel.pipeline_parallel.engine import (
     OneForwardOneBackwardPipelineEngine,
 )
-from nanotron.parallel.pipeline_parallel.tensor_pointer import TensorPointer
-from nanotron.parallel.tensor_parallel.enum import TensorParallelLinearMode
-from nanotron.random import (
+from fmengine.parallel.pipeline_parallel.tensor_pointer import TensorPointer
+from fmengine.parallel.tensor_parallel.enum import TensorParallelLinearMode
+from fmengine.random import (
     RandomStates,
     get_current_random_state,
     get_synced_random_state,
     set_random_seed,
 )
-from nanotron.serialize import load_weights
-from nanotron.trainer import CONFIG_TO_MODEL_CLASS, mark_tied_parameters
+from fmengine.serialize import load_weights
+from fmengine.trainer import CONFIG_TO_MODEL_CLASS, mark_tied_parameters
 
 try:
     from transformers import AutoTokenizer

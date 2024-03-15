@@ -4,9 +4,9 @@ import torch.distributed as dist
 import torch.nn.functional as F
 from utils import set_system_path
 
-from nanotron.parallel import ParallelContext
-from nanotron.parallel.tensor_parallel.functional import sharded_cross_entropy
-from nanotron.sanity_checks import assert_tensor_synced_across_pg
+from fmengine.parallel import ParallelContext
+from fmengine.parallel.tensor_parallel.functional import sharded_cross_entropy
+from fmengine.sanity_checks import assert_tensor_synced_across_pg
 
 set_system_path()
 

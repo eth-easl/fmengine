@@ -11,18 +11,18 @@ torchrun --nproc_per_node=8 run_train.py --config-file examples/config_tiny_llam
 import argparse
 import os
 
-from nanotron import logging
-from nanotron.config import PretrainDatasetsArgs
-from nanotron.dataloader.dataloader import (
+from fmengine import logging
+from fmengine.config import PretrainDatasetsArgs
+from fmengine.dataloader.dataloader import (
     clm_process,
     dummy_infinite_data_generator,
     get_datasets,
     get_train_dataloader,
 )
-from nanotron.logging import log_rank
-from nanotron.parallel.pipeline_parallel.utils import get_input_output_pp_ranks
-from nanotron.trainer import DistributedTrainer
-from nanotron.utils import main_rank_first
+from fmengine.logging import log_rank
+from fmengine.parallel.pipeline_parallel.utils import get_input_output_pp_ranks
+from fmengine.trainer import DistributedTrainer
+from fmengine.utils import main_rank_first
 
 from huggingface_hub import __version__ as hf_hub_version
 from transformers import AutoTokenizer

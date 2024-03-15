@@ -3,15 +3,15 @@ from typing import Dict, Iterable, List, Optional, Type, Union
 import torch
 from torch.nn.parallel import DistributedDataParallel
 
-from nanotron import distributed as dist
-from nanotron import logging
-from nanotron.config import Config, get_config_from_file
-from nanotron.logging import log_rank
-from nanotron.models import NanotronModel
-from nanotron.parallel.pipeline_parallel.tensor_pointer import TensorPointer
-from nanotron.sanity_checks import assert_tensor_synced_across_pg
-from nanotron.serialize import load_weights
-from nanotron.trainer import DistributedTrainer
+from fmengine import distributed as dist
+from fmengine import logging
+from fmengine.config import Config, get_config_from_file
+from fmengine.logging import log_rank
+from fmengine.models import NanotronModel
+from fmengine.parallel.pipeline_parallel.tensor_pointer import TensorPointer
+from fmengine.sanity_checks import assert_tensor_synced_across_pg
+from fmengine.serialize import load_weights
+from fmengine.trainer import DistributedTrainer
 
 from .config import DoReMiConfig
 from .doremi_context import DoReMiContext

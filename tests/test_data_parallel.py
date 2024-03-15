@@ -7,11 +7,11 @@ from helpers.utils import available_gpus, init_distributed, rerun_if_address_is_
 from torch import nn
 from torch.distributed import GradBucket
 
-from nanotron import distributed as dist
-from nanotron.parallel import ParallelContext
-from nanotron.parallel.data_parallel.utils import ddp_trigger_sync_in_bwd
-from nanotron.parallel.parameters import NanotronParameter
-from nanotron.sanity_checks import assert_tensor_synced_across_pg
+from fmengine import distributed as dist
+from fmengine.parallel import ParallelContext
+from fmengine.parallel.data_parallel.utils import ddp_trigger_sync_in_bwd
+from fmengine.parallel.parameters import NanotronParameter
+from fmengine.sanity_checks import assert_tensor_synced_across_pg
 
 
 @pytest.mark.skipif(

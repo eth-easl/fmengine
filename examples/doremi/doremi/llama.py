@@ -3,16 +3,16 @@ from typing import Dict, Optional, Union
 import torch
 from transformers import LlamaConfig
 
-from nanotron import logging
-from nanotron.config import ParallelismArgs
-from nanotron.models import NanotronModel
-from nanotron.models.llama import LlamaModel
-from nanotron.nn.layer_norm import TritonRMSNorm
-from nanotron.parallel import ParallelContext
-from nanotron.parallel.parameters import NanotronParameter
-from nanotron.parallel.pipeline_parallel.block import PipelineBlock, TensorPointer
-from nanotron.parallel.tensor_parallel.functional import sharded_cross_entropy
-from nanotron.parallel.tensor_parallel.nn import (
+from fmengine import logging
+from fmengine.config import ParallelismArgs
+from fmengine.models import NanotronModel
+from fmengine.models.llama import LlamaModel
+from fmengine.nn.layer_norm import TritonRMSNorm
+from fmengine.parallel import ParallelContext
+from fmengine.parallel.parameters import NanotronParameter
+from fmengine.parallel.pipeline_parallel.block import PipelineBlock, TensorPointer
+from fmengine.parallel.tensor_parallel.functional import sharded_cross_entropy
+from fmengine.parallel.tensor_parallel.nn import (
     TensorParallelColumnLinear,
     TensorParallelEmbedding,
     TensorParallelRowLinear,

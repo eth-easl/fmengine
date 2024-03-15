@@ -3,8 +3,8 @@ from typing import Union
 import torch
 from torch import nn
 
-from nanotron.parallel.pipeline_parallel.tensor_pointer import TensorPointer
-from nanotron.utils import checkpoint_method
+from fmengine.parallel.pipeline_parallel.tensor_pointer import TensorPointer
+from fmengine.utils import checkpoint_method
 
 
 class CheckpointedModel(nn.Module):

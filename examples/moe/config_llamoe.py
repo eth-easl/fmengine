@@ -4,7 +4,7 @@ import os
 from dataclasses import dataclass
 from typing import Optional
 
-from nanotron.config import (
+from fmengine.config import (
     CheckpointsArgs,
     Config,
     DataArgs,
@@ -18,8 +18,8 @@ from nanotron.config import (
     TokenizerArgs,
     TokensArgs,
 )
-from nanotron.config.config import PretrainDatasetsArgs
-from nanotron.logging import human_format
+from fmengine.config.config import PretrainDatasetsArgs
+from fmengine.logging import human_format
 
 
 @dataclass

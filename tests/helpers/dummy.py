@@ -5,17 +5,17 @@ import torch
 from torch import nn
 from torch.nn.parallel import DistributedDataParallel
 
-from nanotron import distributed as dist
-from nanotron.models import init_on_device_and_dtype
-from nanotron.optim.base import BaseOptimizer
-from nanotron.optim.named_optimizer import NamedOptimizer
-from nanotron.parallel import ParallelContext
-from nanotron.parallel.parameters import NanotronParameter
-from nanotron.parallel.pipeline_parallel.block import PipelineBlock
-from nanotron.parallel.pipeline_parallel.p2p import P2P
-from nanotron.parallel.pipeline_parallel.tensor_pointer import TensorPointer
-from nanotron.parallel.tied_parameters import tie_parameters
-from nanotron.parallel.utils import initial_sync
+from fmengine import distributed as dist
+from fmengine.models import init_on_device_and_dtype
+from fmengine.optim.base import BaseOptimizer
+from fmengine.optim.named_optimizer import NamedOptimizer
+from fmengine.parallel import ParallelContext
+from fmengine.parallel.parameters import NanotronParameter
+from fmengine.parallel.pipeline_parallel.block import PipelineBlock
+from fmengine.parallel.pipeline_parallel.p2p import P2P
+from fmengine.parallel.pipeline_parallel.tensor_pointer import TensorPointer
+from fmengine.parallel.tied_parameters import tie_parameters
+from fmengine.parallel.utils import initial_sync
 
 
 class DummyModel(nn.Module):

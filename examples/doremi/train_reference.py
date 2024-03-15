@@ -15,7 +15,7 @@ from doremi.dataloader import get_dataloader, get_datasets
 from doremi.trainer import ReferenceTrainer
 from doremi.utils import compute_domain_weights_based_on_token_count
 
-from nanotron.config import get_config_from_file
+from fmengine.config import get_config_from_file
 
 
 def get_args():

@@ -1,8 +1,8 @@
 import torch
 from torch.nn import LayerNorm
 
-from nanotron.logging import LoggerWriter
-from nanotron.nn.layer_norm import TritonLayerNorm
+from fmengine.logging import LoggerWriter
+from fmengine.nn.layer_norm import TritonLayerNorm
 
 
 def get_time_name():

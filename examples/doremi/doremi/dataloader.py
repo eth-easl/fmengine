@@ -9,13 +9,13 @@ from torch.utils.data import DataLoader
 from torch.utils.data.distributed import DistributedSampler
 from tqdm import tqdm
 
-from nanotron import distributed as dist
-from nanotron import logging
-from nanotron.dataloader.dataloader import get_dataloader_worker_init
-from nanotron.parallel import ParallelContext
-from nanotron.parallel.pipeline_parallel.tensor_pointer import TensorPointer
-from nanotron.parallel.pipeline_parallel.utils import get_input_output_pp_ranks
-from nanotron.trainer import DistributedTrainer
+from fmengine import distributed as dist
+from fmengine import logging
+from fmengine.dataloader.dataloader import get_dataloader_worker_init
+from fmengine.parallel import ParallelContext
+from fmengine.parallel.pipeline_parallel.tensor_pointer import TensorPointer
+from fmengine.parallel.pipeline_parallel.utils import get_input_output_pp_ranks
+from fmengine.trainer import DistributedTrainer
 
 from .doremi_context import DoReMiContext
 

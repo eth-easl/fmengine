@@ -4,10 +4,10 @@ from helpers.exception import assert_fail_with
 from helpers.utils import init_distributed, rerun_if_address_is_in_use
 from torch import nn
 
-from nanotron import distributed as dist
-from nanotron.parallel import ParallelContext
-from nanotron.parallel.parameters import NanotronParameter
-from nanotron.parallel.tied_parameters import (
+from fmengine import distributed as dist
+from fmengine.parallel import ParallelContext
+from fmengine.parallel.parameters import NanotronParameter
+from fmengine.parallel.tied_parameters import (
     get_tied_id_to_param,
     sync_tied_weights_gradients,
     tie_parameters,
