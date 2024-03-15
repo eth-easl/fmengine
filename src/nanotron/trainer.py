@@ -271,6 +271,7 @@ class DistributedTrainer:
                 project=self.config.general.project,
                 name=f"{current_time}_{self.config.general.project}_{self.config.general.run}",
                 config={"nanotron_config": self.config.as_dict()},
+                resume=True,
             )
 
     def post_train_step(self):
