@@ -234,8 +234,19 @@ class ClassInstantier(OrderedDict):
         cls, kwargs = content if isinstance(content, tuple) else (content, {})
         return cls(**kwargs)
 
+class GLUActivation(nn.Module):
+    def __init__(self, act_fn_name: str):
+        super().__init__()
+        self.act = ACT2FN[act_fn_name]
 
+    def forward(self, merged_states: torch.Tensor):
+        gate_states, up_states = torch.split(
+            merged_states, merged_states.shape[-1] // 2, dim=-1
+        )
+        return self.act(gate_states) * up_states
+    
 ACT2CLS = {
+    "glu": GLUActivation,
     "gelu": GELUActivation,
     "gelu_10": (ClippedGELUActivation, {"min": -10, "max": 10}),
     "gelu_fast": FastGELUActivation,

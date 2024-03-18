@@ -382,7 +382,6 @@ def clm_process(
                 return_token_type_ids=False,
                 truncation=True,
             )
-            print(tokenized_batch)
         elif isinstance(tokenizer, tiktoken.core.Encoding):
             tokenized_batch = tokenizer.encode_batch(texts)
             # flatten the list of lists
