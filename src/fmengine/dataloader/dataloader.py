@@ -324,7 +324,6 @@ class DDPIterableDataloader(DataLoader):
     def __iter__(self):
         for index, batch in enumerate(super().__iter__()):
             if index % self.dp_size == self.dp_rank:
-                log_rank(f"Rank {self.dp_rank} yielding batch {batch}", logger,level=logging.INFO, rank=self.dp_rank)
                 yield batch
 
 def set_tensor_pointers(
